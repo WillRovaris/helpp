@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+*.log
+.expo/
+.expo-shared/
+apps/api/prisma/dev.db
+apps/api/prisma/dev.db-journal
+.DS_Store

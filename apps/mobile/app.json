@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Helpp",
+    "slug": "helpp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Usamos a câmera para ler o QR Code das suas notas fiscais."
+      }
+    },
+    "android": {
+      "package": "com.wthor.helpp",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Usamos a câmera para ler o QR Code das suas notas fiscais."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0ea5be43-afaa-4916-910e-d787e5c69321"
+      }
+    },
+    "owner": "wthor"
+  }
+}

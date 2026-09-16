@@ -1,0 +1,112 @@
+// Decisão: Postgres via Supabase, deploy na Vercel (ver DECISIONS.md #3, atualizado).
+// binaryTargets inclui o alvo usado pelas funções serverless da Vercel — sem isso
+// o Prisma não encontra o engine binário certo em produção.
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (pgbouncer, porta 6543) — usado em runtime
+  directUrl = env("DIRECT_URL") // conexão direta (porta 5432) — usada só para migrations
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  receipts     Receipt[]
+}
+
+model Establishment {
+  id           String        @id @default(cuid())
+  cnpj         String        @unique
+  legalName    String
+  tradeName    String?
+  address      String?
+  city         String?
+  state        String
+  zipCode      String?
+  latitude     Float?
+  longitude    Float?
+  createdAt    DateTime      @default(now())
+  receipts     Receipt[]
+  priceRecords PriceRecord[]
+}
+
+// Produto normalizado/canônico. Uma nota pode citar o mesmo produto com descrições
+// diferentes (ver DECISIONS.md #6) — todas apontam para o mesmo Product via GTIN.
+model Product {
+  id            String        @id @default(cuid())
+  gtin          String?       @unique
+  internalCode  String?
+  name          String // normalized_name
+  brand         String?
+  category      String?
+  contentValue  Float?
+  contentUnit   String? // kg, g, l, ml, un
+  imageUrl      String?
+  imageSource   String? // "cosmos" | "manual" | null
+  identified    Boolean       @default(false) // false = aguardando enriquecimento (seção 20)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  receiptItems  ReceiptItem[]
+  priceRecords  PriceRecord[]
+
+  @@index([name])
+}
+
+model Receipt {
+  id              String        @id @default(cuid())
+  userId          String
+  accessKey       String        @unique // chave de 44 dígitos — previne duplicidade (DECISIONS.md #8)
+  establishmentId String
+  purchaseDate    DateTime
+  totalValue      Float
+  rawData         String? // HTML/texto original retornado pela SEFAZ, para auditoria/reprocessamento
+  sourceUf        String // UF usada para rotear o FiscalDataProvider
+  createdAt       DateTime      @default(now())
+  user            User          @relation(fields: [userId], references: [id])
+  establishment   Establishment @relation(fields: [establishmentId], references: [id])
+  items           ReceiptItem[]
+  priceRecords    PriceRecord[]
+}
+
+model ReceiptItem {
+  id              String   @id @default(cuid())
+  receiptId       String
+  productId       String?
+  rawDescription  String // nunca alterado (DECISIONS.md / seção 6)
+  quantity        Float
+  unit            String?
+  unitPrice       Float
+  discount        Float    @default(0)
+  totalPrice      Float
+  ncm             String?
+  cest            String?
+  createdAt       DateTime @default(now())
+  receipt         Receipt  @relation(fields: [receiptId], references: [id])
+  product         Product? @relation(fields: [productId], references: [id])
+}
+
+// Histórico de preços — desnormalizado de propósito para consultas rápidas de
+// comparação/evolução (seções 9, 10, 11) sem precisar juntar Receipt+ReceiptItem toda vez.
+model PriceRecord {
+  id              String        @id @default(cuid())
+  productId       String
+  establishmentId String
+  receiptId       String
+  price           Float // valor total pago pelo item
+  quantity        Float
+  unitPrice       Float // preço por kg/l/unidade, quando calculável (seção 9)
+  purchaseDate    DateTime
+  createdAt       DateTime      @default(now())
+  product         Product       @relation(fields: [productId], references: [id])
+  establishment   Establishment @relation(fields: [establishmentId], references: [id])
+  receipt         Receipt       @relation(fields: [receiptId], references: [id])
+
+  @@index([productId, purchaseDate])
+}

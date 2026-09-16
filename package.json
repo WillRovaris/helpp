@@ -1,0 +1,11 @@
+{
+  "name": "helpp",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "api:dev": "npm run dev --workspace=apps/api",
+    "mobile:start": "npm run start --workspace=apps/mobile"
+  }
+}
