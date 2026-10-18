@@ -12,6 +12,9 @@ import { GastoFormScreen } from "../screens/GastoFormScreen";
 import { HistoricoScreen } from "../screens/HistoricoScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { LoginScreen } from "../screens/LoginScreen";
+import { NotaConfirmarScreen } from "../screens/NotaConfirmarScreen";
+import { NotaConsultaScreen } from "../screens/NotaConsultaScreen";
+import { NotaScannerScreen } from "../screens/NotaScannerScreen";
 import { RendaScreen } from "../screens/RendaScreen";
 import { colors } from "../theme";
 import type { RootStackParamList } from "./types";
@@ -46,6 +49,9 @@ export function RootNavigator() {
             <Stack.Screen name="Cartoes" component={CartoesScreen} options={{ headerShown: true, title: "Cartões" }} />
             <Stack.Screen name="CartaoForm" component={CartaoFormScreen} options={{ headerShown: true, title: "Cartão" }} />
             <Stack.Screen name="Renda" component={RendaScreen} options={{ headerShown: true, title: "Renda do mês" }} />
+            <Stack.Screen name="NotaScanner" component={NotaScannerScreen} options={{ headerShown: true, title: "Ler nota fiscal" }} />
+            <Stack.Screen name="NotaConsulta" component={NotaConsultaScreen} options={{ headerShown: true, title: "Consultando nota" }} />
+            <Stack.Screen name="NotaConfirmar" component={NotaConfirmarScreen} options={{ headerShown: true, title: "Confirmar nota" }} />
           </>
         )}
       </Stack.Navigator>

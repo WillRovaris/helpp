@@ -9,6 +9,7 @@ import { emojiCategoria, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/t
 import { centavosDoTexto, formatarReais, hojeISO, isoDeTextoBR, rotuloDia, somarDias } from "../lib/format";
 import { supabase, traduzirErro } from "../lib/supabase";
 import type { RootStackParamList } from "../navigation/types";
+import { ItensDaNota } from "./NotaConfirmarScreen";
 import { colors, radius, spacing, typography } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "GastoForm">;
@@ -32,13 +33,15 @@ export function GastoFormScreen({ navigation, route }: Props) {
   const [descricao, setDescricao] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [carregandoGasto, setCarregandoGasto] = useState(!!gastoId);
+  const [notaId, setNotaId] = useState<string | null>(null);
+  const [itensNota, setItensNota] = useState<{ nome: string; quantidade: number; valorTotal: number }[]>([]);
 
   useEffect(() => {
     navigation.setOptions({ title: gastoId ? "Editar gasto" : "Novo gasto" });
     if (!gastoId) return;
     supabase
       .from("gastos")
-      .select("valor, data, descricao, categoria_id, forma_pagamento, cartao_id, pago_por")
+      .select("valor, data, descricao, categoria_id, forma_pagamento, cartao_id, pago_por, nota_id")
       .eq("id", gastoId)
       .single()
       .then(({ data: g }) => {
@@ -51,6 +54,16 @@ export function GastoFormScreen({ navigation, route }: Props) {
           setData(g.data);
           if (g.data !== hojeISO() && g.data !== somarDias(hojeISO(), -1)) setOutraData(g.data.split("-").reverse().join("/"));
           setDescricao(g.descricao ?? "");
+          setNotaId(g.nota_id);
+          if (g.nota_id) {
+            supabase
+              .from("nota_itens")
+              .select("nome, quantidade, valor_total")
+              .eq("nota_id", g.nota_id)
+              .then(({ data: itens }) =>
+                setItensNota((itens ?? []).map((i) => ({ nome: i.nome, quantidade: Number(i.quantidade), valorTotal: Number(i.valor_total) }))),
+              );
+          }
         }
         setCarregandoGasto(false);
       });
@@ -115,8 +128,10 @@ export function GastoFormScreen({ navigation, route }: Props) {
         style: "destructive",
         onPress: async () => {
           const { error } = await supabase.from("gastos").delete().eq("id", gastoId!);
-          if (error) Alert.alert("Erro", traduzirErro(error.message));
-          else navigation.goBack();
+          if (error) return Alert.alert("Erro", traduzirErro(error.message));
+          // Gasto que veio de nota: apaga a nota junto, para ela poder ser lida de novo.
+          if (notaId) await supabase.from("notas").delete().eq("id", notaId);
+          navigation.goBack();
         },
       },
     ]);
@@ -219,6 +234,11 @@ export function GastoFormScreen({ navigation, route }: Props) {
 
         <Botao titulo="Salvar" onPress={salvar} carregando={salvando} style={{ marginTop: spacing.xl }} />
         {gastoId && <Botao titulo="Excluir gasto" variante="link" onPress={excluir} style={{ marginTop: spacing.sm }} />}
+        {itensNota.length > 0 && (
+          <View style={{ marginTop: spacing.lg }}>
+            <ItensDaNota itens={itensNota} />
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -64,7 +64,10 @@ export function HomeScreen({ navigation }: Props) {
           </View>
         </Cartao>
 
-        <Botao titulo="+ Lançar gasto" onPress={() => navigation.navigate("GastoForm", {})} style={{ minHeight: 58 }} />
+        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+          <Botao titulo="+ Lançar gasto" onPress={() => navigation.navigate("GastoForm", {})} style={{ flex: 1, minHeight: 58 }} />
+          <Botao titulo="📷 Ler nota" onPress={() => navigation.navigate("NotaScanner")} style={{ flex: 1, minHeight: 58 }} />
+        </View>
 
         {ultimos.length > 0 && (
           <Cartao style={{ paddingVertical: spacing.xs }}>
