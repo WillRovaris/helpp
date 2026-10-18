@@ -1,64 +1,54 @@
+import type { Session } from "@supabase/supabase-js";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { apiFetch, clearToken, getToken, setToken } from "../api/client";
+import { supabase, traduzirErro } from "../lib/supabase";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
-
-interface AuthResponse {
-  token: string;
-  user: User;
-}
+type Result = { error: string | null };
 
 interface AuthContextValue {
-  user: User | null;
+  session: Session | null;
+  userId: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<Result>;
+  /** `precisaConfirmar` = o Supabase exige confirmar o e-mail antes de entrar. */
+  signUp: (email: string, password: string) => Promise<Result & { precisaConfirmar: boolean }>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getToken().then((token) => {
-      // MVP: não valida o token no boot (sem endpoint /me ainda). Se expirou,
-      // a primeira chamada autenticada falha com 401 e a UI trata o logout.
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
       setLoading(false);
-      if (token) setUser({ id: "", name: "", email: "" });
     });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => setSession(newSession));
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  async function login(email: string, password: string) {
-    const data = await apiFetch<AuthResponse>("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
-    await setToken(data.token);
-    setUser(data.user);
+  async function signIn(email: string, password: string): Promise<Result> {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error ? traduzirErro(error.message) : null };
   }
 
-  async function signup(name: string, email: string, password: string) {
-    const data = await apiFetch<AuthResponse>("/api/auth/signup", {
-      method: "POST",
-      body: JSON.stringify({ name, email, password }),
-    });
-    await setToken(data.token);
-    setUser(data.user);
+  async function signUp(email: string, password: string) {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) return { error: traduzirErro(error.message), precisaConfirmar: false };
+    return { error: null, precisaConfirmar: !data.session };
   }
 
-  async function logout() {
-    await clearToken();
-    setUser(null);
+  async function signOut() {
+    await supabase.auth.signOut();
   }
 
-  return <AuthContext.Provider value={{ user, loading, login, signup, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ session, userId: session?.user.id ?? null, loading, signIn, signUp, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {

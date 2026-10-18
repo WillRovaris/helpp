@@ -1,95 +1,65 @@
 import React, { useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthContext";
-import { colors, radius, spacing, typography } from "../theme";
+import { Botao, Campo } from "../components/ui";
+import { colors, spacing, typography } from "../theme";
 
 export function LoginScreen() {
-  const { login, signup } = useAuth();
-  const [isSignup, setIsSignup] = useState(false);
-  const [name, setName] = useState("");
+  const { signIn, signUp } = useAuth();
+  const [modo, setModo] = useState<"entrar" | "cadastrar">("entrar");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [senha, setSenha] = useState("");
+  const [carregando, setCarregando] = useState(false);
 
-  async function handleSubmit() {
-    setError(null);
-    setBusy(true);
+  async function enviar() {
+    const e = email.trim().toLowerCase();
+    if (!e || !senha) {
+      Alert.alert("Preencha tudo", "Informe e-mail e senha.");
+      return;
+    }
+    setCarregando(true);
     try {
-      if (isSignup) {
-        await signup(name, email, password);
+      if (modo === "entrar") {
+        const { error } = await signIn(e, senha);
+        if (error) Alert.alert("Não foi possível entrar", error);
       } else {
-        await login(email, password);
+        const { error, precisaConfirmar } = await signUp(e, senha);
+        if (error) Alert.alert("Não foi possível criar a conta", error);
+        else if (precisaConfirmar) {
+          Alert.alert(
+            "Confirme seu e-mail",
+            "Enviamos um link para " + e + ". Abra o e-mail, toque no link e depois volte aqui para entrar.",
+          );
+          setModo("entrar");
+        }
       }
-    } catch (e) {
-      setError((e as Error).message);
     } finally {
-      setBusy(false);
+      setCarregando(false);
     }
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <Text style={typography.title}>Helpp</Text>
-      <Text style={[typography.subtitle, { marginBottom: spacing.xl, marginTop: spacing.xs }]}>
-        Descubra onde está mais barato.
-      </Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, flexGrow: 1, justifyContent: "center" }} keyboardShouldPersistTaps="handled">
+          <View style={{ marginBottom: spacing.xl }}>
+            <Text style={[typography.title, { color: colors.accent }]}>Helpp</Text>
+            <Text style={typography.subtitle}>As finanças da casa, simples e juntas.</Text>
+          </View>
 
-      {isSignup && (
-        <TextInput style={styles.input} placeholder="Nome" placeholderTextColor={colors.textSecondary} value={name} onChangeText={setName} />
-      )}
-      <TextInput
-        style={styles.input}
-        placeholder="E-mail"
-        placeholderTextColor={colors.textSecondary}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Senha"
-        placeholderTextColor={colors.textSecondary}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+          <Campo rotulo="E-MAIL" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" placeholder="voce@email.com" />
+          <Campo rotulo="SENHA" value={senha} onChangeText={setSenha} secureTextEntry placeholder="mínimo 6 caracteres" />
 
-      {error && <Text style={{ color: colors.danger, marginBottom: spacing.md }}>{error}</Text>}
-
-      <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={busy}>
-        {busy ? <ActivityIndicator color={colors.accentContrast} /> : <Text style={styles.buttonText}>{isSignup ? "Criar conta" : "Entrar"}</Text>}
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => setIsSignup((v) => !v)} style={{ marginTop: spacing.lg }}>
-        <Text style={{ color: colors.accent, textAlign: "center" }}>
-          {isSignup ? "Já tenho conta" : "Criar uma conta"}
-        </Text>
-      </TouchableOpacity>
-    </KeyboardAvoidingView>
+          <Botao titulo={modo === "entrar" ? "Entrar" : "Criar conta"} onPress={enviar} carregando={carregando} style={{ marginTop: spacing.sm }} />
+          <Botao
+            variante="link"
+            titulo={modo === "entrar" ? "Não tem conta? Criar conta" : "Já tem conta? Entrar"}
+            onPress={() => setModo(modo === "entrar" ? "cadastrar" : "entrar")}
+            style={{ marginTop: spacing.sm }}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, justifyContent: "center", paddingHorizontal: spacing.lg },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.md,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-    marginTop: spacing.sm,
-  },
-  buttonText: { color: colors.accentContrast, fontSize: 16, fontWeight: "700" },
-});

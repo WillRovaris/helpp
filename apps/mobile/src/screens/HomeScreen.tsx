@@ -1,82 +1,78 @@
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React, { useCallback, useState } from "react";
-import { useFocusEffect } from "@react-navigation/native";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { apiFetch } from "../api/client";
+import React from "react";
+import { Alert, ScrollView, Share, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthContext";
-import type { RootStackParamList } from "../navigation/types";
-import { colors, radius, spacing, typography } from "../theme";
+import { useCasa } from "../casa/CasaContext";
+import { Botao, Cartao } from "../components/ui";
+import { colors, spacing, typography } from "../theme";
 
-type Props = NativeStackScreenProps<RootStackParamList, "Home">;
+// Tela inicial provisória (etapa 1): mostra a casa, quem participa e o convite.
+// O resumo do mês entra aqui na etapa 3.
+export function HomeScreen() {
+  const { signOut } = useAuth();
+  const { casa, membros, meuNome, novoConvite } = useCasa();
+  if (!casa) return null;
 
-interface ReceiptSummary {
-  id: string;
-  purchaseDate: string;
-  totalValue: number;
-  establishment: { tradeName: string | null; legalName: string };
-  items: { id: string }[];
-}
+  const sozinho = membros.length < 2;
 
-export function HomeScreen({ navigation }: Props) {
-  const { logout } = useAuth();
-  const [lastReceipt, setLastReceipt] = useState<ReceiptSummary | null>(null);
+  function compartilharConvite() {
+    Share.share({
+      message: `Entre na nossa casa no Helpp! Crie sua conta, toque em "Tenho um convite" e use o código: ${casa!.codigo_convite}`,
+    });
+  }
 
-  useFocusEffect(
-    useCallback(() => {
-      apiFetch<ReceiptSummary[]>("/api/receipts")
-        .then((receipts) => setLastReceipt(receipts[0] ?? null))
-        .catch(() => setLastReceipt(null));
-    }, []),
-  );
+  function trocarCodigo() {
+    Alert.alert("Gerar novo código?", "O código atual deixa de funcionar.", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Gerar",
+        onPress: async () => {
+          const { error } = await novoConvite();
+          if (error) Alert.alert("Erro", error);
+        },
+      },
+    ]);
+  }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg }}>
-      <View style={styles.headerRow}>
-        <Text style={typography.title}>Helpp</Text>
-        <TouchableOpacity onPress={logout}>
-          <Text style={{ color: colors.textSecondary }}>Sair</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity style={styles.scanButton} onPress={() => navigation.navigate("Scanner")}>
-        <Text style={styles.scanButtonText}>Escanear nota fiscal</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.searchLink} onPress={() => navigation.navigate("Search")}>
-        <Text style={{ color: colors.accent, fontWeight: "600" }}>Pesquisar preços de um produto</Text>
-      </TouchableOpacity>
-
-      {lastReceipt && (
-        <View style={styles.card}>
-          <Text style={typography.label}>ÚLTIMA COMPRA</Text>
-          <Text style={[typography.body, { fontWeight: "600", marginTop: spacing.xs }]}>
-            {lastReceipt.establishment.tradeName ?? lastReceipt.establishment.legalName}
-          </Text>
-          <Text style={typography.subtitle}>{lastReceipt.items.length} produtos</Text>
-          <Text style={typography.price}>R$ {lastReceipt.totalValue.toFixed(2).replace(".", ",")}</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
+        <View>
+          <Text style={typography.subtitle}>Olá, {meuNome}</Text>
+          <Text style={typography.title}>{casa.nome}</Text>
         </View>
-      )}
-    </ScrollView>
+
+        <Cartao>
+          <Text style={typography.label}>QUEM PARTICIPA</Text>
+          {membros.map((m) => (
+            <Text key={m.user_id} style={[typography.body, { marginTop: spacing.xs }]}>
+              • {m.nome}
+            </Text>
+          ))}
+        </Cartao>
+
+        {sozinho && (
+          <Cartao>
+            <Text style={typography.label}>CONVIDAR PARCEIRO(A)</Text>
+            <Text style={{ fontSize: 34, fontWeight: "700", letterSpacing: 6, color: colors.accent, marginVertical: spacing.sm }}>
+              {casa.codigo_convite}
+            </Text>
+            <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.md }]}>
+              No celular dele(a): instalar o Helpp → criar conta → "Tenho um convite" → digitar este código.
+            </Text>
+            <Botao titulo="Enviar convite" onPress={compartilharConvite} />
+            <Botao titulo="Gerar outro código" variante="link" onPress={trocarCodigo} />
+          </Cartao>
+        )}
+
+        <Cartao>
+          <Text style={[typography.body, { color: colors.textSecondary }]}>
+            Em breve aqui: resumo do mês, gastos, cartão e contas fixas.
+          </Text>
+        </Cartao>
+
+        <Botao titulo="Sair da conta" variante="link" onPress={signOut} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.xl },
-  scanButton: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.lg,
-    alignItems: "center",
-    marginBottom: spacing.md,
-  },
-  scanButtonText: { color: colors.accentContrast, fontSize: 18, fontWeight: "700" },
-  searchLink: { alignItems: "center", marginBottom: spacing.xl, paddingVertical: spacing.sm },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-  },
-});
