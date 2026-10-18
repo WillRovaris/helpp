@@ -6,6 +6,8 @@ export interface Casa {
   id: string;
   nome: string;
   codigo_convite: string;
+  /** Renda mensal informada (opcional) — usada no "quanto sobra" do resumo. */
+  renda_mensal: number | null;
 }
 
 export interface Membro {
@@ -24,6 +26,7 @@ interface CasaContextValue {
   criarCasa: (nomeCasa: string, meuNome: string) => Promise<Result>;
   entrarNaCasa: (codigo: string, meuNome: string) => Promise<Result>;
   novoConvite: () => Promise<Result>;
+  definirRenda: (valor: number | null) => Promise<Result>;
   recarregar: () => Promise<void>;
 }
 
@@ -46,19 +49,31 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    const { data: meu } = await supabase.from("membros").select("casa_id").eq("user_id", userId).maybeSingle();
+    const { data: meu, error: erroMeu } = await supabase.from("membros").select("casa_id").eq("user_id", userId).maybeSingle();
+    // Falha de rede: mantém o que já estava na tela (não manda a pessoa de volta
+    // para "Começar" achando que ela não tem casa).
+    if (erroMeu) {
+      setLoading(false);
+      return;
+    }
     if (!meu) {
       setCasa(null);
       setMembros([]);
       setLoading(false);
       return;
     }
-    const [{ data: casaRow }, { data: membrosRows }] = await Promise.all([
-      supabase.from("casas").select("id, nome, codigo_convite").eq("id", meu.casa_id).single(),
+    const [{ data: casaRow, error: erroCasa }, { data: membrosRows }] = await Promise.all([
+      // "*" em vez de colunas fixas: se o SQL da renda (02-renda.sql) ainda não
+      // rodou, a coluna só não vem — em vez de dar erro e "perder" a casa.
+      supabase.from("casas").select("*").eq("id", meu.casa_id).single(),
       supabase.from("membros").select("user_id, nome").eq("casa_id", meu.casa_id).order("created_at"),
     ]);
-    setCasa(casaRow ?? null);
-    setMembros(membrosRows ?? []);
+    if (erroCasa || !casaRow) {
+      setLoading(false);
+      return;
+    }
+    setCasa(casaRow ? { id: casaRow.id, nome: casaRow.nome, codigo_convite: casaRow.codigo_convite, renda_mensal: casaRow.renda_mensal != null ? Number(casaRow.renda_mensal) : null } : null);
+    if (membrosRows) setMembros(membrosRows);
     setLoading(false);
   }, [userId]);
 
@@ -73,6 +88,9 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
     const canal = supabase
       .channel(`membros-${casa.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "membros", filter: `casa_id=eq.${casa.id}` }, () => {
+        recarregar();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "casas", filter: `id=eq.${casa.id}` }, () => {
         recarregar();
       })
       .subscribe();
@@ -103,10 +121,21 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }
 
+  async function definirRenda(valor: number | null): Promise<Result> {
+    if (!casa) return { error: "Sem casa" };
+    const { error } = await supabase.from("casas").update({ renda_mensal: valor }).eq("id", casa.id);
+    if (error) {
+      if (error.message.includes("renda_mensal")) return { error: "Falta rodar o SQL 02-renda.sql no Supabase." };
+      return { error: traduzirErro(error.message) };
+    }
+    setCasa({ ...casa, renda_mensal: valor });
+    return { error: null };
+  }
+
   const meuNome = membros.find((m) => m.user_id === userId)?.nome ?? null;
 
   return (
-    <CasaContext.Provider value={{ casa, membros, meuNome, loading, criarCasa, entrarNaCasa, novoConvite, recarregar }}>
+    <CasaContext.Provider value={{ casa, membros, meuNome, loading, criarCasa, entrarNaCasa, novoConvite, definirRenda, recarregar }}>
       {children}
     </CasaContext.Provider>
   );

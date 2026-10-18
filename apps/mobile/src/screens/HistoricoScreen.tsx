@@ -12,11 +12,11 @@ import { colors, spacing, typography } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Historico">;
 
-export function HistoricoScreen({ navigation }: Props) {
+export function HistoricoScreen({ navigation, route }: Props) {
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());
   const [mes, setMes] = useState(hoje.getMonth());
-  const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null);
+  const [filtroCategoria, setFiltroCategoria] = useState<string | null>(route.params?.categoriaId ?? null);
   const [filtroPessoa, setFiltroPessoa] = useState<string | null>(null);
 
   const { membros } = useCasa();

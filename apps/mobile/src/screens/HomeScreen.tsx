@@ -5,6 +5,7 @@ import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
+import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { Botao, Cartao } from "../components/ui";
 import { useCategorias, useGastosDoMes } from "../data/hooks";
 import { emojiCategoria } from "../data/tipos";
@@ -14,12 +15,13 @@ import { colors, spacing, typography } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
-// O resumo completo do mês (por categoria, cartão, contas) entra na etapa 3.
 export function HomeScreen({ navigation }: Props) {
   const { signOut } = useAuth();
   const { casa, membros, meuNome } = useCasa();
   const hoje = new Date();
   const { gastos, recarregar } = useGastosDoMes(hoje.getFullYear(), hoje.getMonth());
+  const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+  const { gastos: gastosAnteriores } = useGastosDoMes(mesAnterior.getFullYear(), mesAnterior.getMonth());
   const { categorias } = useCategorias();
 
   useFocusEffect(
@@ -33,6 +35,9 @@ export function HomeScreen({ navigation }: Props) {
   const compartilhada = membros.length >= 2;
   const total = gastos.reduce((s, g) => s + g.valor, 0);
   const ultimos = gastos.slice(0, 5);
+  // Mês passado só até o mesmo dia de hoje, para a comparação ser justa.
+  const totalAnteriorAteHoje = gastosAnteriores.filter((g) => Number(g.data.slice(8, 10)) <= hoje.getDate()).reduce((s, g) => s + g.valor, 0);
+  const comparacao = textoComparacao(total, totalAnteriorAteHoje);
   const categoriaPorId = new Map(categorias.map((c) => [c.id, c]));
 
   return (
@@ -48,13 +53,16 @@ export function HomeScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity onPress={() => navigation.navigate("Historico")} activeOpacity={0.8}>
-          <Cartao>
+        <Cartao>
+          <TouchableOpacity onPress={() => navigation.navigate("Historico", {})} activeOpacity={0.8}>
             <Text style={typography.label}>GASTOS DE {MESES[hoje.getMonth()].toUpperCase()}</Text>
             <Text style={{ fontSize: 34, fontWeight: "700", color: colors.textPrimary, marginTop: spacing.xs }}>{formatarReais(total)}</Text>
-            <Text style={[typography.label, { color: colors.accent }]}>Ver todos ›</Text>
-          </Cartao>
-        </TouchableOpacity>
+            {comparacao && <Text style={[typography.label, { color: comparacao.cor }]}>{comparacao.texto}</Text>}
+          </TouchableOpacity>
+          <View style={{ marginTop: spacing.md }}>
+            <CartaoSobra total={total} renda={casa.renda_mensal} onDefinirRenda={() => navigation.navigate("Renda")} />
+          </View>
+        </Cartao>
 
         <Botao titulo="+ Lançar gasto" onPress={() => navigation.navigate("GastoForm", {})} style={{ minHeight: 58 }} />
 
@@ -80,8 +88,14 @@ export function HomeScreen({ navigation }: Props) {
           </Cartao>
         )}
 
+        <PorCategoria
+          gastos={gastos}
+          categorias={categorias}
+          onPressCategoria={(id) => navigation.navigate("Historico", id ? { categoriaId: id } : {})}
+        />
+
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <Botao titulo="📋 Histórico" variante="secundario" onPress={() => navigation.navigate("Historico")} style={{ flex: 1 }} />
+          <Botao titulo="📋 Histórico" variante="secundario" onPress={() => navigation.navigate("Historico", {})} style={{ flex: 1 }} />
           <Botao titulo="💳 Cartões" variante="secundario" onPress={() => navigation.navigate("Cartoes")} style={{ flex: 1 }} />
         </View>
 

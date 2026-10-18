@@ -12,6 +12,7 @@ import { GastoFormScreen } from "../screens/GastoFormScreen";
 import { HistoricoScreen } from "../screens/HistoricoScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { LoginScreen } from "../screens/LoginScreen";
+import { RendaScreen } from "../screens/RendaScreen";
 import { colors } from "../theme";
 import type { RootStackParamList } from "./types";
 
@@ -44,6 +45,7 @@ export function RootNavigator() {
             <Stack.Screen name="Historico" component={HistoricoScreen} options={{ headerShown: true, title: "Gastos" }} />
             <Stack.Screen name="Cartoes" component={CartoesScreen} options={{ headerShown: true, title: "Cartões" }} />
             <Stack.Screen name="CartaoForm" component={CartaoFormScreen} options={{ headerShown: true, title: "Cartão" }} />
+            <Stack.Screen name="Renda" component={RendaScreen} options={{ headerShown: true, title: "Renda do mês" }} />
           </>
         )}
       </Stack.Navigator>
