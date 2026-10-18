@@ -67,3 +67,22 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
 });
+
+/** Opção selecionável em linha (categoria, forma de pagamento, data...). */
+export function Chip({ rotulo, ativo, onPress, cor }: { rotulo: string; ativo: boolean; onPress: () => void; cor?: string }) {
+  const corAtiva = cor ?? colors.accent;
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={[chipStyles.chip, ativo ? { backgroundColor: corAtiva, borderColor: corAtiva } : { backgroundColor: colors.surface, borderColor: colors.border }]}
+    >
+      <Text style={[chipStyles.texto, { color: ativo ? colors.accentContrast : colors.textPrimary }]}>{rotulo}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const chipStyles = StyleSheet.create({
+  chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  texto: { fontSize: 14, fontWeight: "500" },
+});
