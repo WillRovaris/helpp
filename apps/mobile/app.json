@@ -2,7 +2,7 @@
   "expo": {
     "name": "Helpp",
     "slug": "helpp",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -22,9 +22,12 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
-      ]
+        "android.permission.CAMERA"
+      ],
+      "runtimeVersion": {
+        "policy": "appVersion"
+      },
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -42,6 +45,9 @@
         "projectId": "0ea5be43-afaa-4916-910e-d787e5c69321"
       }
     },
-    "owner": "wthor"
+    "owner": "wthor",
+    "updates": {
+      "url": "https://u.expo.dev/0ea5be43-afaa-4916-910e-d787e5c69321"
+    }
   }
 }
