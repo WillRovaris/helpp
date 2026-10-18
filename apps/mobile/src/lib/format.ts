@@ -43,13 +43,22 @@ export function rotuloDia(iso: string): string {
   return `${DIAS_SEMANA[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-/** Converte "16/10" ou "16/10/2026" em YYYY-MM-DD. null se inválida. */
+/** Máscara de data: a pessoa digita só números e as barras aparecem sozinhas (dd/mm/aaaa). */
+export function mascaraData(texto: string): string {
+  const d = texto.replace(/\D/g, "").slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`;
+  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
+}
+
+/** Converte "16/10" (ano atual) ou "16/10/2026" em YYYY-MM-DD. null se inválida ou incompleta. */
 export function isoDeTextoBR(texto: string): string | null {
-  const partes = texto.trim().split("/").map((p) => parseInt(p, 10));
+  const partes = texto.trim().split("/").filter(Boolean).map((p) => parseInt(p, 10));
   if (partes.length < 2 || partes.some(isNaN)) return null;
   const [dia, mes] = partes;
-  let ano = partes[2] ?? new Date().getFullYear();
-  if (ano < 100) ano += 2000;
+  const anoTexto = texto.trim().split("/")[2];
+  if (anoTexto && anoTexto.length !== 4) return null;
+  const ano = partes[2] ?? new Date().getFullYear();
   const d = new Date(ano, mes - 1, dia);
   if (d.getDate() !== dia || d.getMonth() !== mes - 1) return null;
   return dataISO(d);

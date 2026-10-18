@@ -63,7 +63,8 @@ export function useGastosDoMes(ano: number, mes: number) {
     (casaId) =>
       supabase
         .from("gastos")
-        .select("id, valor, data, descricao, categoria_id, forma_pagamento, cartao_id, pago_por, nota_id")
+        // "*": inclui as colunas de parcela quando o SQL 03 já rodou, sem quebrar antes disso.
+        .select("*")
         .eq("casa_id", casaId)
         .gte("data", inicio)
         .lte("data", fim)

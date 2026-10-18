@@ -8,8 +8,9 @@ import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { Botao, Cartao } from "../components/ui";
 import { useCategorias, useGastosDoMes } from "../data/hooks";
-import { emojiCategoria } from "../data/tipos";
+import { emojiCategoria, tituloGasto } from "../data/tipos";
 import { formatarReais, MESES, rotuloDia } from "../lib/format";
+import { enviarWhatsApp, textoResumoMes } from "../lib/relatorio";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
@@ -81,7 +82,7 @@ export function HomeScreen({ navigation }: Props) {
                 >
                   <Text style={{ fontSize: 20, marginRight: spacing.sm }}>{emojiCategoria(cat?.icone)}</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={typography.body} numberOfLines={1}>{g.descricao || cat?.nome || "Sem categoria"}</Text>
+                    <Text style={typography.body} numberOfLines={1}>{tituloGasto(g, cat?.nome)}</Text>
                     <Text style={typography.label}>{rotuloDia(g.data)}</Text>
                   </View>
                   <Text style={[typography.body, { fontWeight: "600" }]}>{formatarReais(g.valor)}</Text>
@@ -101,6 +102,16 @@ export function HomeScreen({ navigation }: Props) {
           <Botao titulo="📋 Histórico" variante="secundario" onPress={() => navigation.navigate("Historico", {})} style={{ flex: 1 }} />
           <Botao titulo="💳 Cartões" variante="secundario" onPress={() => navigation.navigate("Cartoes")} style={{ flex: 1 }} />
         </View>
+
+        <Botao
+          titulo="📤 Enviar resumo do mês no WhatsApp"
+          variante="secundario"
+          onPress={() =>
+            enviarWhatsApp(
+              textoResumoMes({ nomeCasa: casa.nome, ano: hoje.getFullYear(), mes: hoje.getMonth(), gastos, categorias, membros, renda: casa.renda_mensal }),
+            )
+          }
+        />
 
         <Botao titulo="Sair da conta" variante="link" onPress={signOut} style={{ marginTop: spacing.lg }} />
       </ScrollView>

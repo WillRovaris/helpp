@@ -1,5 +1,6 @@
-import React from "react";
-import { ActivityIndicator, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View, ViewStyle } from "react-native";
+import { HeaderHeightContext } from "@react-navigation/elements";
+import React, { useContext } from "react";
+import { ActivityIndicator, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View, ViewStyle } from "react-native";
 import { colors, radius, spacing, typography } from "../theme";
 
 export function Botao({
@@ -86,3 +87,19 @@ const chipStyles = StyleSheet.create({
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
   texto: { fontSize: 14, fontWeight: "500" },
 });
+
+/**
+ * Formulário que sobe junto com o teclado, para o campo digitado ficar visível.
+ * O Android desta versão do Expo desenha a tela por baixo do teclado
+ * (edge-to-edge), então o ajuste "padding" vale para as duas plataformas.
+ */
+export function TelaFormulario({ children, contentStyle }: { children: React.ReactNode; contentStyle?: ViewStyle }) {
+  const alturaCabecalho = useContext(HeaderHeightContext) ?? 0;
+  return (
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior="padding" keyboardVerticalOffset={alturaCabecalho}>
+      <ScrollView contentContainerStyle={[{ padding: spacing.lg, paddingBottom: spacing.xl * 2 }, contentStyle]} keyboardShouldPersistTaps="handled">
+        {children}
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}

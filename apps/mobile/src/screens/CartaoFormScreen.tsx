@@ -1,12 +1,12 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView } from "react-native";
+import { Alert } from "react-native";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Campo } from "../components/ui";
+import { Botao, Campo, TelaFormulario } from "../components/ui";
 import { centavosDoTexto, formatarReais } from "../lib/format";
 import { supabase, traduzirErro } from "../lib/supabase";
 import type { RootStackParamList } from "../navigation/types";
-import { colors, spacing } from "../theme";
+import { spacing } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "CartaoForm">;
 
@@ -69,13 +69,13 @@ export function CartaoFormScreen({ navigation, route }: Props) {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
+    <TelaFormulario>
       <Campo rotulo="NOME DO CARTÃO" value={nome} onChangeText={setNome} placeholder="Ex.: Nubank" autoCapitalize="words" />
       <Campo rotulo="LIMITE" value={formatarReais(limiteCentavos / 100)} onChangeText={(t) => setLimiteCentavos(centavosDoTexto(t))} keyboardType="number-pad" />
       <Campo rotulo="DIA DO FECHAMENTO DA FATURA" value={fechamento} onChangeText={setFechamento} keyboardType="number-pad" maxLength={2} placeholder="Ex.: 3" />
       <Campo rotulo="DIA DO VENCIMENTO" value={vencimento} onChangeText={setVencimento} keyboardType="number-pad" maxLength={2} placeholder="Ex.: 10" />
       <Botao titulo="Salvar" onPress={salvar} carregando={salvando} style={{ marginTop: spacing.md }} />
       {cartaoId && <Botao titulo="Remover cartão" variante="link" onPress={arquivar} style={{ marginTop: spacing.sm }} />}
-    </ScrollView>
+    </TelaFormulario>
   );
 }

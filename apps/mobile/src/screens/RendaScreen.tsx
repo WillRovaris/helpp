@@ -1,8 +1,8 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useState } from "react";
-import { Alert, ScrollView, Text } from "react-native";
+import { Alert, Text } from "react-native";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Campo } from "../components/ui";
+import { Botao, Campo, TelaFormulario } from "../components/ui";
 import { centavosDoTexto, formatarReais } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
@@ -24,7 +24,7 @@ export function RendaScreen({ navigation }: Props) {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
+    <TelaFormulario>
       <Text style={[typography.body, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
         {membros.length > 1 ? "Quanto entra por mês somando a renda de vocês dois" : "Quanto entra por mês"} (salário, extras). É opcional: serve só para o
         resumo mostrar quanto ainda sobra no mês.
@@ -32,6 +32,6 @@ export function RendaScreen({ navigation }: Props) {
       <Campo rotulo="RENDA MENSAL" value={formatarReais(centavos / 100)} onChangeText={(t) => setCentavos(centavosDoTexto(t))} keyboardType="number-pad" autoFocus />
       <Botao titulo="Salvar" onPress={() => salvar(centavos > 0 ? centavos / 100 : null)} carregando={salvando} style={{ marginTop: spacing.md }} />
       {casa?.renda_mensal != null && <Botao titulo="Não quero usar renda" variante="link" onPress={() => salvar(null)} style={{ marginTop: spacing.sm }} />}
-    </ScrollView>
+    </TelaFormulario>
   );
 }

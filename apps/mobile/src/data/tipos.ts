@@ -33,6 +33,9 @@ export interface Gasto {
   cartao_id: string | null;
   pago_por: string | null;
   nota_id: string | null;
+  parcelamento_id?: string | null;
+  parcela?: number | null;
+  parcelas?: number | null;
 }
 
 // O banco guarda o nome do ícone; sem pacote de ícones por enquanto, cada um vira um emoji.
@@ -47,7 +50,17 @@ const EMOJI: Record<string, string> = {
   paw: "🐾",
   "ellipsis-horizontal": "📦",
   pricetag: "🏷️",
+  school: "🎓",
+  shirt: "👕",
+  gift: "🎁",
+  airplane: "✈️",
 };
+
+/** Texto do gasto nas listas: descrição (ou categoria) + "(2/10)" se for parcela. */
+export function tituloGasto(g: Gasto, nomeCategoria: string | undefined): string {
+  const base = g.descricao || nomeCategoria || "Sem categoria";
+  return g.parcelas && g.parcelas > 1 ? `${base} (${g.parcela}/${g.parcelas})` : base;
+}
 
 export function emojiCategoria(icone: string | undefined): string {
   return (icone && EMOJI[icone]) ?? "🏷️";

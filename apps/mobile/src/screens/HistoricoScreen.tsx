@@ -3,10 +3,11 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback, useMemo, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
-import { Cartao as CartaoUI, Chip } from "../components/ui";
+import { Botao, Cartao as CartaoUI, Chip } from "../components/ui";
 import { useCartoes, useCategorias, useGastosDoMes } from "../data/hooks";
-import { emojiCategoria, FORMAS_PAGAMENTO, type Gasto } from "../data/tipos";
+import { emojiCategoria, FORMAS_PAGAMENTO, type Gasto, tituloGasto } from "../data/tipos";
 import { formatarReais, MESES, rotuloDia } from "../lib/format";
+import { enviarWhatsApp, textoResumoMes } from "../lib/relatorio";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
@@ -19,7 +20,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
   const [filtroCategoria, setFiltroCategoria] = useState<string | null>(route.params?.categoriaId ?? null);
   const [filtroPessoa, setFiltroPessoa] = useState<string | null>(null);
 
-  const { membros } = useCasa();
+  const { casa, membros } = useCasa();
   const { categorias } = useCategorias();
   const { cartoes } = useCartoes();
   const { gastos, carregando, recarregar } = useGastosDoMes(ano, mes);
@@ -90,6 +91,14 @@ export function HistoricoScreen({ navigation, route }: Props) {
         </View>
       )}
 
+      {gastos.length > 0 && (
+        <Botao
+          titulo={`📤 Enviar resumo de ${MESES[mes]} no WhatsApp`}
+          variante="secundario"
+          onPress={() => enviarWhatsApp(textoResumoMes({ nomeCasa: casa?.nome ?? "", ano, mes, gastos, categorias, membros, renda: casa?.renda_mensal ?? null }))}
+        />
+      )}
+
       {!carregando && filtrados.length === 0 && (
         <Text style={[typography.body, { color: colors.textSecondary, textAlign: "center", marginTop: spacing.lg }]}>Nenhum gasto por aqui.</Text>
       )}
@@ -122,7 +131,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
                   <Text style={{ fontSize: 22, marginRight: spacing.sm }}>{emojiCategoria(cat?.icone)}</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={typography.body} numberOfLines={1}>
-                      {g.descricao || cat?.nome || "Sem categoria"}
+                      {tituloGasto(g, cat?.nome)}
                     </Text>
                     <Text style={typography.label}>{detalhes}</Text>
                   </View>
