@@ -7,7 +7,7 @@ import { Botao, Chip, estiloInput, TelaFormulario } from "../components/ui";
 import { useCartoes, useCategorias } from "../data/hooks";
 import { emojiCategoria, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
 import { diaMes, faturaDaCompra, somarMeses } from "../lib/fatura";
-import { centavosDoTexto, formatarReais, hojeISO, isoDeTextoBR, mascaraData, rotuloDia, somarDias } from "../lib/format";
+import { centavosDoTexto, formatarReais, gerarUuid, hojeISO, isoDeTextoBR, mascaraData, rotuloDia, somarDias } from "../lib/format";
 import { supabase, traduzirErro } from "../lib/supabase";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
@@ -291,14 +291,6 @@ export function GastoFormScreen({ navigation, route }: Props) {
       )}
     </TelaFormulario>
   );
-}
-
-function gerarUuid(): string {
-  // crypto.randomUUID nem sempre existe no Hermes; v4 simples é suficiente para agrupar parcelas.
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-  });
 }
 
 function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {

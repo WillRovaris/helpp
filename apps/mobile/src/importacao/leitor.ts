@@ -134,7 +134,7 @@ function idsUnicos(lista: Omit<LancamentoArquivo, "id">[], base: (l: Omit<Lancam
   });
 }
 
-function detectarParcela(desc: string): string | null {
+export function detectarParcela(desc: string): string | null {
   const m = desc.match(/(?:parc(?:ela)?\.?\s*)?(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\b/i);
   if (!m) return null;
   const [p, t] = [+m[1], +m[2]];

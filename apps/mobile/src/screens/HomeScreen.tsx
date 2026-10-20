@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { Botao, Cartao } from "../components/ui";
-import { useCartoes, useCategorias, useContasFixas, useGastosCredito, useGastosDoMes, usePagamentosDoMes } from "../data/hooks";
+import { useCartoes, useCategorias, useContasFixas, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useUltimosGastos } from "../data/hooks";
 import { reagendarLembretes } from "../lembretes/lembretes";
 import { competencia, contasDoMes, textoSituacao } from "../lib/contas";
 import { corSituacao } from "./ContasScreen";
@@ -27,7 +27,9 @@ export function HomeScreen({ navigation }: Props) {
   const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
   const { gastos: gastosAnteriores } = useGastosDoMes(mesAnterior.getFullYear(), mesAnterior.getMonth());
   const { categorias } = useCategorias();
+  const { ultimos, recarregar: recarregarUltimos } = useUltimosGastos(5);
   const { cartoes } = useCartoes();
+  const { faturaPaga } = useFaturasPagas();
   const comp = competencia(hoje.getFullYear(), hoje.getMonth());
   const { contas, recarregar: recarregarContas } = useContasFixas();
   const { pagamentos, recarregar: recarregarPag } = usePagamentosDoMes(comp);
@@ -39,14 +41,14 @@ export function HomeScreen({ navigation }: Props) {
       recarregarCredito();
       recarregarContas();
       recarregarPag();
+      recarregarUltimos();
       if (casa) reagendarLembretes(casa.id);
-    }, [recarregar, recarregarCredito, recarregarContas, recarregarPag, casa]),
+    }, [recarregar, recarregarCredito, recarregarContas, recarregarPag, recarregarUltimos, casa]),
   );
 
   if (!casa) return null;
 
   const total = gastos.reduce((s, g) => s + g.valor, 0);
-  const ultimos = gastos.slice(0, 5);
   // Mês passado só até o mesmo dia de hoje, para a comparação ser justa.
   const totalAnteriorAteHoje = gastosAnteriores.filter((g) => Number(g.data.slice(8, 10)) <= hoje.getDate()).reduce((s, g) => s + g.valor, 0);
   const comparacao = textoComparacao(total, totalAnteriorAteHoje);
@@ -111,7 +113,7 @@ export function HomeScreen({ navigation }: Props) {
         {cartoes.length > 0 && (
           <Cartao style={{ paddingVertical: spacing.xs }}>
             {cartoes.map((c, i) => {
-              const r = resumirCartao(gastosCredito.filter((g) => g.cartao_id === c.id), c, hojeISO());
+              const r = resumirCartao(gastosCredito.filter((g) => g.cartao_id === c.id), c, hojeISO(), (v) => faturaPaga(c.id, v));
               return (
                 <TouchableOpacity
                   key={c.id}
@@ -131,7 +133,11 @@ export function HomeScreen({ navigation }: Props) {
                     )}
                   </View>
                   {r.fechada && (
-                    <Text style={[typography.label, { color: colors.warning }]}>⏰ fatura fechada {formatarReais(r.fechada.total)} vence {diaMes(r.fechada.vencimento)}</Text>
+                    <Text style={[typography.label, { color: r.fechada.paga ? colors.accent : colors.warning }]}>
+                      {r.fechada.paga
+                        ? `✅ fatura de ${formatarReais(r.fechada.total)} paga`
+                        : `⏰ fatura fechada ${formatarReais(r.fechada.total)} vence ${diaMes(r.fechada.vencimento)}`}
+                    </Text>
                   )}
                 </TouchableOpacity>
               );

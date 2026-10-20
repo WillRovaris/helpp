@@ -73,6 +73,9 @@ export function HistoricoScreen({ navigation, route }: Props) {
         <Text style={typography.label}>{filtroCategoria || filtroPessoa ? "TOTAL FILTRADO" : "TOTAL DO MÊS"}</Text>
         <Text style={{ fontSize: 30, fontWeight: "700", color: colors.textPrimary }}>{formatarReais(total)}</Text>
         <Text style={typography.label}>{filtrados.length} {filtrados.length === 1 ? "gasto" : "gastos"}</Text>
+        {gastos.some((g) => g.cartao_id) && (
+          <Text style={[typography.label, { marginTop: spacing.xs }]}>💳 Compras no cartão contam no mês em que a fatura vence.</Text>
+        )}
       </CartaoUI>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>

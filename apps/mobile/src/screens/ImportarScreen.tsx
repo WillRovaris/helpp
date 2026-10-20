@@ -9,10 +9,10 @@ import { Botao, Cartao, Chip } from "../components/ui";
 import { useCartoes, useCategorias } from "../data/hooks";
 import { emojiCategoria } from "../data/tipos";
 import { type ArquivoLido, lerArquivo } from "../importacao/leitor";
-import { type ItemImportacao, preparar, type TipoArquivo } from "../importacao/preparar";
+import { descricaoSemParcela, type ItemImportacao, preparar, type TipoArquivo } from "../importacao/preparar";
 import { competencia } from "../lib/contas";
-import { diaMes, faturaDaCompra, faturaVizinha } from "../lib/fatura";
-import { dataDeISO, dataISO, formatarReais, MESES } from "../lib/format";
+import { diaMes, faturaDaCompra, faturaVizinha, somarMeses } from "../lib/fatura";
+import { dataDeISO, dataISO, formatarReais, gerarUuid, MESES } from "../lib/format";
 import { supabase, traduzirErro } from "../lib/supabase";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
@@ -26,6 +26,7 @@ interface Contexto {
   jaImportados: Set<string>;
   existentes: { data: string; valor: number; cartao_id: string | null }[];
   contasAbertas: { id: string; nome: string; valor: number | null; dia_vencimento: number; competencia: string; categoria_id: string | null }[];
+  parcelasLancadas: { cartao_id: string | null; valor: number; parcela: number; parcelas: number }[];
 }
 
 function somarDiasISO(iso: string, dias: number): string {
@@ -105,6 +106,13 @@ export function ImportarScreen({ navigation }: Props) {
         for (const g of data ?? []) if (g.importacao_id) jaImportados.add(g.importacao_id);
       }
       const { data: ex } = await supabase.from("gastos").select("data, valor, cartao_id, importacao_id").eq("casa_id", casa.id).gte("data", de).lte("data", ate);
+      // Parcelas já lançadas (de faturas anteriores ou à mão) a partir de ~2 meses antes do arquivo.
+      const { data: parc } = await supabase
+        .from("gastos")
+        .select("*")
+        .eq("casa_id", casa.id)
+        .not("parcelas", "is", null)
+        .gte("data", somarDiasISO(datas[0], -62));
 
       const meses = [...new Set(datas.map((d) => d.slice(0, 7)))];
       const comps = meses.map((m) => competencia(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1));
@@ -123,6 +131,7 @@ export function ImportarScreen({ navigation }: Props) {
           // gastos que vieram de importação não contam como "lançado à mão"
           existentes: (ex ?? []).filter((g) => !g.importacao_id).map((g) => ({ data: g.data, valor: Number(g.valor), cartao_id: g.cartao_id })),
           contasAbertas,
+          parcelasLancadas: (parc ?? []).map((g) => ({ cartao_id: g.cartao_id, valor: Number(g.valor), parcela: g.parcela, parcelas: g.parcelas })),
         });
     })();
     return () => {
@@ -141,6 +150,7 @@ export function ImportarScreen({ navigation }: Props) {
       jaImportados: contexto.jaImportados,
       existentes: contexto.existentes,
       contasAbertas: contexto.contasAbertas,
+      parcelasLancadas: contexto.parcelasLancadas,
     });
   }, [arquivo, contexto, tipo, fatura, cartaoId]);
 
@@ -175,17 +185,29 @@ export function ImportarScreen({ navigation }: Props) {
 
     setImportando(true);
     try {
-      const linhas = selecionados.map((i) => ({
-        casa_id: casa.id,
-        valor: i.valor,
-        data: i.data,
-        descricao: i.descricao.slice(0, 200),
-        categoria_id: estado(i).categoriaId,
-        forma_pagamento: i.forma,
-        cartao_id: tipo === "fatura" ? cartaoId : null,
-        pago_por: userId,
-        importacao_id: i.id,
-      }));
+      // Compra parcelada ("Parcela 3/5"): lança a 3 agora e já cria a 4 e a 5 nas
+      // faturas seguintes. Na próxima importação, a "4/5" é reconhecida e não duplica.
+      const linhas = selecionados.flatMap((i) => {
+        const base = {
+          casa_id: casa.id,
+          valor: i.valor,
+          descricao: (i.parcela ? descricaoSemParcela(i.descricao) : i.descricao).slice(0, 200),
+          categoria_id: estado(i).categoriaId,
+          forma_pagamento: i.forma,
+          cartao_id: tipo === "fatura" ? cartaoId : null,
+          pago_por: userId,
+        };
+        type Linha = typeof base & { data: string; importacao_id: string | null; parcelamento_id?: string; parcela?: number; parcelas?: number };
+        if (!i.parcela || tipo !== "fatura") return [{ ...base, data: i.data, descricao: i.descricao.slice(0, 200), importacao_id: i.id } as Linha];
+        const [atual, total] = i.parcela.split("/").map(Number);
+        const grupo = gerarUuid();
+        const lista: Linha[] = [{ ...base, data: i.data, importacao_id: i.id, parcelamento_id: grupo, parcela: atual, parcelas: total }];
+        for (let k = atual + 1; k <= total; k++) {
+          lista.push({ ...base, data: somarMeses(i.data, k - atual), importacao_id: null, parcelamento_id: grupo, parcela: k, parcelas: total });
+        }
+        return lista;
+      });
+      const futuras = linhas.length - selecionados.length;
       const { data: criados, error } = await supabase.from("gastos").insert(linhas).select("id, importacao_id");
       if (error) {
         const msg = error.message.includes("importacao_id")
@@ -209,7 +231,13 @@ export function ImportarScreen({ navigation }: Props) {
         }));
       for (const b of baixas) await supabase.from("contas_pagamentos").insert(b); // conta já paga no mês: ignora o erro
 
-      Alert.alert("Importado!", `${selecionados.length} lançamentos (${formatarReais(totalSelecionado)})${baixas.length ? ` e ${baixas.length} contas marcadas como pagas` : ""}.`, [
+      Alert.alert(
+        "Importado!",
+        `${selecionados.length} lançamentos (${formatarReais(totalSelecionado)})` +
+          (futuras ? `, mais ${futuras} parcelas futuras lançadas nas próximas faturas` : "") +
+          (baixas.length ? ` e ${baixas.length} contas marcadas como pagas` : "") +
+          ".",
+        [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
     } finally {

@@ -68,3 +68,11 @@ export function isoDeTextoBR(texto: string): string | null {
 export function limitesDoMes(ano: number, mes: number): { inicio: string; fim: string } {
   return { inicio: dataISO(new Date(ano, mes, 1)), fim: dataISO(new Date(ano, mes + 1, 0)) };
 }
+
+/** Identificador aleatório (v4) — crypto.randomUUID nem sempre existe no Hermes. Usado para agrupar parcelas. */
+export function gerarUuid(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}

@@ -25,6 +25,15 @@ export interface ItemImportacao {
   contaBaixa: { contaId: string; nome: string; competencia: string; porNome: boolean } | null;
 }
 
+/** "Renner - Parcela 3/5" → "Renner" (a parcela é guardada à parte e o app mostra "(3/5)"). */
+export function descricaoSemParcela(desc: string): string {
+  const limpa = desc
+    .replace(/\s*[-–]?\s*parc(ela)?\.?\s*\d{1,2}\s*(\/|de)\s*\d{1,2}\b/i, "")
+    .replace(/\s+\d{1,2}\/\d{1,2}$/, "")
+    .trim();
+  return limpa || desc;
+}
+
 export interface ResultadoPreparo {
   itens: ItemImportacao[];
   /** Entradas (extrato) ou pagamentos/estornos (fatura) que não viram gasto. */
@@ -73,6 +82,8 @@ export function preparar(opts: {
   jaImportados: Set<string>;
   /** Gastos já existentes perto das datas do arquivo (para achar duplicados). */
   existentes: { data: string; valor: number; cartao_id: string | null }[];
+  /** Parcelas já lançadas (por importação anterior ou à mão), para não duplicar a do mês. */
+  parcelasLancadas?: { cartao_id: string | null; valor: number; parcela: number; parcelas: number }[];
   cartaoId?: string | null;
   contasAbertas: { id: string; nome: string; valor: number | null; dia_vencimento: number; competencia: string }[];
 }): ResultadoPreparo {
@@ -113,7 +124,18 @@ export function preparar(opts: {
     let aviso: string | null = null;
     let incluir = !jaImportado;
 
+    const [pAtual, pTotal] = l.parcela ? l.parcela.split("/").map(Number) : [0, 0];
+    const parcelaJaLancada =
+      !!l.parcela &&
+      (opts.parcelasLancadas ?? []).some(
+        (p) => p.parcela === pAtual && p.parcelas === pTotal && Math.abs(p.valor - valor) < 0.02 && (tipo !== "fatura" || !opts.cartaoId || p.cartao_id === opts.cartaoId),
+      );
+
     if (jaImportado) aviso = "Já importado antes";
+    else if (parcelaJaLancada) {
+      incluir = false;
+      aviso = `Parcela ${l.parcela} já está lançada (veio de uma fatura anterior)`;
+    }
     else if (tipo === "extrato" && PAGAMENTO_FATURA.test(desc)) {
       incluir = false;
       aviso = "Pagamento de fatura — as compras já contam no cartão";

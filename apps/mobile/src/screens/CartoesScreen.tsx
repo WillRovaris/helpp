@@ -4,7 +4,7 @@ import React, { useCallback } from "react";
 import { ScrollView, Text } from "react-native";
 import { ResumoCartaoCard } from "../components/ResumoCartaoCard";
 import { Botao } from "../components/ui";
-import { useCartoes, useGastosCredito } from "../data/hooks";
+import { useCartoes, useFaturasPagas, useGastosCredito } from "../data/hooks";
 import { resumirCartao, somarMeses } from "../lib/fatura";
 import { hojeISO } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
@@ -16,6 +16,7 @@ export function CartoesScreen({ navigation }: Props) {
   const hoje = hojeISO();
   const { cartoes, carregando } = useCartoes();
   const { gastosCredito, recarregar } = useGastosCredito(somarMeses(hoje, -3));
+  const { faturaPaga } = useFaturasPagas();
 
   useFocusEffect(
     useCallback(() => {
@@ -34,7 +35,7 @@ export function CartoesScreen({ navigation }: Props) {
         <ResumoCartaoCard
           key={c.id}
           cartao={c}
-          resumo={resumirCartao(gastosCredito.filter((g) => g.cartao_id === c.id), c, hoje)}
+          resumo={resumirCartao(gastosCredito.filter((g) => g.cartao_id === c.id), c, hoje, (v) => faturaPaga(c.id, v))}
           onPress={() => navigation.navigate("CartaoDetalhe", { cartaoId: c.id })}
         />
       ))}

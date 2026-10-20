@@ -20,7 +20,9 @@ export function planejarLembretes(opts: {
   competencias: string[]; // YYYY-MM-01 (mês atual e seguinte)
   contas: { id: string; nome: string; valor: number | null; dia_vencimento: number }[];
   pagas: Set<string>; // `${contaId}|${competencia}`
-  cartoes: { nome: string; dia_fechamento: number; dia_vencimento: number }[];
+  cartoes: { id: string; nome: string; dia_fechamento: number; dia_vencimento: number }[];
+  /** Faturas já marcadas como pagas: `${cartaoId}|${vencimento}`. */
+  faturasPagas?: Set<string>;
 }): Lembrete[] {
   const lista: Lembrete[] = [];
   const noHorario = (iso: string, diasAntes: number) => {
@@ -54,6 +56,7 @@ export function planejarLembretes(opts: {
     const aberta = faturaDaCompra(hojeISO, c.dia_fechamento, c.dia_vencimento);
     const anterior = faturaVizinha(aberta.fechamento, -1, c.dia_fechamento, c.dia_vencimento);
     for (const f of [anterior, aberta]) {
+      if (opts.faturasPagas?.has(`${c.id}|${f.vencimento}`)) continue;
       adicionar(f.vencimento, (q) => `💳 Fatura ${c.nome} vence ${q}`, "Toque para ver o valor da fatura.", "Cartoes");
     }
   }

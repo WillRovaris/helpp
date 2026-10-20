@@ -1,28 +1,35 @@
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React, { useCallback, useEffect, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
-import { Cartao } from "../components/ui";
-import { useCartoes, useCategorias } from "../data/hooks";
+import { Botao, Cartao } from "../components/ui";
+import { useCartoes, useCategorias, useFaturasPagas } from "../data/hooks";
 import { emojiCategoria, type Gasto, tituloGasto } from "../data/tipos";
-import { diaMes, faturaDaCompra, faturaVizinha } from "../lib/fatura";
-import { formatarReais, hojeISO, MESES, rotuloDia } from "../lib/format";
-import { supabase } from "../lib/supabase";
+import { detectarParcela } from "../importacao/leitor";
+import { descricaoSemParcela } from "../importacao/preparar";
+import { diaMes, faturaDaCompra, faturaVizinha, somarMeses } from "../lib/fatura";
+import { formatarReais, gerarUuid, hojeISO, MESES, rotuloDia } from "../lib/format";
+import { supabase, traduzirErro } from "../lib/supabase";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "CartaoDetalhe">;
 
 // Uma fatura por vez, com ‹ › para ver as anteriores e as futuras (parcelas).
+// Abre na fatura que está para vencer (se ainda não foi paga); senão, na aberta.
 export function CartaoDetalheScreen({ navigation, route }: Props) {
   const { cartaoId } = route.params;
   const { casa, membros } = useCasa();
   const { cartoes } = useCartoes();
   const { categorias } = useCategorias();
+  const { faturasPagas, recarregar: recarregarPagas } = useFaturasPagas();
   const cartao = cartoes.find((c) => c.id === cartaoId);
   const [deslocamento, setDeslocamento] = useState(0);
   const [gastos, setGastos] = useState<Gasto[]>([]);
+  const [salvandoPaga, setSalvandoPaga] = useState(false);
+  const [lancandoParcelas, setLancandoParcelas] = useState(false);
+  const escolheuInicio = useRef(false);
 
   const atual = cartao ? faturaDaCompra(hojeISO(), cartao.dia_fechamento, cartao.dia_vencimento) : null;
   const fatura = cartao && atual ? (deslocamento === 0 ? atual : faturaVizinha(atual.fechamento, deslocamento, cartao.dia_fechamento, cartao.dia_vencimento)) : null;
@@ -35,6 +42,21 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
       </TouchableOpacity>
     ) });
   }, [cartao, cartaoId, navigation]);
+
+  // Escolhe a fatura inicial uma vez: a fechada a vencer, se tiver compras e não estiver paga.
+  useEffect(() => {
+    if (!casa || !cartao || !atual || escolheuInicio.current) return;
+    escolheuInicio.current = true;
+    const anterior = faturaVizinha(atual.fechamento, -1, cartao.dia_fechamento, cartao.dia_vencimento);
+    if (hojeISO() > anterior.vencimento) return;
+    const inicioAnterior = faturaVizinha(anterior.fechamento, -1, cartao.dia_fechamento, cartao.dia_vencimento).fechamento;
+    Promise.all([
+      supabase.from("gastos").select("id", { count: "exact", head: true }).eq("casa_id", casa.id).eq("cartao_id", cartaoId).gte("data", inicioAnterior).lt("data", anterior.fechamento),
+      supabase.from("faturas_pagas").select("id").eq("cartao_id", cartaoId).eq("vencimento", anterior.vencimento).maybeSingle(),
+    ]).then(([{ count }, { data: paga }]) => {
+      if ((count ?? 0) > 0 && !paga) setDeslocamento(-1);
+    });
+  }, [casa?.id, cartao, atual?.fechamento, cartaoId]);
 
   const carregar = useCallback(async () => {
     if (!casa || !fatura || !inicio) return;
@@ -60,8 +82,79 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
 
   const total = gastos.reduce((s, g) => s + g.valor, 0);
   const hoje = hojeISO();
+  const registroPaga = faturasPagas.find((p) => p.cartao_id === cartaoId && p.vencimento === fatura.vencimento);
+  const podeMarcarPaga = deslocamento <= 0 && total > 0;
+
+  async function marcarPaga() {
+    if (!casa || !fatura) return;
+    setSalvandoPaga(true);
+    const { error } = await supabase.from("faturas_pagas").insert({ casa_id: casa.id, cartao_id: cartaoId, vencimento: fatura.vencimento, valor: total });
+    setSalvandoPaga(false);
+    if (error) {
+      const msg = error.message.includes("faturas_pagas") ? "Falta rodar o SQL 05-faturas-pagas.sql no Supabase." : traduzirErro(error.message);
+      return Alert.alert("Não foi possível marcar", msg);
+    }
+    recarregarPagas();
+  }
+
+  // Compras com "Parcela 3/5" na descrição que ainda não têm as próximas parcelas lançadas
+  // (ex.: importadas antes desta função existir).
+  const semParcelasFuturas = gastos
+    .filter((g) => !g.parcelamento_id && g.descricao)
+    .map((g) => ({ g, p: detectarParcela(g.descricao!) }))
+    .filter((x): x is { g: Gasto; p: string } => !!x.p && Number(x.p.split("/")[0]) < Number(x.p.split("/")[1]));
+  async function lancarParcelasFuturas() {
+    if (!casa) return;
+    setLancandoParcelas(true);
+    try {
+      let criadas = 0;
+      for (const { g, p } of semParcelasFuturas) {
+        const [atual, total] = p.split("/").map(Number);
+        const grupo = gerarUuid();
+        const descricao = descricaoSemParcela(g.descricao!);
+        const { error } = await supabase.from("gastos").update({ descricao, parcelamento_id: grupo, parcela: atual, parcelas: total }).eq("id", g.id);
+        if (error) return Alert.alert("Não foi possível lançar", traduzirErro(error.message));
+        const futuras = [];
+        for (let k = atual + 1; k <= total; k++) {
+          futuras.push({
+            casa_id: casa.id,
+            valor: g.valor,
+            data: somarMeses(g.data, k - atual),
+            descricao,
+            categoria_id: g.categoria_id,
+            forma_pagamento: g.forma_pagamento,
+            cartao_id: g.cartao_id,
+            pago_por: g.pago_por,
+            parcelamento_id: grupo,
+            parcela: k,
+            parcelas: total,
+          });
+        }
+        await supabase.from("gastos").insert(futuras);
+        criadas += futuras.length;
+      }
+      Alert.alert("Pronto!", `${criadas} parcelas lançadas nas próximas faturas.`);
+      carregar();
+    } finally {
+      setLancandoParcelas(false);
+    }
+  }
+
+  function desfazerPaga() {
+    Alert.alert("Desmarcar fatura paga?", "Ela volta a aparecer como a pagar.", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Desmarcar",
+        style: "destructive",
+        onPress: async () => {
+          await supabase.from("faturas_pagas").delete().eq("id", registroPaga!.id);
+          recarregarPagas();
+        },
+      },
+    ]);
+  }
   const situacao =
-    deslocamento > 0 ? "Futura" : deslocamento === 0 ? "Aberta" : hoje <= fatura.vencimento ? "Fechada · a vencer" : "Fechada";
+    registroPaga ? "✅ Paga" : deslocamento > 0 ? "Futura" : deslocamento === 0 ? "Aberta" : hoje <= fatura.vencimento ? "Fechada · a vencer" : "Fechada";
   const mesVenc = Number(fatura.vencimento.slice(5, 7)) - 1;
   const categoriaPorId = new Map(categorias.map((c) => [c.id, c]));
   const nomePessoa = new Map(membros.map((m) => [m.user_id, m.nome]));
@@ -87,7 +180,24 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
         <Text style={typography.label}>
           Fecha {diaMes(fatura.fechamento)} · vence {diaMes(fatura.vencimento)}
         </Text>
+        {registroPaga ? (
+          <TouchableOpacity onPress={desfazerPaga} style={{ marginTop: spacing.md }}>
+            <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 16 }}>✅ PAGA em {diaMes(registroPaga.pago_em)}</Text>
+            <Text style={typography.label}>Toque para desmarcar</Text>
+          </TouchableOpacity>
+        ) : (
+          podeMarcarPaga && <Botao titulo="✅ Marcar fatura como paga" onPress={marcarPaga} carregando={salvandoPaga} style={{ marginTop: spacing.md }} />
+        )}
       </Cartao>
+
+      {semParcelasFuturas.length > 0 && (
+        <Cartao>
+          <Text style={typography.body}>
+            🔁 {semParcelasFuturas.length} {semParcelasFuturas.length === 1 ? "compra parcelada" : "compras parceladas"} nesta fatura ainda sem as próximas parcelas.
+          </Text>
+          <Botao titulo="Lançar as próximas parcelas" variante="secundario" onPress={lancarParcelasFuturas} carregando={lancandoParcelas} style={{ marginTop: spacing.sm }} />
+        </Cartao>
+      )}
 
       {gastos.length === 0 ? (
         <Text style={[typography.body, { color: colors.textSecondary, textAlign: "center", marginTop: spacing.lg }]}>Nenhuma compra nesta fatura.</Text>

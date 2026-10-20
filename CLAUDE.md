@@ -9,7 +9,7 @@ o que mudou para quem usa o app, sem jargão.
 - `apps/mobile` — o app (Expo SDK 57 / React Native, TypeScript). **É aqui que tudo acontece.**
 - `apps/api` — API antiga (Fastify/Prisma) do app de pesquisa de preços. **Não é usada pelo app atual**; fica só de referência.
 - `supabase/` — SQLs numerados. O dono roda cada um **à mão** no Supabase (SQL Editor → Run).
-  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id).
+  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id). `05` (faturas_pagas) — conferir se rodou.
   SQL novo = novo arquivo `05-...sql`, idempotente (`if not exists`), e pedir para ele rodar.
 - O app deve **tolerar** o SQL ainda não ter rodado (ex.: `select("*")` em vez de colunas fixas; mensagem "Falta rodar o SQL 0X").
 
@@ -51,6 +51,9 @@ o que mudou para quem usa o app, sem jargão.
 - Listas da casa ficam ao vivo com `useListaAoVivo` (`src/data/hooks.ts`: busca + realtime do Supabase).
 
 ## Regras de produto (vieram do dono)
+- **Compra no cartão conta no mês em que a FATURA VENCE** (`mesDeReferencia` em `src/data/hooks.ts`), não no dia da compra. Os outros gastos contam no dia.
+- Importar fatura com "Parcela 3/5" lança a 3 e cria a 4 e a 5 nas faturas seguintes (mesmo `parcelamento_id`); na próxima importação a 4/5 é reconhecida e vem desmarcada.
+- Fatura pode ser marcada como paga (`faturas_pagas`): some o aviso ⏰, libera o limite e para o lembrete.
 - **Compartilhar é opcional**: o app tem que funcionar 100% para quem mora sozinho; convite só na tela "Compartilhar".
 - Tema: escolha da pessoa em Configurações (igual ao celular / claro / escuro).
 - Bancos dele: cartões Nubank, Digio, C6, Banco do Brasil; contas BB, Caixa, Bradesco, Nubank, C6, Digio.

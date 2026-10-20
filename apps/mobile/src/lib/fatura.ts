@@ -44,8 +44,8 @@ export function faturaVizinha(fechamento: string, delta: number, diaFechamento: 
 
 export interface ResumoCartao {
   aberta: { fechamento: string; vencimento: string; total: number };
-  /** Fatura que já fechou mas ainda não venceu (null se já venceu). */
-  fechada: { fechamento: string; vencimento: string; total: number } | null;
+  /** Fatura que já fechou mas ainda não venceu (null se já venceu). `paga` = marcada como paga. */
+  fechada: { fechamento: string; vencimento: string; total: number; paga: boolean } | null;
   /** Fatura aberta + fechada a vencer + parcelas/compras de faturas futuras. */
   limiteUsado: number;
   disponivel: number;
@@ -56,6 +56,8 @@ export function resumirCartao(
   gastos: { valor: number; data: string }[],
   cartao: { limite: number; dia_fechamento: number; dia_vencimento: number },
   hoje: string,
+  /** Diz se a fatura com esse vencimento já foi marcada como paga. */
+  estaPaga: (vencimento: string) => boolean = () => false,
 ): ResumoCartao {
   const aberta = faturaDaCompra(hoje, cartao.dia_fechamento, cartao.dia_vencimento);
   const anterior = faturaVizinha(aberta.fechamento, -1, cartao.dia_fechamento, cartao.dia_vencimento);
@@ -69,10 +71,12 @@ export function resumirCartao(
     else if (f > aberta.fechamento) futuras += g.valor;
   }
   const fechadaAVencer = hoje <= anterior.vencimento && totalAnterior > 0;
-  const limiteUsado = totalAberta + futuras + (fechadaAVencer ? totalAnterior : 0);
+  const paga = estaPaga(anterior.vencimento);
+  // Fatura paga libera o limite.
+  const limiteUsado = totalAberta + futuras + (fechadaAVencer && !paga ? totalAnterior : 0);
   return {
     aberta: { ...aberta, total: totalAberta },
-    fechada: fechadaAVencer ? { ...anterior, total: totalAnterior } : null,
+    fechada: fechadaAVencer ? { ...anterior, total: totalAnterior, paga } : null,
     limiteUsado,
     disponivel: cartao.limite - limiteUsado,
   };

@@ -83,3 +83,11 @@ export interface PagamentoConta {
   pago_em: string;
   gasto_id: string | null;
 }
+
+export interface FaturaPaga {
+  id: string;
+  cartao_id: string;
+  vencimento: string;
+  valor: number | null;
+  pago_em: string;
+}

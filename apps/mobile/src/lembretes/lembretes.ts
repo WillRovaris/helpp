@@ -60,10 +60,12 @@ export async function reagendarLembretes(casaId: string, forcar = false): Promis
 
     const agora = new Date();
     const comps = [competencia(agora.getFullYear(), agora.getMonth()), competencia(agora.getFullYear(), agora.getMonth() + 1)];
-    const [{ data: contas }, { data: pags }, { data: cartoes }] = await Promise.all([
+    const [{ data: contas }, { data: pags }, { data: cartoes }, { data: faturasPagas }] = await Promise.all([
       supabase.from("contas_fixas").select("id, nome, valor, dia_vencimento").eq("casa_id", casaId).eq("ativa", true),
       supabase.from("contas_pagamentos").select("conta_id, competencia").eq("casa_id", casaId).in("competencia", comps),
-      supabase.from("cartoes").select("nome, dia_fechamento, dia_vencimento").eq("casa_id", casaId).eq("arquivado", false),
+      supabase.from("cartoes").select("id, nome, dia_fechamento, dia_vencimento").eq("casa_id", casaId).eq("arquivado", false),
+      // sem o SQL 05 volta erro e data = null: segue sem filtrar
+      supabase.from("faturas_pagas").select("cartao_id, vencimento").eq("casa_id", casaId),
     ]);
 
     const lembretes = planejarLembretes({
@@ -73,6 +75,7 @@ export async function reagendarLembretes(casaId: string, forcar = false): Promis
       contas: (contas ?? []).map((c) => ({ ...c, valor: c.valor == null ? null : Number(c.valor) })),
       pagas: new Set((pags ?? []).map((p) => `${p.conta_id}|${p.competencia}`)),
       cartoes: cartoes ?? [],
+      faturasPagas: new Set((faturasPagas ?? []).map((p) => `${p.cartao_id}|${p.vencimento}`)),
     });
 
     // Android limita a quantidade de alarmes por app; 60 sobra para 2 meses.

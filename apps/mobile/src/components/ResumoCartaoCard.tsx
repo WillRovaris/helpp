@@ -29,8 +29,10 @@ export function ResumoCartaoCard({ cartao, resumo, onPress }: { cartao: CartaoTi
         <Text style={{ fontSize: 26, fontWeight: "700", color: colors.textPrimary }}>{formatarReais(resumo.aberta.total)}</Text>
 
         {resumo.fechada && (
-          <Text style={[typography.label, { color: colors.warning, marginTop: spacing.xs }]}>
-            ⏰ Fatura fechada de {formatarReais(resumo.fechada.total)} vence {diaMes(resumo.fechada.vencimento)}
+          <Text style={[typography.label, { color: resumo.fechada.paga ? colors.accent : colors.warning, marginTop: spacing.xs }]}>
+            {resumo.fechada.paga
+              ? `✅ Fatura de ${formatarReais(resumo.fechada.total)} (vence ${diaMes(resumo.fechada.vencimento)}) paga`
+              : `⏰ Fatura fechada de ${formatarReais(resumo.fechada.total)} vence ${diaMes(resumo.fechada.vencimento)}`}
           </Text>
         )}
 
