@@ -58,6 +58,50 @@ const REGRAS_CATEGORIA: [RegExp, string][] = [
   [/presente|floricultura|flores/, "gift"],
 ];
 
+const MINUSCULAS = new Set(["de", "da", "do", "das", "dos", "e"]);
+
+function nomeProprio(t: string): string {
+  return t
+    .toLowerCase()
+    .split(" ")
+    .map((p, i) => (i > 0 && MINUSCULAS.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join(" ");
+}
+
+/**
+ * Em lançamentos de Pix, devolve só o nome de quem recebeu (sem CPF, banco,
+ * agência, conta, data). null se não for Pix ou não achar um nome.
+ * Ex.: "Transferência enviada pelo Pix - MARIA DA SILVA - •••.123.456-•• - NU PAGAMENTOS..." → "Maria da Silva".
+ */
+export function nomeDoPix(descricao: string): string | null {
+  if (!/pix/i.test(descricao)) return null;
+  const ehLixo = (s: string) =>
+    !/[a-zà-ÿ]{2}/i.test(s) || /ag[eê]ncia|conta:|\(\d{3,4}\)|•|\*{2}|^\s*(cpf|cnpj)\b/i.test(s) || /pix/i.test(s);
+
+  // Formato com " - " (Nubank e outros): o nome é o primeiro pedaço "limpo" depois do pedaço do Pix.
+  const partes = descricao.split(/\s+[-–]\s+/);
+  const iPix = partes.findIndex((p) => /pix/i.test(p));
+  let nome: string | null = null;
+  if (partes.length > 1 && iPix >= 0) nome = partes.slice(iPix + 1).find((p) => !ehLixo(p)) ?? null;
+
+  // Formato numa linha só: "PIX ENVIADO PARA FULANO", "TRANSFERENCIA PIX DES: FULANO 15/10", "Pix - Enviado 15/10 12:30 FULANO".
+  if (!nome) {
+    const m = descricao.match(/pix\b[\s\-–:]*(?:enviad[oa]|transf\w*|pagamento|pgto)?[\s\-–:]*(?:para|p\/|des:?|favorecido:?)?\s*(.+)$/i);
+    nome = m ? m[1] : null;
+  }
+  if (!nome) return null;
+
+  nome = nome
+    .replace(/\b(des|rem|para|enviado|enviada)\s*:?\s*/gi, " ")
+    .replace(/\d{2}\/\d{2}(\/\d{2,4})?|\d{2}:\d{2}(:\d{2})?/g, " ") // datas e horas
+    .replace(/[•*]+[\d.\-•*]*|\b\d[\d.\-/]{5,}\b/g, " ") // CPF/CNPJ (inteiros ou mascarados)
+    .replace(/ag[eê]ncia.*$|conta:.*$/i, " ")
+    .replace(/[^A-Za-zÀ-ÿ'& ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return nome.replace(/\s/g, "").length >= 2 ? nomeProprio(nome) : null;
+}
+
 export function sugerirIcone(descricao: string): string {
   const d = ` ${normalizar(descricao)} `;
   for (const [re, icone] of REGRAS_CATEGORIA) if (re.test(d)) return icone;
@@ -180,7 +224,8 @@ export function preparar(opts: {
       id: l.id,
       data,
       dataOriginal: l.data,
-      descricao: l.descricao,
+      // Pix: só "PIX - Nome de quem recebeu" (o resto da linha do banco é ruído).
+      descricao: forma === "pix" && nomeDoPix(l.descricao) ? `PIX - ${nomeDoPix(l.descricao)}` : l.descricao,
       valor,
       parcela: l.parcela,
       iconeSugerido: contaBaixa ? "receipt" : sugerirIcone(l.descricao),
