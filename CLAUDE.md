@@ -58,6 +58,7 @@ o que mudou para quem usa o app, sem jargão.
 - Tema: escolha da pessoa em Configurações (igual ao celular / claro / escuro).
 - Bancos dele: cartões Nubank, Digio, C6, Banco do Brasil; contas BB, Caixa, Bradesco, Nubank, C6, Digio.
   A importação lê OFX e CSV genéricos (`src/importacao/leitor.ts`); se um arquivo real não ler, ajustar o leitor com o cabeçalho dele.
+  Confirmados com arquivo real: fatura Nubank (CSV), extrato Bradesco (CSV com colunas Crédito/Débito separadas).
 - NFC-e: leitura no próprio celular via WebView da SEFAZ-SC (`src/fiscal/nfce.ts`); outros estados podem não funcionar.
 
 ## Ideias combinadas para depois

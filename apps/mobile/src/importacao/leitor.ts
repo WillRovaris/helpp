@@ -209,12 +209,14 @@ export function lerCSV(texto: string): ArquivoLido {
   const amostra = linhas.slice(0, 5).join("\n");
   const sep = [";", ",", "\t"].map((s) => ({ s, n: amostra.split(s).length })).sort((a, b) => b.n - a.n)[0].s;
 
-  // Cabeçalho: primeira linha (até a 15ª) que tenha uma coluna de data e uma de valor.
+  // Cabeçalho: primeira linha (até a 15ª) que tenha uma coluna de data e uma de valor
+  // (ou colunas separadas de crédito e débito, como no extrato do Bradesco).
   let iCab = -1;
   let cab: string[] = [];
   for (let i = 0; i < Math.min(linhas.length, 15); i++) {
     const c = separarLinhaCSV(linhas[i], sep).map(normalizar);
-    if (c.some((x) => /^(data|date)\b/.test(x)) && c.some((x) => /(valor|amount|value|quantia)/.test(x))) {
+    const temValor = c.some((x) => /(valor|amount|value|quantia)/.test(x)) || (c.some((x) => /^credito/.test(x)) && c.some((x) => /^debito/.test(x)));
+    if (c.some((x) => /^(data|date)\b/.test(x)) && temValor) {
       iCab = i;
       cab = c;
       break;
@@ -224,10 +226,20 @@ export function lerCSV(texto: string): ArquivoLido {
 
   const cData = acharColuna(cab, [/data de compra/, /^data$/, /^date$/, /^data/, /^date/]);
   const cDesc = acharColuna(cab, [/descri/, /^titulo|^title/, /estabelecimento/, /historico/, /lancamento/, /identificador/]);
-  const cValor = acharColuna(cab, [/valor.*r\$/, /^valor$/, /^amount$/, /^valor/, /amount|value/], /us\$|dolar|cotacao/);
+  const cValor = acharColuna(cab, [/valor.*r\$/, /^valor$/, /^amount$/, /^valor/, /amount|value/], /us\$|dolar|cotacao|saldo/);
+  const cCredito = acharColuna(cab, [/^credito/]);
+  const cDebito = acharColuna(cab, [/^debito/]);
   const cParcela = acharColuna(cab, [/parcela/, /installment/]);
   const cId = acharColuna(cab, [/^identificador$/, /^id$/]);
-  if (cData < 0 || cValor < 0) throw new Error("Não encontrei as colunas de data e valor neste arquivo.");
+  if (cData < 0 || (cValor < 0 && (cCredito < 0 || cDebito < 0))) throw new Error("Não encontrei as colunas de data e valor neste arquivo.");
+
+  /** Valor da linha: coluna única, ou crédito (entra, +) e débito (sai, −) separados. */
+  const valorDaLinha = (c: string[]): number | null => {
+    if (cValor >= 0) return lerNumero(c[cValor] ?? "");
+    const cred = lerNumero(c[cCredito] ?? "") ?? 0;
+    const deb = lerNumero(c[cDebito] ?? "") ?? 0;
+    return cred - Math.abs(deb);
+  };
 
   const anoAtual = new Date().getFullYear();
   const lista: Omit<LancamentoArquivo, "id">[] = [];
@@ -235,7 +247,8 @@ export function lerCSV(texto: string): ArquivoLido {
   for (const linha of linhas.slice(iCab + 1)) {
     const c = separarLinhaCSV(linha, sep);
     const data = lerData(c[cData] ?? "", anoAtual);
-    const valor = lerNumero(c[cValor] ?? "");
+    // Linhas sem data válida (cabeçalho repetido, "Total", avisos do banco) são puladas.
+    const valor = valorDaLinha(c);
     if (!data || valor == null || valor === 0) continue;
     const descricao = (cDesc >= 0 ? c[cDesc] : "") || "Lançamento";
     const parcelaCol = cParcela >= 0 ? (c[cParcela] ?? "").trim() : "";
