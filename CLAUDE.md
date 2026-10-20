@@ -41,6 +41,7 @@ o que mudou para quem usa o app, sem jargão.
 4. Lógica pura (datas, fatura, contas, importação, lembretes) fica em arquivos sem React Native
    (`src/lib`, `src/importacao`, `src/lembretes/planejar.ts`) e dá para testar compilando com `tsc --ignoreConfig` e rodando com `node`.
 5. Commit em português + `git push` para `main` depois de cada mudança.
+6. Expressões regulares: editar com a ferramenta de edição de arquivo, não via `node -e`/heredoc — as barras invertidas (`\D`, `\s`, `\b`) já se perderam assim mais de uma vez. Depois de editar, conferir com `grep -n "replace(/"`.
 
 ## Convenções do código
 - Textos da interface em português do Brasil; nomes de variáveis em português. Na interface é **"despesa"** (não "gasto"); no código/banco continua `gasto`.

@@ -15,7 +15,8 @@ import { ItensDaNota } from "./NotaConfirmarScreen";
 
 type Props = NativeStackScreenProps<RootStackParamList, "GastoForm">;
 
-const OPCOES_PARCELAS = [2, 3, 4, 5, 6, 10, 12];
+const OPCOES_PARCELAS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+const MESES_CURTOS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 // Lançar (ou editar) um gasto. Pensado para ser rápido: valor → categoria →
 // salvar. O resto já vem preenchido com o mais comum.
@@ -37,6 +38,8 @@ export function GastoFormScreen({ navigation, route }: Props) {
   /** 1 = à vista. Só vale para gasto novo. */
   const [parcelas, setParcelas] = useState(1);
   const [parcelasOutro, setParcelasOutro] = useState("");
+  const [escolhendoParcelas, setEscolhendoParcelas] = useState(false);
+  const [usarOutro, setUsarOutro] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [carregandoGasto, setCarregandoGasto] = useState(!!gastoId);
   const [notaId, setNotaId] = useState<string | null>(null);
@@ -198,6 +201,9 @@ export function GastoFormScreen({ navigation, route }: Props) {
         </Text>
       )}
 
+      <Text style={[typography.label, { marginTop: spacing.sm, marginBottom: spacing.xs }]}>DESCRIÇÃO (OPCIONAL)</Text>
+      <TextInput value={descricao} onChangeText={setDescricao} placeholder="Ex.: Nome do mercado, farmácia, gasolina" placeholderTextColor={colors.textSecondary} style={estiloInput()} />
+
       <Secao titulo="CATEGORIA">
         {categorias.map((c) => (
           <Chip
@@ -232,29 +238,85 @@ export function GastoFormScreen({ navigation, route }: Props) {
 
       {!gastoId && (
         <>
-          <Secao titulo="🔁 PARCELAMENTO">
-            <Chip rotulo="À vista" ativo={parcelas === 1} onPress={() => { setParcelas(1); setParcelasOutro(""); }} />
-            {OPCOES_PARCELAS.map((n) => (
-              <Chip key={n} rotulo={`${n}x`} ativo={parcelas === n && !parcelasOutro} onPress={() => { setParcelas(n); setParcelasOutro(""); }} />
-            ))}
-            <TextInput
-              value={parcelasOutro}
-              onChangeText={(t) => {
-                const n = t.replace(/\D/g, "").slice(0, 2);
-                setParcelasOutro(n);
-                const v = parseInt(n, 10);
-                if (v >= 2 && v <= 48) setParcelas(v);
-              }}
-              placeholder="outro"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="number-pad"
-              style={[estiloInput(), { borderRadius: 999, paddingVertical: 6, minWidth: 70, fontSize: 14, borderColor: parcelasOutro ? colors.accent : colors.border }]}
-            />
-          </Secao>
-          {parcelas > 1 && centavos > 0 && (
-            <Text style={[typography.label, { marginTop: spacing.sm, color: colors.accent }]}>
-              {parcelas}x de {formatarReais(valorParcela[parcelas - 1] / 100)} — uma parcela por mês até {diaMes(somarMeses(data, parcelas - 1))}/{somarMeses(data, parcelas - 1).slice(0, 4)}
+          <TouchableOpacity
+            onPress={() => setEscolhendoParcelas(!escolhendoParcelas)}
+            activeOpacity={0.8}
+            style={{
+              marginTop: spacing.lg,
+              flexDirection: "row",
+              alignItems: "center",
+              alignSelf: "flex-start",
+              gap: spacing.sm,
+              borderWidth: 1,
+              borderColor: parcelas > 1 ? colors.accent : colors.border,
+              backgroundColor: colors.surface,
+              borderRadius: 999,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={[typography.body, { fontWeight: "600", color: parcelas > 1 ? colors.accent : colors.textPrimary }]}>
+              🔁 Parcelamento{parcelas > 1 ? `: ${parcelas}x` : ""}
             </Text>
+            <Text style={{ color: colors.textSecondary }}>{escolhendoParcelas ? "▴" : "▾"}</Text>
+          </TouchableOpacity>
+
+          {escolhendoParcelas && (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.sm }}>
+              {OPCOES_PARCELAS.map((n) => (
+                <Chip
+                  key={n}
+                  rotulo={n === 1 ? "1x (à vista)" : `${n}x`}
+                  ativo={parcelas === n && !usarOutro}
+                  onPress={() => {
+                    setParcelas(n);
+                    setUsarOutro(false);
+                    setParcelasOutro("");
+                    setEscolhendoParcelas(false);
+                  }}
+                />
+              ))}
+              <Chip rotulo="Outro" ativo={usarOutro} onPress={() => setUsarOutro(true)} />
+            </View>
+          )}
+          {escolhendoParcelas && usarOutro && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm }}>
+              <Text style={typography.body}>Quantas parcelas?</Text>
+              <TextInput
+                value={parcelasOutro}
+                autoFocus
+                onChangeText={(t) => {
+                  const n = t.replace(/\D/g, "").slice(0, 2);
+                  setParcelasOutro(n);
+                  const v = parseInt(n, 10);
+                  if (v >= 2 && v <= 48) setParcelas(v);
+                }}
+                placeholder="Ex.: 18"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="number-pad"
+                style={[estiloInput(), { width: 90, textAlign: "center" }]}
+              />
+            </View>
+          )}
+
+          {parcelas > 1 && centavos > 0 && (
+            <View style={{ marginTop: spacing.sm }}>
+              <Text style={[typography.label, { color: colors.accent, marginBottom: 4 }]}>
+                {parcelas}x de {formatarReais(valorParcela[parcelas - 1] / 100)}
+                {forma === "credito" && cartao ? " — mês em que cada parcela vence na fatura:" : " — uma por mês:"}
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                {valorParcela.map((v, i) => {
+                  const dataParcela = somarMeses(data, i);
+                  const ref = forma === "credito" && cartao ? faturaDaCompra(dataParcela, cartao.dia_fechamento, cartao.dia_vencimento).vencimento : dataParcela;
+                  return (
+                    <Text key={i} style={[typography.label, { borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }]}>
+                      {i + 1}ª {MESES_CURTOS[Number(ref.slice(5, 7)) - 1]}/{ref.slice(2, 4)} · {formatarReais(v / 100)}
+                    </Text>
+                  );
+                })}
+              </View>
+            </View>
           )}
         </>
       )}
@@ -286,9 +348,6 @@ export function GastoFormScreen({ navigation, route }: Props) {
         />
       </Secao>
       {usandoOutraData && <Text style={[typography.label, { marginTop: spacing.xs }]}>{rotuloDia(data)}</Text>}
-
-      <Text style={[typography.label, { marginTop: spacing.lg, marginBottom: spacing.xs }]}>DESCRIÇÃO (OPCIONAL)</Text>
-      <TextInput value={descricao} onChangeText={setDescricao} placeholder="Ex.: Mercado Koch, farmácia, gasolina" placeholderTextColor={colors.textSecondary} style={estiloInput()} />
 
       <Botao titulo={parcelas > 1 ? `Salvar ${parcelas} parcelas` : "Salvar"} onPress={salvar} carregando={salvando} style={{ marginTop: spacing.xl }} />
       {gastoId && <Botao titulo="Excluir despesa" variante="link" onPress={excluir} style={{ marginTop: spacing.sm }} />}
