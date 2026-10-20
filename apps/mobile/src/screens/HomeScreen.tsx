@@ -73,7 +73,7 @@ export function HomeScreen({ navigation }: Props) {
 
         <Cartao>
           <TouchableOpacity onPress={() => navigation.navigate("Historico", {})} activeOpacity={0.8}>
-            <Text style={typography.label}>GASTOS DE {MESES[hoje.getMonth()].toUpperCase()}</Text>
+            <Text style={typography.label}>DESPESAS DE {MESES[hoje.getMonth()].toUpperCase()}</Text>
             <Text style={{ fontSize: 34, fontWeight: "700", color: colors.textPrimary, marginTop: spacing.xs }}>{formatarReais(total)}</Text>
             {comparacao && <Text style={[typography.label, { color: comparacao.cor }]}>{comparacao.texto}</Text>}
           </TouchableOpacity>
@@ -82,10 +82,7 @@ export function HomeScreen({ navigation }: Props) {
           </View>
         </Cartao>
 
-        <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <Botao titulo="+ Lançar gasto" onPress={() => navigation.navigate("GastoForm", {})} style={{ flex: 1, minHeight: 58 }} />
-          <Botao titulo="📷 Ler nota" onPress={() => navigation.navigate("NotaScanner")} style={{ flex: 1, minHeight: 58 }} />
-        </View>
+        <Botao titulo="+ Lançar despesa" onPress={() => navigation.navigate("GastoForm", {})} style={{ minHeight: 58 }} />
 
         {contasMes.length > 0 && (
           <TouchableOpacity onPress={() => navigation.navigate("Contas")} activeOpacity={0.8}>
@@ -172,14 +169,6 @@ export function HomeScreen({ navigation }: Props) {
           onPressCategoria={(id) => navigation.navigate("Historico", id ? { categoriaId: id } : {})}
         />
 
-        <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <Botao titulo="📋 Gastos" variante="secundario" onPress={() => navigation.navigate("Historico", {})} style={{ flex: 1 }} />
-          <Botao titulo="🧾 Contas" variante="secundario" onPress={() => navigation.navigate("Contas")} style={{ flex: 1 }} />
-          <Botao titulo="💳 Cartões" variante="secundario" onPress={() => navigation.navigate("Cartoes")} style={{ flex: 1 }} />
-        </View>
-
-        <Botao titulo="📄 Importar extrato ou fatura do banco" variante="secundario" onPress={() => navigation.navigate("Importar")} />
-
         <Botao
           titulo="📤 Enviar resumo do mês no WhatsApp"
           variante="secundario"
@@ -189,6 +178,9 @@ export function HomeScreen({ navigation }: Props) {
             )
           }
         />
+
+        {/* Rodapé: tudo que foi lançado, mês a mês. */}
+        <Botao titulo="📋 Histórico" variante="secundario" onPress={() => navigation.navigate("Historico", {})} style={{ marginTop: spacing.lg }} />
       </ScrollView>
     </SafeAreaView>
   );

@@ -322,7 +322,7 @@ export function ImportarScreen({ navigation }: Props) {
       ) : (
         <>
           <Text style={typography.label}>
-            {preparo.itens.length} gastos encontrados
+            {preparo.itens.length} despesas encontradas
             {preparo.ignorados ? ` · ${preparo.ignorados} ${tipo === "extrato" ? "entradas" : "pagamentos/estornos"} ignorados` : ""}. Toque no emoji para trocar a categoria.
           </Text>
           <Cartao style={{ paddingVertical: spacing.xs }}>
@@ -383,7 +383,7 @@ export function ImportarScreen({ navigation }: Props) {
           </Cartao>
 
           <Botao
-            titulo={`Importar ${selecionados.length} ${selecionados.length === 1 ? "gasto" : "gastos"} · ${formatarReais(totalSelecionado)}`}
+            titulo={`Importar ${selecionados.length} ${selecionados.length === 1 ? "despesa" : "despesas"} · ${formatarReais(totalSelecionado)}`}
             onPress={importar}
             carregando={importando}
           />

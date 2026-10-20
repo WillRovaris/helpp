@@ -47,7 +47,7 @@ export function CompartilharScreen() {
       ) : (
         <Cartao>
           <Text style={[typography.body, { marginBottom: spacing.md }]}>
-            Se quiser, convide uma pessoa para dividir as finanças com você. Vocês vão ver os mesmos gastos, ao vivo.
+            Se quiser, convide uma pessoa para dividir as finanças com você. Vocês vão ver as mesmas despesas, ao vivo.
           </Text>
           <Text style={typography.label}>CÓDIGO DE CONVITE</Text>
           <Text style={{ fontSize: 34, fontWeight: "700", letterSpacing: 6, color: colors.accent, marginVertical: spacing.sm }}>

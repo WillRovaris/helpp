@@ -15,7 +15,7 @@ export function textoResumoMes(opts: {
 }): string {
   const { gastos, categorias, membros, renda } = opts;
   const total = gastos.reduce((s, g) => s + g.valor, 0);
-  const linhas: string[] = [`*Helpp — ${MESES[opts.mes]} ${opts.ano}*`, opts.nomeCasa, "", `💰 *Total gasto:* ${formatarReais(total)}`];
+  const linhas: string[] = [`*Helpp — ${MESES[opts.mes]} ${opts.ano}*`, opts.nomeCasa, "", `💰 *Total de despesas:* ${formatarReais(total)}`];
 
   if (renda && renda > 0) {
     const sobra = renda - total;

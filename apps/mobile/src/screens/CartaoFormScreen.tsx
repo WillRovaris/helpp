@@ -54,7 +54,7 @@ export function CartaoFormScreen({ navigation, route }: Props) {
   }
 
   function arquivar() {
-    Alert.alert("Remover cartão?", "Os gastos já lançados nele continuam no histórico.", [
+    Alert.alert("Remover cartão?", "As despesas já lançadas nele continuam no histórico.", [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Remover",

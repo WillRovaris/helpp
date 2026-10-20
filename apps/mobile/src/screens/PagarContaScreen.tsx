@@ -105,7 +105,7 @@ export function PagarContaScreen({ navigation, route }: Props) {
   }
 
   function desfazer() {
-    Alert.alert("Desfazer pagamento?", "A conta volta a ficar em aberto e o gasto lançado é excluído.", [
+    Alert.alert("Desfazer pagamento?", "A conta volta a ficar em aberto e a despesa lançada é excluída.", [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Desfazer",

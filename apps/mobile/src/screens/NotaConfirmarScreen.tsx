@@ -152,7 +152,7 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
         </Secao>
       )}
 
-      <Botao titulo="Salvar gasto" onPress={salvar} carregando={salvando} />
+      <Botao titulo="Salvar despesa" onPress={salvar} carregando={salvando} />
 
       <ItensDaNota itens={nota.itens} />
     </ScrollView>

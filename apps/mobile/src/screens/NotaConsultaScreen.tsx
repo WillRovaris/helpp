@@ -35,7 +35,7 @@ export function NotaConsultaScreen({ navigation, route }: Props) {
       setTentouManual(false);
       Alert.alert(
         "Ainda não deu para ler",
-        "Os produtos da nota precisam estar aparecendo na tela. Se tiver captcha, resolva primeiro. Se a página for de outro estado e não funcionar, você pode lançar o gasto à mão.",
+        "Os produtos da nota precisam estar aparecendo na tela. Se tiver captcha, resolva primeiro. Se a página for de outro estado e não funcionar, você pode lançar a despesa à mão.",
         [
           { text: "Continuar tentando", style: "cancel" },
           { text: "Lançar à mão", onPress: () => navigation.replace("GastoForm", {}) },

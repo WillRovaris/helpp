@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
-import { Alert, Text, TextInput, View } from "react-native";
+import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Chip, estiloInput, TelaFormulario } from "../components/ui";
@@ -44,7 +44,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
   const [itensNota, setItensNota] = useState<{ nome: string; quantidade: number; valorTotal: number }[]>([]);
 
   useEffect(() => {
-    navigation.setOptions({ title: gastoId ? "Editar gasto" : "Novo gasto" });
+    navigation.setOptions({ title: gastoId ? "Editar despesa" : "Lançar despesa" });
     if (!gastoId) return;
     supabase
       .from("gastos")
@@ -95,7 +95,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
 
   async function salvar() {
     if (!casa) return;
-    if (centavos <= 0) return Alert.alert("Valor", "Digite quanto foi o gasto.");
+    if (centavos <= 0) return Alert.alert("Valor", "Digite quanto foi a despesa.");
     if (!gastoId && parcelas > 1 && centavos < parcelas) return Alert.alert("Parcelas", "O valor é pequeno demais para tantas parcelas.");
     let dataFinal = data;
     if (outraData.trim() && usandoOutraData) {
@@ -164,7 +164,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
       ]);
       return;
     }
-    Alert.alert("Excluir gasto?", "Essa ação não pode ser desfeita.", [
+    Alert.alert("Excluir despesa?", "Essa ação não pode ser desfeita.", [
       { text: "Cancelar", style: "cancel" },
       { text: "Excluir", style: "destructive", onPress: () => apagar(false) },
     ]);
@@ -176,6 +176,14 @@ export function GastoFormScreen({ navigation, route }: Props) {
 
   return (
     <TelaFormulario>
+      {!gastoId && (
+        <View style={{ flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg }}>
+          <Atalho emoji="📷" titulo="Ler nota" onPress={() => navigation.navigate("NotaScanner")} />
+          <Atalho emoji="📄" titulo="Importar extrato ou fatura" onPress={() => navigation.navigate("Importar")} />
+          <Atalho emoji="🧾" titulo="Conta fixa" onPress={() => navigation.navigate("ContaForm", {})} />
+        </View>
+      )}
+
       <Text style={typography.label}>{parcelas > 1 ? "VALOR TOTAL DA COMPRA" : "VALOR"}</Text>
       <TextInput
         value={formatarReais(centavos / 100)}
@@ -283,7 +291,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
       <TextInput value={descricao} onChangeText={setDescricao} placeholder="Ex.: Mercado Koch, farmácia, gasolina" placeholderTextColor={colors.textSecondary} style={estiloInput()} />
 
       <Botao titulo={parcelas > 1 ? `Salvar ${parcelas} parcelas` : "Salvar"} onPress={salvar} carregando={salvando} style={{ marginTop: spacing.xl }} />
-      {gastoId && <Botao titulo="Excluir gasto" variante="link" onPress={excluir} style={{ marginTop: spacing.sm }} />}
+      {gastoId && <Botao titulo="Excluir despesa" variante="link" onPress={excluir} style={{ marginTop: spacing.sm }} />}
       {itensNota.length > 0 && (
         <View style={{ marginTop: spacing.lg }}>
           <ItensDaNota itens={itensNota} />
@@ -299,5 +307,31 @@ function Secao({ titulo, children }: { titulo: string; children: React.ReactNode
       <Text style={[typography.label, { marginBottom: spacing.sm }]}>{titulo}</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, alignItems: "center" }}>{children}</View>
     </View>
+  );
+}
+
+/** Botão quadrado de atalho no topo de "Lançar despesa". */
+function Atalho({ emoji, titulo, onPress }: { emoji: string; titulo: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={{
+        flex: 1,
+        minHeight: 84,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: spacing.sm,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+      }}
+    >
+      <Text style={{ fontSize: 26 }}>{emoji}</Text>
+      <Text style={[typography.label, { color: colors.textPrimary, textAlign: "center", marginTop: 4 }]} numberOfLines={2}>
+        {titulo}
+      </Text>
+    </TouchableOpacity>
   );
 }

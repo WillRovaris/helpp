@@ -43,7 +43,8 @@ o que mudou para quem usa o app, sem jargão.
 5. Commit em português + `git push` para `main` depois de cada mudança.
 
 ## Convenções do código
-- Textos da interface em português do Brasil; nomes de variáveis em português.
+- Textos da interface em português do Brasil; nomes de variáveis em português. Na interface é **"despesa"** (não "gasto"); no código/banco continua `gasto`.
+- Tela inicial: um botão "+ Lançar despesa" (atalhos Ler nota / Importar / Conta fixa ficam dentro dele) e "📋 Histórico" no rodapé — pedido do dono.
 - Cores: **sempre** `colors.*` / `typography.*` de `src/theme.ts` lidas no render (são getters por causa do tema claro/escuro).
   Não usar cor dentro de `StyleSheet.create` nem em constante no topo do arquivo.
 - Formulários usam `TelaFormulario` (`src/components/ui.tsx`) para o teclado não cobrir o campo.
