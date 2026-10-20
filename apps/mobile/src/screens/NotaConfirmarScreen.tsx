@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, Text, View } from "react-native";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, Chip } from "../components/ui";
@@ -16,6 +16,8 @@ type Props = NativeStackScreenProps<RootStackParamList, "NotaConfirmar">;
 
 // Nota lida: a pessoa confere, escolhe categoria e como pagou, e salva.
 // Grava a nota + itens e cria o gasto com o total, ligado à nota.
+// Itens podem ser tirados (ex.: algo comprado para outra finalidade, como os doces):
+// a despesa fica só com o que sobrou.
 export function NotaConfirmarScreen({ navigation, route }: Props) {
   const { qr, nota } = route.params;
   const { userId } = useAuth();
@@ -28,6 +30,22 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
   const [cartaoId, setCartaoId] = useState<string | null>(null);
   const [pagoPor, setPagoPor] = useState<string | null>(userId);
   const [salvando, setSalvando] = useState(false);
+  /** Índices dos itens tirados da despesa. */
+  const [removidos, setRemovidos] = useState<Set<number>>(new Set());
+
+  const itensMantidos = nota.itens.filter((_, i) => !removidos.has(i));
+  const valorRemovido = nota.itens.reduce((s, item, i) => (removidos.has(i) ? s + item.valorTotal : s), 0);
+  // Total da nota já vem com descontos; tira só o valor dos itens removidos.
+  const totalDespesa = Math.max(0, Math.round((nota.total - valorRemovido) * 100) / 100);
+
+  function alternarItem(i: number) {
+    setRemovidos((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(i)) novo.delete(i);
+      else novo.add(i);
+      return novo;
+    });
+  }
 
   // Nota fiscal quase sempre é mercado: já deixa marcado.
   useEffect(() => {
@@ -44,6 +62,7 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
     if (!casa) return;
     const chave = chaveDoQr(qr);
     if (!chave) return Alert.alert("Erro", "Chave da nota não encontrada no QR Code.");
+    if (itensMantidos.length === 0 || totalDespesa <= 0) return Alert.alert("Nenhum item", "Deixe pelo menos um item na despesa.");
     if (forma === "credito" && !cartaoId) {
       return Alert.alert("Cartão", cartoes.length ? "Escolha qual cartão foi usado." : "Cadastre um cartão primeiro (tela inicial → Cartões).");
     }
@@ -77,7 +96,7 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
       const desfazer = () => supabase.from("notas").delete().eq("id", notaRow.id);
 
       const { error: erroItens } = await supabase.from("nota_itens").insert(
-        nota.itens.map((i) => ({
+        itensMantidos.map((i) => ({
           nota_id: notaRow.id,
           casa_id: casa.id,
           nome: i.nome,
@@ -93,7 +112,7 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
 
       const { error: erroGasto } = await supabase.from("gastos").insert({
         casa_id: casa.id,
-        valor: nota.total,
+        valor: totalDespesa,
         data,
         descricao: nota.estabelecimento,
         categoria_id: categoriaId,
@@ -118,8 +137,11 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
       <Cartao>
         <Text style={[typography.body, { fontWeight: "700" }]}>{nota.estabelecimento}</Text>
         <Text style={typography.label}>{rotuloDia(data)}{nota.endereco ? ` · ${nota.endereco}` : ""}</Text>
-        <Text style={{ fontSize: 32, fontWeight: "700", color: colors.textPrimary, marginTop: spacing.sm }}>{formatarReais(nota.total)}</Text>
-        <Text style={typography.label}>{nota.itens.length} {nota.itens.length === 1 ? "item" : "itens"}</Text>
+        <Text style={{ fontSize: 32, fontWeight: "700", color: colors.textPrimary, marginTop: spacing.sm }}>{formatarReais(totalDespesa)}</Text>
+        <Text style={typography.label}>
+          {itensMantidos.length} {itensMantidos.length === 1 ? "item" : "itens"}
+          {removidos.size > 0 ? ` · ${removidos.size} tirado${removidos.size > 1 ? "s" : ""} (${formatarReais(valorRemovido)}) · nota completa ${formatarReais(nota.total)}` : ""}
+        </Text>
       </Cartao>
 
       <Secao titulo="CATEGORIA">
@@ -152,26 +174,49 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
         </Secao>
       )}
 
-      <Botao titulo="Salvar despesa" onPress={salvar} carregando={salvando} />
+      <ItensDaNota itens={nota.itens} removidos={removidos} onAlternar={alternarItem} />
 
-      <ItensDaNota itens={nota.itens} />
+      <Botao titulo={`Salvar despesa · ${formatarReais(totalDespesa)}`} onPress={salvar} carregando={salvando} />
     </ScrollView>
   );
 }
 
-export function ItensDaNota({ itens }: { itens: { nome: string; quantidade: number; valorTotal: number }[] }) {
+/** Lista de itens da nota. Com `onAlternar`, cada item ganha um botão para tirar/voltar da despesa. */
+export function ItensDaNota({
+  itens,
+  removidos,
+  onAlternar,
+}: {
+  itens: { nome: string; quantidade: number; valorTotal: number }[];
+  removidos?: Set<number>;
+  onAlternar?: (indice: number) => void;
+}) {
   return (
     <Cartao style={{ paddingVertical: spacing.xs }}>
-      <Text style={[typography.label, { paddingVertical: spacing.sm }]}>ITENS DA NOTA</Text>
-      {itens.map((i, idx) => (
-        <View key={idx} style={{ flexDirection: "row", paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border }}>
-          <Text style={[typography.body, { flex: 1, fontSize: 14 }]} numberOfLines={2}>
-            {i.quantidade !== 1 ? `${String(i.quantidade).replace(".", ",")} × ` : ""}
-            {i.nome}
-          </Text>
-          <Text style={[typography.body, { fontSize: 14, marginLeft: spacing.sm }]}>{formatarReais(i.valorTotal)}</Text>
-        </View>
-      ))}
+      <Text style={[typography.label, { paddingVertical: spacing.sm }]}>
+        ITENS DA NOTA{onAlternar ? " · toque no ✕ para tirar da despesa" : ""}
+      </Text>
+      {itens.map((i, idx) => {
+        const tirado = removidos?.has(idx) ?? false;
+        return (
+          <View key={idx} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, opacity: tirado ? 0.45 : 1 }}>
+            <Text style={[typography.body, { flex: 1, fontSize: 14, textDecorationLine: tirado ? "line-through" : "none" }]} numberOfLines={2}>
+              {i.quantidade !== 1 ? `${String(i.quantidade).replace(".", ",")} × ` : ""}
+              {i.nome}
+            </Text>
+            <Text style={[typography.body, { fontSize: 14, marginLeft: spacing.sm, textDecorationLine: tirado ? "line-through" : "none" }]}>{formatarReais(i.valorTotal)}</Text>
+            {onAlternar && (
+              <TouchableOpacity
+                onPress={() => onAlternar(idx)}
+                accessibilityLabel={tirado ? "Voltar item para a despesa" : "Tirar item da despesa"}
+                style={{ marginLeft: spacing.sm, width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: tirado ? colors.accent : colors.danger }}
+              >
+                <Text style={{ color: tirado ? colors.accent : colors.danger, fontWeight: "700" }}>{tirado ? "↺" : "✕"}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+      })}
     </Cartao>
   );
 }
