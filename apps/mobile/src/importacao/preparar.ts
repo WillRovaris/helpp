@@ -43,6 +43,7 @@ export interface ResultadoPreparo {
 // Palavras na descrição → ícone da categoria (o app mapeia ícone → categoria da casa).
 const REGRAS_CATEGORIA: [RegExp, string][] = [
   [/limite convertido|convers(ao|ão) de limite|emprestimo|credito pessoal|consignado|financ|antecipacao|refinanciamento|bx\.? ?ant|\bemp\b/, "cash"],
+  [/igreja|dizimo|oferta|paroquia|templo|congregacao|ministerio|diocese|comunidade evang|assembleia de deus/, "church"],
   [/supermerc|mercado|atacad|hortifruti|acougue|padaria|assai|carrefour|koch|giassi|angeloni|fort atacad|bistek|komprao/, "cart"],
   [/ifood|restaur|lanch|pizza|burger|mc ?donald|\bbk\b|subway|cafe|\bbar\b|churrasc|sushi|rappi|ze delivery/, "restaurant"],
   [/posto|combust|shell|ipiranga|petrobras|br mania|uber|99 ?app|99pop|estaciona|pedagio|sem parar|conectcar|onibus|passagem urb/, "car"],
