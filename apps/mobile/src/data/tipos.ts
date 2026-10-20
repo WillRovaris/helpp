@@ -65,3 +65,21 @@ export function tituloGasto(g: Gasto, nomeCategoria: string | undefined): string
 export function emojiCategoria(icone: string | undefined): string {
   return (icone && EMOJI[icone]) ?? "🏷️";
 }
+
+export interface ContaFixa {
+  id: string;
+  nome: string;
+  /** null = valor muda todo mês (luz, água). */
+  valor: number | null;
+  dia_vencimento: number;
+  categoria_id: string | null;
+}
+
+export interface PagamentoConta {
+  id: string;
+  conta_id: string;
+  competencia: string;
+  valor: number;
+  pago_em: string;
+  gasto_id: string | null;
+}

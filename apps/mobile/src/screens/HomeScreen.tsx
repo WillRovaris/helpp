@@ -6,7 +6,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { Botao, Cartao } from "../components/ui";
-import { useCartoes, useCategorias, useGastosCredito, useGastosDoMes } from "../data/hooks";
+import { useCartoes, useCategorias, useContasFixas, useGastosCredito, useGastosDoMes, usePagamentosDoMes } from "../data/hooks";
+import { competencia, contasDoMes, textoSituacao } from "../lib/contas";
+import { corSituacao } from "./ContasScreen";
 import { emojiCategoria, tituloGasto } from "../data/tipos";
 import { corLimite } from "../components/ResumoCartaoCard";
 import { diaMes, resumirCartao, somarMeses } from "../lib/fatura";
@@ -25,13 +27,18 @@ export function HomeScreen({ navigation }: Props) {
   const { gastos: gastosAnteriores } = useGastosDoMes(mesAnterior.getFullYear(), mesAnterior.getMonth());
   const { categorias } = useCategorias();
   const { cartoes } = useCartoes();
+  const comp = competencia(hoje.getFullYear(), hoje.getMonth());
+  const { contas, recarregar: recarregarContas } = useContasFixas();
+  const { pagamentos, recarregar: recarregarPag } = usePagamentosDoMes(comp);
   const { gastosCredito, recarregar: recarregarCredito } = useGastosCredito(somarMeses(hojeISO(), -3));
 
   useFocusEffect(
     useCallback(() => {
       recarregar();
       recarregarCredito();
-    }, [recarregar, recarregarCredito]),
+      recarregarContas();
+      recarregarPag();
+    }, [recarregar, recarregarCredito, recarregarContas, recarregarPag]),
   );
 
   if (!casa) return null;
@@ -42,6 +49,9 @@ export function HomeScreen({ navigation }: Props) {
   const totalAnteriorAteHoje = gastosAnteriores.filter((g) => Number(g.data.slice(8, 10)) <= hoje.getDate()).reduce((s, g) => s + g.valor, 0);
   const comparacao = textoComparacao(total, totalAnteriorAteHoje);
   const categoriaPorId = new Map(categorias.map((c) => [c.id, c]));
+  const contasMes = contasDoMes(contas, pagamentos, comp, hojeISO());
+  const contasAbertas = contasMes.filter((c) => !c.pagamento);
+  const pendentesUrgentes = contasAbertas.filter((c) => c.situacao === "atrasada" || c.situacao === "vence-logo");
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -71,6 +81,30 @@ export function HomeScreen({ navigation }: Props) {
           <Botao titulo="+ Lançar gasto" onPress={() => navigation.navigate("GastoForm", {})} style={{ flex: 1, minHeight: 58 }} />
           <Botao titulo="📷 Ler nota" onPress={() => navigation.navigate("NotaScanner")} style={{ flex: 1, minHeight: 58 }} />
         </View>
+
+        {contasMes.length > 0 && (
+          <TouchableOpacity onPress={() => navigation.navigate("Contas")} activeOpacity={0.8}>
+            <Cartao>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={typography.label}>CONTAS FIXAS</Text>
+                <Text style={[typography.label, { color: colors.accent }]}>
+                  {contasMes.length - contasAbertas.length} de {contasMes.length} pagas ›
+                </Text>
+              </View>
+              {pendentesUrgentes.length === 0 ? (
+                <Text style={[typography.body, { marginTop: spacing.xs, color: contasAbertas.length ? colors.textPrimary : colors.accent }]}>
+                  {contasAbertas.length ? `Próxima: ${contasAbertas[0].conta.nome} · ${textoSituacao(contasAbertas[0]).toLowerCase()}` : "✅ Todas pagas este mês"}
+                </Text>
+              ) : (
+                pendentesUrgentes.slice(0, 3).map((c) => (
+                  <Text key={c.conta.id} style={[typography.body, { marginTop: spacing.xs, color: corSituacao(c) }]}>
+                    {c.situacao === "atrasada" ? "⚠️" : "⏰"} {c.conta.nome}{c.conta.valor ? ` (${formatarReais(c.conta.valor)})` : ""} · {textoSituacao(c).toLowerCase()}
+                  </Text>
+                ))
+              )}
+            </Cartao>
+          </TouchableOpacity>
+        )}
 
         {cartoes.length > 0 && (
           <Cartao style={{ paddingVertical: spacing.xs }}>
@@ -132,7 +166,8 @@ export function HomeScreen({ navigation }: Props) {
         />
 
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <Botao titulo="📋 Histórico" variante="secundario" onPress={() => navigation.navigate("Historico", {})} style={{ flex: 1 }} />
+          <Botao titulo="📋 Gastos" variante="secundario" onPress={() => navigation.navigate("Historico", {})} style={{ flex: 1 }} />
+          <Botao titulo="🧾 Contas" variante="secundario" onPress={() => navigation.navigate("Contas")} style={{ flex: 1 }} />
           <Botao titulo="💳 Cartões" variante="secundario" onPress={() => navigation.navigate("Cartoes")} style={{ flex: 1 }} />
         </View>
 

@@ -148,6 +148,8 @@ export function GastoFormScreen({ navigation, route }: Props) {
       ? await supabase.from("gastos").delete().eq("parcelamento_id", parcelamento.id)
       : await supabase.from("gastos").delete().eq("id", gastoId!);
     if (error) return Alert.alert("Erro", traduzirErro(error.message));
+    // Gasto de uma conta fixa paga: a conta volta a ficar em aberto.
+    if (!todasParcelas) await supabase.from("contas_pagamentos").delete().eq("gasto_id", gastoId!);
     // Gasto que veio de nota: apaga a nota junto, para ela poder ser lida de novo.
     if (notaId) await supabase.from("notas").delete().eq("id", notaId);
     navigation.goBack();

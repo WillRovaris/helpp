@@ -10,10 +10,13 @@ import { CartoesScreen } from "../screens/CartoesScreen";
 import { CasaSetupScreen } from "../screens/CasaSetupScreen";
 import { CompartilharScreen } from "../screens/CompartilharScreen";
 import { ConfiguracoesScreen } from "../screens/ConfiguracoesScreen";
+import { ContaFormScreen } from "../screens/ContaFormScreen";
+import { ContasScreen } from "../screens/ContasScreen";
 import { GastoFormScreen } from "../screens/GastoFormScreen";
 import { HistoricoScreen } from "../screens/HistoricoScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { LoginScreen } from "../screens/LoginScreen";
+import { PagarContaScreen } from "../screens/PagarContaScreen";
 import { NotaConfirmarScreen } from "../screens/NotaConfirmarScreen";
 import { NotaConsultaScreen } from "../screens/NotaConsultaScreen";
 import { NotaScannerScreen } from "../screens/NotaScannerScreen";
@@ -60,6 +63,9 @@ export function RootNavigator() {
             <Stack.Screen name="CartaoDetalhe" component={CartaoDetalheScreen} options={{ headerShown: true, title: "Fatura" }} />
             <Stack.Screen name="CartaoForm" component={CartaoFormScreen} options={{ headerShown: true, title: "Cartão" }} />
             <Stack.Screen name="Renda" component={RendaScreen} options={{ headerShown: true, title: "Renda do mês" }} />
+            <Stack.Screen name="Contas" component={ContasScreen} options={{ headerShown: true, title: "Contas fixas" }} />
+            <Stack.Screen name="ContaForm" component={ContaFormScreen} options={{ headerShown: true, title: "Conta fixa" }} />
+            <Stack.Screen name="PagarConta" component={PagarContaScreen} options={{ headerShown: true, title: "Pagar conta" }} />
             <Stack.Screen name="NotaScanner" component={NotaScannerScreen} options={{ headerShown: true, title: "Ler nota fiscal" }} />
             <Stack.Screen name="NotaConsulta" component={NotaConsultaScreen} options={{ headerShown: true, title: "Consultando nota" }} />
             <Stack.Screen name="NotaConfirmar" component={NotaConfirmarScreen} options={{ headerShown: true, title: "Confirmar nota" }} />

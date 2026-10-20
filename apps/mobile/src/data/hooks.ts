@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useCasa } from "../casa/CasaContext";
 import { limitesDoMes } from "../lib/format";
 import { supabase } from "../lib/supabase";
-import type { Cartao, Categoria, Gasto } from "./tipos";
+import type { Cartao, Categoria, ContaFixa, Gasto, PagamentoConta } from "./tipos";
 
 /**
  * Busca uma lista da casa e mantém atualizada em tempo real: quando o outro
@@ -93,4 +93,23 @@ export function useGastosCredito(desde: string) {
     [desde],
   );
   return { gastosCredito: itens.map((g) => ({ ...g, valor: Number(g.valor) })), ...resto };
+}
+
+export function useContasFixas() {
+  const { itens, ...resto } = useListaAoVivo<ContaFixa>(
+    "contas_fixas",
+    (casaId) => supabase.from("contas_fixas").select("id, nome, valor, dia_vencimento, categoria_id").eq("casa_id", casaId).eq("ativa", true).order("dia_vencimento"),
+    [],
+  );
+  return { contas: itens.map((c) => ({ ...c, valor: c.valor == null ? null : Number(c.valor) })), ...resto };
+}
+
+/** Pagamentos das contas fixas de um mês (competencia = dia 1 do mês, YYYY-MM-01). */
+export function usePagamentosDoMes(competencia: string) {
+  const { itens, ...resto } = useListaAoVivo<PagamentoConta>(
+    "contas_pagamentos",
+    (casaId) => supabase.from("contas_pagamentos").select("id, conta_id, competencia, valor, pago_em, gasto_id").eq("casa_id", casaId).eq("competencia", competencia),
+    [competencia],
+  );
+  return { pagamentos: itens.map((p) => ({ ...p, valor: Number(p.valor) })), ...resto };
 }
