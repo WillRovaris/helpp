@@ -5,6 +5,7 @@ export type RootStackParamList = {
   CasaSetup: undefined;
   Home: undefined;
   Compartilhar: undefined;
+  Configuracoes: undefined;
   GastoForm: { gastoId?: string };
   Historico: { categoriaId?: string };
   Renda: undefined;

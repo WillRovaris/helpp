@@ -26,7 +26,7 @@ export function CartaoSobra({ total, renda, onDefinirRenda }: { total: number; r
   }
   const sobra = renda - total;
   const fracao = total / renda;
-  const cor = fracao >= 1 ? colors.danger : fracao >= 0.8 ? "#F59E0B" : colors.accent;
+  const cor = fracao >= 1 ? colors.danger : fracao >= 0.8 ? colors.warning : colors.accent;
   return (
     <TouchableOpacity onPress={onDefinirRenda} activeOpacity={0.8}>
       <Barra fracao={fracao} cor={cor} />

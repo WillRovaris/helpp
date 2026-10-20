@@ -3,7 +3,6 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { Botao, Cartao } from "../components/ui";
@@ -17,7 +16,6 @@ import { colors, spacing, typography } from "../theme";
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export function HomeScreen({ navigation }: Props) {
-  const { signOut } = useAuth();
   const { casa, membros, meuNome } = useCasa();
   const hoje = new Date();
   const { gastos, recarregar } = useGastosDoMes(hoje.getFullYear(), hoje.getMonth());
@@ -33,7 +31,6 @@ export function HomeScreen({ navigation }: Props) {
 
   if (!casa) return null;
 
-  const compartilhada = membros.length >= 2;
   const total = gastos.reduce((s, g) => s + g.valor, 0);
   const ultimos = gastos.slice(0, 5);
   // Mês passado só até o mesmo dia de hoje, para a comparação ser justa.
@@ -49,8 +46,8 @@ export function HomeScreen({ navigation }: Props) {
             <Text style={typography.subtitle}>Olá, {meuNome}</Text>
             <Text style={typography.title}>{casa.nome}</Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate("Compartilhar")} style={{ paddingVertical: spacing.sm }}>
-            <Text style={{ color: colors.accent, fontWeight: "600" }}>{compartilhada ? "👥 Casa" : "Compartilhar"}</Text>
+          <TouchableOpacity onPress={() => navigation.navigate("Configuracoes")} style={{ padding: spacing.sm }} accessibilityLabel="Configurações">
+            <Text style={{ fontSize: 24 }}>⚙️</Text>
           </TouchableOpacity>
         </View>
 
@@ -112,8 +109,6 @@ export function HomeScreen({ navigation }: Props) {
             )
           }
         />
-
-        <Botao titulo="Sair da conta" variante="link" onPress={signOut} style={{ marginTop: spacing.lg }} />
       </ScrollView>
     </SafeAreaView>
   );

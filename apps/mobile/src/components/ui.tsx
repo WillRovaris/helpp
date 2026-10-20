@@ -16,7 +16,12 @@ export function Botao({
   variante?: "primario" | "secundario" | "link";
   style?: ViewStyle;
 }) {
-  const estilo = variante === "primario" ? styles.primario : variante === "secundario" ? styles.secundario : styles.link;
+  const estilo =
+    variante === "primario"
+      ? { backgroundColor: colors.accent }
+      : variante === "secundario"
+        ? { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.accent }
+        : styles.link;
   const corTexto = variante === "primario" ? colors.accentContrast : colors.accent;
   return (
     <TouchableOpacity style={[styles.botao, estilo, style]} onPress={onPress} disabled={carregando} activeOpacity={0.8}>
@@ -29,13 +34,13 @@ export function Campo({ rotulo, ...props }: TextInputProps & { rotulo: string })
   return (
     <View style={{ marginBottom: spacing.md }}>
       <Text style={[typography.label, { marginBottom: spacing.xs }]}>{rotulo}</Text>
-      <TextInput placeholderTextColor={colors.textSecondary} style={styles.input} {...props} />
+      <TextInput placeholderTextColor={colors.textSecondary} style={estiloInput()} {...props} />
     </View>
   );
 }
 
 export function Cartao({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
-  return <View style={[styles.cartao, style]}>{children}</View>;
+  return <View style={[styles.cartao, { backgroundColor: colors.surface, borderColor: colors.border }, style]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -46,11 +51,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
   },
-  primario: { backgroundColor: colors.accent },
-  secundario: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.accent },
   link: { backgroundColor: "transparent", minHeight: 40 },
   botaoTexto: { fontSize: 16, fontWeight: "600" },
-  input: {
+  cartao: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+});
+
+/** Estilo de campo de texto com as cores do tema atual (por isso é função, não StyleSheet). */
+export function estiloInput() {
+  return {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -59,15 +71,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: colors.textPrimary,
-  },
-  cartao: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-  },
-});
+  } as const;
+}
 
 /** Opção selecionável em linha (categoria, forma de pagamento, data...). */
 export function Chip({ rotulo, ativo, onPress, cor }: { rotulo: string; ativo: boolean; onPress: () => void; cor?: string }) {

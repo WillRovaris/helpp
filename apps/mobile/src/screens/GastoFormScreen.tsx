@@ -3,30 +3,19 @@ import React, { useEffect, useState } from "react";
 import { Alert, Text, TextInput, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Chip, TelaFormulario } from "../components/ui";
+import { Botao, Chip, estiloInput, TelaFormulario } from "../components/ui";
 import { useCartoes, useCategorias } from "../data/hooks";
 import { emojiCategoria, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
 import { diaMes, faturaDaCompra, somarMeses } from "../lib/fatura";
 import { centavosDoTexto, formatarReais, hojeISO, isoDeTextoBR, mascaraData, rotuloDia, somarDias } from "../lib/format";
 import { supabase, traduzirErro } from "../lib/supabase";
 import type { RootStackParamList } from "../navigation/types";
-import { colors, radius, spacing, typography } from "../theme";
+import { colors, spacing, typography } from "../theme";
 import { ItensDaNota } from "./NotaConfirmarScreen";
 
 type Props = NativeStackScreenProps<RootStackParamList, "GastoForm">;
 
 const OPCOES_PARCELAS = [2, 3, 4, 5, 6, 10, 12];
-
-const estiloCampo = {
-  backgroundColor: colors.surface,
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.sm,
-  paddingHorizontal: spacing.md,
-  paddingVertical: 12,
-  fontSize: 16,
-  color: colors.textPrimary,
-} as const;
 
 // Lançar (ou editar) um gasto. Pensado para ser rápido: valor → categoria →
 // salvar. O resto já vem preenchido com o mais comum.
@@ -249,7 +238,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
               placeholder="outro"
               placeholderTextColor={colors.textSecondary}
               keyboardType="number-pad"
-              style={[estiloCampo, { borderRadius: 999, paddingVertical: 6, minWidth: 70, fontSize: 14, borderColor: parcelasOutro ? colors.accent : colors.border }]}
+              style={[estiloInput(), { borderRadius: 999, paddingVertical: 6, minWidth: 70, fontSize: 14, borderColor: parcelasOutro ? colors.accent : colors.border }]}
             />
           </Secao>
           {parcelas > 1 && centavos > 0 && (
@@ -283,13 +272,13 @@ export function GastoFormScreen({ navigation, route }: Props) {
           placeholderTextColor={colors.textSecondary}
           keyboardType="number-pad"
           maxLength={10}
-          style={[estiloCampo, { borderRadius: 999, paddingVertical: 6, minWidth: 130, fontSize: 14, borderColor: usandoOutraData ? colors.accent : colors.border }]}
+          style={[estiloInput(), { borderRadius: 999, paddingVertical: 6, minWidth: 130, fontSize: 14, borderColor: usandoOutraData ? colors.accent : colors.border }]}
         />
       </Secao>
       {usandoOutraData && <Text style={[typography.label, { marginTop: spacing.xs }]}>{rotuloDia(data)}</Text>}
 
       <Text style={[typography.label, { marginTop: spacing.lg, marginBottom: spacing.xs }]}>DESCRIÇÃO (OPCIONAL)</Text>
-      <TextInput value={descricao} onChangeText={setDescricao} placeholder="Ex.: Mercado Koch, farmácia, gasolina" placeholderTextColor={colors.textSecondary} style={estiloCampo} />
+      <TextInput value={descricao} onChangeText={setDescricao} placeholder="Ex.: Mercado Koch, farmácia, gasolina" placeholderTextColor={colors.textSecondary} style={estiloInput()} />
 
       <Botao titulo={parcelas > 1 ? `Salvar ${parcelas} parcelas` : "Salvar"} onPress={salvar} carregando={salvando} style={{ marginTop: spacing.xl }} />
       {gastoId && <Botao titulo="Excluir gasto" variante="link" onPress={excluir} style={{ marginTop: spacing.sm }} />}

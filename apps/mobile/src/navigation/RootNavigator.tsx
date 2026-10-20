@@ -1,4 +1,4 @@
-import { NavigationContainer } from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -8,6 +8,7 @@ import { CartaoFormScreen } from "../screens/CartaoFormScreen";
 import { CartoesScreen } from "../screens/CartoesScreen";
 import { CasaSetupScreen } from "../screens/CasaSetupScreen";
 import { CompartilharScreen } from "../screens/CompartilharScreen";
+import { ConfiguracoesScreen } from "../screens/ConfiguracoesScreen";
 import { GastoFormScreen } from "../screens/GastoFormScreen";
 import { HistoricoScreen } from "../screens/HistoricoScreen";
 import { HomeScreen } from "../screens/HomeScreen";
@@ -16,6 +17,7 @@ import { NotaConfirmarScreen } from "../screens/NotaConfirmarScreen";
 import { NotaConsultaScreen } from "../screens/NotaConsultaScreen";
 import { NotaScannerScreen } from "../screens/NotaScannerScreen";
 import { RendaScreen } from "../screens/RendaScreen";
+import { useTema } from "../tema/TemaContext";
 import { colors } from "../theme";
 import type { RootStackParamList } from "./types";
 
@@ -24,6 +26,12 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export function RootNavigator() {
   const { session, loading: authLoading } = useAuth();
   const { casa, loading: casaLoading } = useCasa();
+  const { escuro } = useTema();
+  const base = escuro ? DarkTheme : DefaultTheme;
+  const temaNavegacao = {
+    ...base,
+    colors: { ...base.colors, primary: colors.accent, background: colors.background, card: colors.surface, text: colors.textPrimary, border: colors.border },
+  };
 
   if (authLoading || (session && casaLoading)) {
     return (
@@ -34,7 +42,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={temaNavegacao}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!session ? (
           <Stack.Screen name="Login" component={LoginScreen} />
@@ -44,6 +52,7 @@ export function RootNavigator() {
           <>
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen name="Compartilhar" component={CompartilharScreen} options={{ headerShown: true, title: "Compartilhar a casa" }} />
+            <Stack.Screen name="Configuracoes" component={ConfiguracoesScreen} options={{ headerShown: true, title: "Configurações" }} />
             <Stack.Screen name="GastoForm" component={GastoFormScreen} options={{ headerShown: true, title: "Novo gasto" }} />
             <Stack.Screen name="Historico" component={HistoricoScreen} options={{ headerShown: true, title: "Gastos" }} />
             <Stack.Screen name="Cartoes" component={CartoesScreen} options={{ headerShown: true, title: "Cartões" }} />
