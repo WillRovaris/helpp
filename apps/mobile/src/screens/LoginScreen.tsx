@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, KeyboardAvoidingView, ScrollView, Text, View } from "react-native";
+import { Alert, Image, KeyboardAvoidingView, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthContext";
 import { Botao, Campo } from "../components/ui";
@@ -43,9 +43,9 @@ export function LoginScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView contentContainerStyle={{ padding: spacing.lg, flexGrow: 1, justifyContent: "center" }} keyboardShouldPersistTaps="handled">
-          <View style={{ marginBottom: spacing.xl }}>
-            <Text style={[typography.title, { color: colors.accent }]}>Helpp</Text>
-            <Text style={typography.subtitle}>As finanças da casa, simples e juntas.</Text>
+          <View style={{ marginBottom: spacing.xl, alignItems: "center" }}>
+            <Image source={require("../../assets/logo.png")} style={{ width: 180, height: 180 }} resizeMode="contain" accessibilityLabel="Helpp" />
+            <Text style={[typography.subtitle, { marginTop: spacing.sm, textAlign: "center" }]}>As finanças da casa, simples e juntas.</Text>
           </View>
 
           <Campo rotulo="E-MAIL" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" placeholder="voce@email.com" />

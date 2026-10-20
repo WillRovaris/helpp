@@ -10,6 +10,7 @@
     "@supabase/supabase-js": "^2.118.0",
     "expo": "~57.0.30",
     "expo-camera": "~57.0.6",
+    "expo-splash-screen": "~57.0.10",
     "expo-status-bar": "~57.0.1",
     "expo-updates": "~57.0.26",
     "react": "19.2.3",
