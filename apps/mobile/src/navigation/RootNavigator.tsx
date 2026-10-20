@@ -1,6 +1,7 @@
-import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
+import { createNavigationContainerRef, DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
+import * as Notifications from "expo-notifications";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
@@ -15,6 +16,7 @@ import { ContasScreen } from "../screens/ContasScreen";
 import { GastoFormScreen } from "../screens/GastoFormScreen";
 import { HistoricoScreen } from "../screens/HistoricoScreen";
 import { HomeScreen } from "../screens/HomeScreen";
+import { ImportarScreen } from "../screens/ImportarScreen";
 import { LoginScreen } from "../screens/LoginScreen";
 import { PagarContaScreen } from "../screens/PagarContaScreen";
 import { NotaConfirmarScreen } from "../screens/NotaConfirmarScreen";
@@ -26,11 +28,25 @@ import { colors } from "../theme";
 import type { RootStackParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const navegacao = createNavigationContainerRef<RootStackParamList>();
 
 export function RootNavigator() {
   const { session, loading: authLoading } = useAuth();
   const { casa, loading: casaLoading } = useCasa();
   const { escuro } = useTema();
+
+  // Tocar num lembrete abre a tela dele (contas ou cartões).
+  const resposta = Notifications.useLastNotificationResponse();
+  const respostaTratada = useRef<string | null>(null);
+  const temCasa = !!casa;
+  useEffect(() => {
+    if (!resposta || !temCasa || !navegacao.isReady()) return;
+    const id = resposta.notification.request.identifier;
+    if (respostaTratada.current === id) return;
+    respostaTratada.current = id;
+    const tela = resposta.notification.request.content.data?.tela;
+    if (tela === "Contas" || tela === "Cartoes") navegacao.navigate(tela);
+  }, [resposta, temCasa]);
   const base = escuro ? DarkTheme : DefaultTheme;
   const temaNavegacao = {
     ...base,
@@ -46,7 +62,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={temaNavegacao}>
+    <NavigationContainer theme={temaNavegacao} ref={navegacao}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!session ? (
           <Stack.Screen name="Login" component={LoginScreen} />
@@ -63,6 +79,7 @@ export function RootNavigator() {
             <Stack.Screen name="CartaoDetalhe" component={CartaoDetalheScreen} options={{ headerShown: true, title: "Fatura" }} />
             <Stack.Screen name="CartaoForm" component={CartaoFormScreen} options={{ headerShown: true, title: "Cartão" }} />
             <Stack.Screen name="Renda" component={RendaScreen} options={{ headerShown: true, title: "Renda do mês" }} />
+            <Stack.Screen name="Importar" component={ImportarScreen} options={{ headerShown: true, title: "Importar extrato ou fatura" }} />
             <Stack.Screen name="Contas" component={ContasScreen} options={{ headerShown: true, title: "Contas fixas" }} />
             <Stack.Screen name="ContaForm" component={ContaFormScreen} options={{ headerShown: true, title: "Conta fixa" }} />
             <Stack.Screen name="PagarConta" component={PagarContaScreen} options={{ headerShown: true, title: "Pagar conta" }} />

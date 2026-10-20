@@ -1,9 +1,10 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, Chip } from "../components/ui";
+import { type ConfigLembretes, lerConfigLembretes, salvarConfigLembretes } from "../lembretes/lembretes";
 import { formatarReais } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
 import { type PreferenciaTema, useTema } from "../tema/TemaContext";
@@ -21,6 +22,16 @@ export function ConfiguracoesScreen({ navigation }: Props) {
   const { session, signOut } = useAuth();
   const { casa, membros } = useCasa();
   const { preferencia, escolher } = useTema();
+  const [lembretes, setLembretes] = useState<ConfigLembretes | null>(null);
+
+  useEffect(() => {
+    lerConfigLembretes().then(setLembretes);
+  }, []);
+
+  function mudarLembretes(c: ConfigLembretes) {
+    setLembretes(c);
+    salvarConfigLembretes(c, casa?.id);
+  }
 
   function sair() {
     Alert.alert("Sair da conta?", "Seus dados continuam salvos. É só entrar de novo depois.", [
@@ -40,9 +51,31 @@ export function ConfiguracoesScreen({ navigation }: Props) {
         </View>
       </Cartao>
 
+      {lembretes && (
+        <Cartao>
+          <Text style={[typography.label, { marginBottom: spacing.sm }]}>🔔 LEMBRETES DE CONTAS E FATURAS</Text>
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <Chip rotulo="Ligados" ativo={lembretes.ativo} onPress={() => mudarLembretes({ ...lembretes, ativo: true })} />
+            <Chip rotulo="Desligados" ativo={!lembretes.ativo} onPress={() => mudarLembretes({ ...lembretes, ativo: false })} />
+          </View>
+          {lembretes.ativo && (
+            <>
+              <Text style={[typography.label, { marginTop: spacing.md, marginBottom: spacing.sm }]}>HORÁRIO (NO DIA ANTERIOR E NO DIA DO VENCIMENTO)</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                {[7, 8, 9, 12, 18, 20].map((h) => (
+                  <Chip key={h} rotulo={`${h}h`} ativo={lembretes.hora === h} onPress={() => mudarLembretes({ ...lembretes, hora: h })} />
+                ))}
+              </View>
+            </>
+          )}
+        </Cartao>
+      )}
+
       <Cartao style={{ paddingVertical: spacing.xs }}>
         <Item titulo="📥 Renda do mês" detalhe={casa?.renda_mensal ? formatarReais(casa.renda_mensal) : "Não informada"} onPress={() => navigation.navigate("Renda")} />
         <Item titulo="💳 Cartões" onPress={() => navigation.navigate("Cartoes")} borda />
+        <Item titulo="🧾 Contas fixas" onPress={() => navigation.navigate("Contas")} borda />
+        <Item titulo="📄 Importar extrato ou fatura" onPress={() => navigation.navigate("Importar")} borda />
         <Item
           titulo={membros.length > 1 ? "👥 Casa compartilhada" : "👥 Compartilhar com alguém"}
           detalhe={membros.length > 1 ? membros.map((m) => m.nome).join(" e ") : "Opcional"}

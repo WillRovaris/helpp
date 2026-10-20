@@ -7,6 +7,7 @@ import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { Botao, Cartao } from "../components/ui";
 import { useCartoes, useCategorias, useContasFixas, useGastosCredito, useGastosDoMes, usePagamentosDoMes } from "../data/hooks";
+import { reagendarLembretes } from "../lembretes/lembretes";
 import { competencia, contasDoMes, textoSituacao } from "../lib/contas";
 import { corSituacao } from "./ContasScreen";
 import { emojiCategoria, tituloGasto } from "../data/tipos";
@@ -38,7 +39,8 @@ export function HomeScreen({ navigation }: Props) {
       recarregarCredito();
       recarregarContas();
       recarregarPag();
-    }, [recarregar, recarregarCredito, recarregarContas, recarregarPag]),
+      if (casa) reagendarLembretes(casa.id);
+    }, [recarregar, recarregarCredito, recarregarContas, recarregarPag, casa]),
   );
 
   if (!casa) return null;
@@ -170,6 +172,8 @@ export function HomeScreen({ navigation }: Props) {
           <Botao titulo="🧾 Contas" variante="secundario" onPress={() => navigation.navigate("Contas")} style={{ flex: 1 }} />
           <Botao titulo="💳 Cartões" variante="secundario" onPress={() => navigation.navigate("Cartoes")} style={{ flex: 1 }} />
         </View>
+
+        <Botao titulo="📄 Importar extrato ou fatura do banco" variante="secundario" onPress={() => navigation.navigate("Importar")} />
 
         <Botao
           titulo="📤 Enviar resumo do mês no WhatsApp"
