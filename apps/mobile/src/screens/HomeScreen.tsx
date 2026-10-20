@@ -29,7 +29,7 @@ export function HomeScreen({ navigation }: Props) {
   const { categorias } = useCategorias();
   const { ultimos, recarregar: recarregarUltimos } = useUltimosGastos(5);
   const { cartoes } = useCartoes();
-  const { faturaPaga } = useFaturasPagas();
+  const { faturaPaga, recarregar: recarregarFaturasPagas } = useFaturasPagas();
   const comp = competencia(hoje.getFullYear(), hoje.getMonth());
   const { contas, recarregar: recarregarContas } = useContasFixas();
   const { pagamentos, recarregar: recarregarPag } = usePagamentosDoMes(comp);
@@ -42,8 +42,9 @@ export function HomeScreen({ navigation }: Props) {
       recarregarContas();
       recarregarPag();
       recarregarUltimos();
+      recarregarFaturasPagas();
       if (casa) reagendarLembretes(casa.id);
-    }, [recarregar, recarregarCredito, recarregarContas, recarregarPag, recarregarUltimos, casa]),
+    }, [recarregar, recarregarCredito, recarregarContas, recarregarPag, recarregarUltimos, recarregarFaturasPagas, casa]),
   );
 
   if (!casa) return null;
@@ -132,11 +133,9 @@ export function HomeScreen({ navigation }: Props) {
                       </Text>
                     )}
                   </View>
-                  {r.fechada && (
-                    <Text style={[typography.label, { color: r.fechada.paga ? colors.accent : colors.warning }]}>
-                      {r.fechada.paga
-                        ? `✅ fatura de ${formatarReais(r.fechada.total)} paga`
-                        : `⏰ fatura fechada ${formatarReais(r.fechada.total)} vence ${diaMes(r.fechada.vencimento)}`}
+                  {r.fechada && !r.fechada.paga && (
+                    <Text style={[typography.label, { color: colors.warning }]}>
+                      ⏰ fatura fechada {formatarReais(r.fechada.total)} vence {diaMes(r.fechada.vencimento)}
                     </Text>
                   )}
                 </TouchableOpacity>

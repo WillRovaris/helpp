@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useCasa } from "../casa/CasaContext";
 import { faturaDaCompra, somarMeses } from "../lib/fatura";
-import { limitesDoMes } from "../lib/format";
+import { hojeISO, limitesDoMes } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import type { Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, PagamentoConta } from "./tipos";
 
@@ -93,12 +93,13 @@ export function useGastosDoMes(ano: number, mes: number) {
   };
 }
 
-/** Últimos gastos lançados (para a tela inicial), independente do mês. */
+/** Últimos gastos lançados (para a tela inicial), independente do mês. Parcelas com data futura ficam de fora. */
 export function useUltimosGastos(qtd: number) {
+  const hoje = hojeISO();
   const { itens, ...resto } = useListaAoVivo<Gasto>(
     "gastos",
-    (casaId) => supabase.from("gastos").select("*").eq("casa_id", casaId).order("created_at", { ascending: false }).limit(qtd),
-    [qtd],
+    (casaId) => supabase.from("gastos").select("*").eq("casa_id", casaId).lte("data", hoje).order("created_at", { ascending: false }).limit(qtd),
+    [qtd, hoje],
   );
   return { ultimos: itens.map((g) => ({ ...g, valor: Number(g.valor) })), ...resto };
 }

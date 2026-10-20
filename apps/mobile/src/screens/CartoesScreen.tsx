@@ -16,12 +16,13 @@ export function CartoesScreen({ navigation }: Props) {
   const hoje = hojeISO();
   const { cartoes, carregando } = useCartoes();
   const { gastosCredito, recarregar } = useGastosCredito(somarMeses(hoje, -3));
-  const { faturaPaga } = useFaturasPagas();
+  const { faturaPaga, recarregar: recarregarFaturasPagas } = useFaturasPagas();
 
   useFocusEffect(
     useCallback(() => {
       recarregar();
-    }, [recarregar]),
+      recarregarFaturasPagas();
+    }, [recarregar, recarregarFaturasPagas]),
   );
 
   return (
