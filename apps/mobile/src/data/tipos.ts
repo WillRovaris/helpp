@@ -54,6 +54,7 @@ const EMOJI: Record<string, string> = {
   shirt: "👕",
   gift: "🎁",
   airplane: "✈️",
+  cash: "💸",
 };
 
 /** Texto do gasto nas listas: descrição (ou categoria) + "(2/10)" se for parcela. */

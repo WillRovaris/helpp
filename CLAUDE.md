@@ -9,7 +9,7 @@ o que mudou para quem usa o app, sem jargão.
 - `apps/mobile` — o app (Expo SDK 57 / React Native, TypeScript). **É aqui que tudo acontece.**
 - `apps/api` — API antiga (Fastify/Prisma) do app de pesquisa de preços. **Não é usada pelo app atual**; fica só de referência.
 - `supabase/` — SQLs numerados. O dono roda cada um **à mão** no Supabase (SQL Editor → Run).
-  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id). `05` (faturas_pagas) — conferir se rodou.
+  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id). `05` (faturas_pagas). `06` (categoria Empréstimo 💸, ícone `cash`) — conferir se rodou.
   SQL novo = novo arquivo `05-...sql`, idempotente (`if not exists`), e pedir para ele rodar.
 - O app deve **tolerar** o SQL ainda não ter rodado (ex.: `select("*")` em vez de colunas fixas; mensagem "Falta rodar o SQL 0X").
 
