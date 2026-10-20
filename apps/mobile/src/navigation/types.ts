@@ -13,5 +13,6 @@ export type RootStackParamList = {
   NotaConsulta: { qr: string };
   NotaConfirmar: { qr: string; nota: NotaLida };
   Cartoes: undefined;
+  CartaoDetalhe: { cartaoId: string };
   CartaoForm: { cartaoId?: string };
 };

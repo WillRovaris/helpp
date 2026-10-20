@@ -74,3 +74,23 @@ export function useGastosDoMes(ano: number, mes: number) {
   );
   return { gastos: itens.map((g) => ({ ...g, valor: Number(g.valor) })), ...resto };
 }
+
+/**
+ * Gastos no crédito de todos os cartões, de ~3 meses atrás em diante (inclui
+ * parcelas futuras) — o suficiente para fatura aberta, fechada e limite usado.
+ */
+export function useGastosCredito(desde: string) {
+  const { itens, ...resto } = useListaAoVivo<Gasto>(
+    "gastos",
+    (casaId) =>
+      supabase
+        .from("gastos")
+        .select("*")
+        .eq("casa_id", casaId)
+        .not("cartao_id", "is", null)
+        .gte("data", desde)
+        .order("data", { ascending: false }),
+    [desde],
+  );
+  return { gastosCredito: itens.map((g) => ({ ...g, valor: Number(g.valor) })), ...resto };
+}

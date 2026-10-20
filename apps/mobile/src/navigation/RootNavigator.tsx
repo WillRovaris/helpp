@@ -4,6 +4,7 @@ import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
+import { CartaoDetalheScreen } from "../screens/CartaoDetalheScreen";
 import { CartaoFormScreen } from "../screens/CartaoFormScreen";
 import { CartoesScreen } from "../screens/CartoesScreen";
 import { CasaSetupScreen } from "../screens/CasaSetupScreen";
@@ -56,6 +57,7 @@ export function RootNavigator() {
             <Stack.Screen name="GastoForm" component={GastoFormScreen} options={{ headerShown: true, title: "Novo gasto" }} />
             <Stack.Screen name="Historico" component={HistoricoScreen} options={{ headerShown: true, title: "Gastos" }} />
             <Stack.Screen name="Cartoes" component={CartoesScreen} options={{ headerShown: true, title: "Cartões" }} />
+            <Stack.Screen name="CartaoDetalhe" component={CartaoDetalheScreen} options={{ headerShown: true, title: "Fatura" }} />
             <Stack.Screen name="CartaoForm" component={CartaoFormScreen} options={{ headerShown: true, title: "Cartão" }} />
             <Stack.Screen name="Renda" component={RendaScreen} options={{ headerShown: true, title: "Renda do mês" }} />
             <Stack.Screen name="NotaScanner" component={NotaScannerScreen} options={{ headerShown: true, title: "Ler nota fiscal" }} />

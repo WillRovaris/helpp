@@ -6,9 +6,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { Botao, Cartao } from "../components/ui";
-import { useCategorias, useGastosDoMes } from "../data/hooks";
+import { useCartoes, useCategorias, useGastosCredito, useGastosDoMes } from "../data/hooks";
 import { emojiCategoria, tituloGasto } from "../data/tipos";
-import { formatarReais, MESES, rotuloDia } from "../lib/format";
+import { corLimite } from "../components/ResumoCartaoCard";
+import { diaMes, resumirCartao, somarMeses } from "../lib/fatura";
+import { formatarReais, hojeISO, MESES, rotuloDia } from "../lib/format";
 import { enviarWhatsApp, textoResumoMes } from "../lib/relatorio";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
@@ -22,11 +24,14 @@ export function HomeScreen({ navigation }: Props) {
   const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
   const { gastos: gastosAnteriores } = useGastosDoMes(mesAnterior.getFullYear(), mesAnterior.getMonth());
   const { categorias } = useCategorias();
+  const { cartoes } = useCartoes();
+  const { gastosCredito, recarregar: recarregarCredito } = useGastosCredito(somarMeses(hojeISO(), -3));
 
   useFocusEffect(
     useCallback(() => {
       recarregar();
-    }, [recarregar]),
+      recarregarCredito();
+    }, [recarregar, recarregarCredito]),
   );
 
   if (!casa) return null;
@@ -66,6 +71,37 @@ export function HomeScreen({ navigation }: Props) {
           <Botao titulo="+ Lançar gasto" onPress={() => navigation.navigate("GastoForm", {})} style={{ flex: 1, minHeight: 58 }} />
           <Botao titulo="📷 Ler nota" onPress={() => navigation.navigate("NotaScanner")} style={{ flex: 1, minHeight: 58 }} />
         </View>
+
+        {cartoes.length > 0 && (
+          <Cartao style={{ paddingVertical: spacing.xs }}>
+            {cartoes.map((c, i) => {
+              const r = resumirCartao(gastosCredito.filter((g) => g.cartao_id === c.id), c, hojeISO());
+              return (
+                <TouchableOpacity
+                  key={c.id}
+                  onPress={() => navigation.navigate("CartaoDetalhe", { cartaoId: c.id })}
+                  style={{ paddingVertical: spacing.sm, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}
+                >
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={[typography.body, { fontWeight: "600" }]}>💳 {c.nome}</Text>
+                    <Text style={[typography.body, { fontWeight: "600" }]}>{formatarReais(r.aberta.total)}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={typography.label}>fatura vence {diaMes(r.aberta.vencimento)}</Text>
+                    {c.limite > 0 && (
+                      <Text style={[typography.label, { color: corLimite(r.limiteUsado, c.limite), fontWeight: "700" }]}>
+                        {r.disponivel >= 0 ? `faltam ${formatarReais(r.disponivel)}` : `estourou ${formatarReais(-r.disponivel)}`}
+                      </Text>
+                    )}
+                  </View>
+                  {r.fechada && (
+                    <Text style={[typography.label, { color: colors.warning }]}>⏰ fatura fechada {formatarReais(r.fechada.total)} vence {diaMes(r.fechada.vencimento)}</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </Cartao>
+        )}
 
         {ultimos.length > 0 && (
           <Cartao style={{ paddingVertical: spacing.xs }}>

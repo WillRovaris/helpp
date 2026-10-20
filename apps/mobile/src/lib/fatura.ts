@@ -31,3 +31,49 @@ export function faturaDaCompra(dataCompra: string, diaFechamento: number, diaVen
 export function diaMes(iso: string): string {
   return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 }
+
+/** Fatura seguinte/anterior a partir do fechamento (delta em meses). */
+export function faturaVizinha(fechamento: string, delta: number, diaFechamento: number, diaVencimento: number): { fechamento: string; vencimento: string } {
+  const d = dataDeISO(fechamento);
+  const novoFech = dataISO(diaNoMes(d.getFullYear(), d.getMonth() + delta, diaFechamento));
+  // um dia antes do fechamento cai nessa mesma fatura
+  const vespera = dataDeISO(novoFech);
+  vespera.setDate(vespera.getDate() - 1);
+  return faturaDaCompra(dataISO(vespera), diaFechamento, diaVencimento);
+}
+
+export interface ResumoCartao {
+  aberta: { fechamento: string; vencimento: string; total: number };
+  /** Fatura que já fechou mas ainda não venceu (null se já venceu). */
+  fechada: { fechamento: string; vencimento: string; total: number } | null;
+  /** Fatura aberta + fechada a vencer + parcelas/compras de faturas futuras. */
+  limiteUsado: number;
+  disponivel: number;
+}
+
+/** Junta os gastos de UM cartão nas faturas, a partir de hoje. */
+export function resumirCartao(
+  gastos: { valor: number; data: string }[],
+  cartao: { limite: number; dia_fechamento: number; dia_vencimento: number },
+  hoje: string,
+): ResumoCartao {
+  const aberta = faturaDaCompra(hoje, cartao.dia_fechamento, cartao.dia_vencimento);
+  const anterior = faturaVizinha(aberta.fechamento, -1, cartao.dia_fechamento, cartao.dia_vencimento);
+  let totalAberta = 0;
+  let totalAnterior = 0;
+  let futuras = 0;
+  for (const g of gastos) {
+    const f = faturaDaCompra(g.data, cartao.dia_fechamento, cartao.dia_vencimento).fechamento;
+    if (f === aberta.fechamento) totalAberta += g.valor;
+    else if (f === anterior.fechamento) totalAnterior += g.valor;
+    else if (f > aberta.fechamento) futuras += g.valor;
+  }
+  const fechadaAVencer = hoje <= anterior.vencimento && totalAnterior > 0;
+  const limiteUsado = totalAberta + futuras + (fechadaAVencer ? totalAnterior : 0);
+  return {
+    aberta: { ...aberta, total: totalAberta },
+    fechada: fechadaAVencer ? { ...anterior, total: totalAnterior } : null,
+    limiteUsado,
+    disponivel: cartao.limite - limiteUsado,
+  };
+}
