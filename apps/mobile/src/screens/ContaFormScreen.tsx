@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
+import { SeletorMes } from "../components/SeletorMes";
 import { Botao, Campo, Chip, estiloInput, TelaFormulario } from "../components/ui";
 import { useCategorias } from "../data/hooks";
 import { emojiCategoria } from "../data/tipos";
@@ -16,6 +17,24 @@ type Props = NativeStackScreenProps<RootStackParamList, "ContaForm">;
 
 const OPCOES_MESES = [3, 6, 12, 24];
 const MESES_CURTOS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+/** Diferença em meses entre duas competências. */
+function mesesEntre(de: string, ate: string): number {
+  return (Number(ate.slice(0, 4)) - Number(de.slice(0, 4))) * 12 + (Number(ate.slice(5, 7)) - Number(de.slice(5, 7)));
+}
+
+function CaixaMes({ rotulo, texto, onPress }: { rotulo: string; texto: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={{ flex: 1, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 12, padding: spacing.sm }}
+    >
+      <Text style={typography.label}>{rotulo}</Text>
+      <Text style={[typography.body, { fontWeight: "700", marginTop: 2 }]}>{texto} ▾</Text>
+    </TouchableOpacity>
+  );
+}
 
 function nomeMes(comp: string, curto = false): string {
   const m = Number(comp.slice(5, 7)) - 1;
@@ -39,6 +58,13 @@ export function ContaFormScreen({ navigation, route }: Props) {
   const [mesesOutro, setMesesOutro] = useState("");
   const [periodoCarregado, setPeriodoCarregado] = useState(false);
   const [inicioAlterado, setInicioAlterado] = useState(false);
+  const [escolhendo, setEscolhendo] = useState<"inicio" | "fim" | null>(null);
+
+  /** Define a duração; números fora dos botões aparecem no campo "outro". */
+  function aplicarMeses(n: number) {
+    setMeses(n);
+    setMesesOutro(OPCOES_MESES.includes(n) ? "" : String(n));
+  }
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -130,20 +156,45 @@ export function ContaFormScreen({ navigation, route }: Props) {
 
       <Campo rotulo="DIA DO VENCIMENTO" value={dia} onChangeText={(t) => setDia(t.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={2} placeholder="Ex.: 10" />
 
-      <Text style={[typography.label, { marginBottom: spacing.sm }]}>📅 COMEÇA EM</Text>
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing.md }}>
-        <TouchableOpacity onPress={() => { setInicio(somarMeses(inicioEfetivo, -1)); setInicioAlterado(true); }} style={{ padding: spacing.sm }}>
-          <Text style={{ fontSize: 22, color: colors.accent }}>‹</Text>
-        </TouchableOpacity>
-        <Text style={[typography.body, { fontWeight: "700", minWidth: 150, textAlign: "center" }]}>
-          {inicio ? nomeMes(inicio) : "Desde o cadastro"}
-        </Text>
-        <TouchableOpacity onPress={() => { setInicio(somarMeses(inicioEfetivo, 1)); setInicioAlterado(true); }} style={{ padding: spacing.sm }}>
-          <Text style={{ fontSize: 22, color: colors.accent }}>›</Text>
-        </TouchableOpacity>
+      <View style={{ flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md }}>
+        <CaixaMes rotulo="📅 COMEÇA EM" texto={inicio ? nomeMes(inicio) : "Desde o cadastro"} onPress={() => setEscolhendo("inicio")} />
+        <CaixaMes rotulo="🏁 TERMINA EM" texto={ultimoMes ? nomeMes(ultimoMes) : "Sem prazo"} onPress={() => setEscolhendo("fim")} />
       </View>
+      <SeletorMes
+        visivel={escolhendo === "inicio"}
+        titulo="Começa em"
+        valor={inicio}
+        onFechar={() => setEscolhendo(null)}
+        onEscolher={(comp) => {
+          // Se já tinha fim escolhido, mantém o fim e recalcula quantos meses.
+          if (ultimoMes) {
+            const n = mesesEntre(comp, ultimoMes) + 1;
+            if (n >= 1) aplicarMeses(n);
+          }
+          setInicio(comp);
+          setInicioAlterado(true);
+          setEscolhendo(null);
+        }}
+      />
+      <SeletorMes
+        visivel={escolhendo === "fim"}
+        titulo="Termina em (último mês que paga)"
+        valor={ultimoMes}
+        minimo={inicioEfetivo}
+        onFechar={() => setEscolhendo(null)}
+        onEscolher={(comp) => {
+          aplicarMeses(mesesEntre(inicioEfetivo, comp) + 1);
+          setEscolhendo(null);
+        }}
+        rotuloLimpar="Sem prazo"
+        onLimpar={() => {
+          setMeses(null);
+          setMesesOutro("");
+          setEscolhendo(null);
+        }}
+      />
 
-      <Text style={[typography.label, { marginBottom: spacing.sm }]}>POR QUANTOS MESES (QUANTAS FALTAM PAGAR)</Text>
+      <Text style={[typography.label, { marginBottom: spacing.sm }]}>OU ESCOLHA QUANTOS MESES FALTAM PAGAR</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, alignItems: "center" }}>
         <Chip rotulo="Sem prazo" ativo={meses == null} onPress={() => { setMeses(null); setMesesOutro(""); }} />
         {OPCOES_MESES.map((n) => (
