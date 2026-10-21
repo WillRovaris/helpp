@@ -1,7 +1,8 @@
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React, { useCallback, useMemo, useState } from "react";
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { HeaderHeightContext } from "@react-navigation/elements";
+import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
+import { KeyboardAvoidingView, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { ResultadosBusca } from "../components/BuscaDespesas";
 import { Cartao as CartaoUI, Chip, estiloInput } from "../components/ui";
@@ -23,6 +24,11 @@ export function HistoricoScreen({ navigation, route }: Props) {
   /** "pix" | "debito" | "dinheiro" | "credito" (qualquer cartão) | "cartao:<id>" (um cartão). */
   const [filtroPagamento, setFiltroPagamento] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+  // Ao tocar na busca, a tela rola até o campo ficar no topo (acima do teclado).
+  const rolagem = useRef<ScrollView>(null);
+  const posicaoBusca = useRef(0);
+  const alturaCabecalho = useContext(HeaderHeightContext) ?? 0;
+  const subirBusca = () => setTimeout(() => rolagem.current?.scrollTo({ y: Math.max(0, posicaoBusca.current - spacing.sm), animated: true }), 150);
 
   const { membros } = useCasa();
   const { categorias } = useCategorias();
@@ -79,7 +85,8 @@ export function HistoricoScreen({ navigation, route }: Props) {
   const emBusca = busca.trim().length >= 2;
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior="padding" keyboardVerticalOffset={alturaCabecalho}>
+    <ScrollView ref={rolagem} style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} keyboardShouldPersistTaps="handled">
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <TouchableOpacity onPress={() => mudarMes(-1)} style={{ padding: spacing.sm }}>
           <Text style={{ fontSize: 22, color: colors.accent }}>‹</Text>
@@ -150,10 +157,14 @@ export function HistoricoScreen({ navigation, route }: Props) {
         </View>
       )}
 
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <View style={{ flexDirection: "row", alignItems: "center" }} onLayout={(e) => (posicaoBusca.current = e.nativeEvent.layout.y)}>
         <TextInput
           value={busca}
-          onChangeText={setBusca}
+          onChangeText={(t) => {
+            setBusca(t);
+            subirBusca();
+          }}
+          onFocus={subirBusca}
           placeholder="🔍 Buscar despesa"
           placeholderTextColor={colors.textSecondary}
           returnKeyType="search"
@@ -223,5 +234,6 @@ export function HistoricoScreen({ navigation, route }: Props) {
       </>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
