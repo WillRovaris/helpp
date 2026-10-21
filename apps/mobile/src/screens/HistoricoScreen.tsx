@@ -63,6 +63,8 @@ export function HistoricoScreen({ navigation, route }: Props) {
   const cartaoPorId = new Map(cartoes.map((c) => [c.id, c]));
   const nomePessoa = new Map(membros.map((m) => [m.user_id, m.nome]));
   const ehMesAtual = ano === hoje.getFullYear() && mes === hoje.getMonth();
+  // Meses à frente mostram o que já está programado (parcelas, faturas de cartão).
+  const ehFuturo = ano > hoje.getFullYear() || (ano === hoje.getFullYear() && mes > hoje.getMonth());
 
   return (
     <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
@@ -70,13 +72,31 @@ export function HistoricoScreen({ navigation, route }: Props) {
         <TouchableOpacity onPress={() => mudarMes(-1)} style={{ padding: spacing.sm }}>
           <Text style={{ fontSize: 22, color: colors.accent }}>‹</Text>
         </TouchableOpacity>
-        <Text style={[typography.body, { fontWeight: "700", fontSize: 18 }]}>
-          {MESES[mes]} {ano}
-        </Text>
-        <TouchableOpacity onPress={() => mudarMes(1)} disabled={ehMesAtual} style={{ padding: spacing.sm, opacity: ehMesAtual ? 0.3 : 1 }}>
+        <View style={{ alignItems: "center" }}>
+          <Text style={[typography.body, { fontWeight: "700", fontSize: 18 }]}>
+            {MESES[mes]} {ano}
+          </Text>
+          {!ehMesAtual && (
+            <TouchableOpacity
+              onPress={() => {
+                setAno(hoje.getFullYear());
+                setMes(hoje.getMonth());
+              }}
+            >
+              <Text style={[typography.label, { color: colors.accent }]}>{ehFuturo ? "📅 Mês futuro · voltar para hoje" : "voltar para hoje"}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <TouchableOpacity onPress={() => mudarMes(1)} style={{ padding: spacing.sm }}>
           <Text style={{ fontSize: 22, color: colors.accent }}>›</Text>
         </TouchableOpacity>
       </View>
+
+      {ehFuturo && (
+        <Text style={[typography.label, { textAlign: "center" }]}>
+          Mostra o que já está programado para este mês: parcelas e faturas de cartão.
+        </Text>
+      )}
 
       <CartaoUI>
         <Text style={typography.label}>{filtroCategoria || filtroPessoa || filtroPagamento ? "TOTAL FILTRADO" : "TOTAL DO MÊS"}</Text>
