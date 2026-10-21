@@ -4,12 +4,11 @@ import React, { useCallback, useMemo, useState } from "react";
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { ResultadosBusca } from "../components/BuscaDespesas";
-import { Botao, Cartao as CartaoUI, Chip, estiloInput } from "../components/ui";
+import { Cartao as CartaoUI, Chip, estiloInput } from "../components/ui";
 import { useCartoes, useCategorias, useContasFixas, useGastosDoMes, usePagamentosDoMes } from "../data/hooks";
 import { competencia, contasDoMes } from "../lib/contas";
 import { emojiCategoria, FORMAS_PAGAMENTO, type Gasto, tituloGasto } from "../data/tipos";
 import { formatarReais, hojeISO, MESES, rotuloDia } from "../lib/format";
-import { enviarWhatsApp, textoResumoMes } from "../lib/relatorio";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
@@ -25,7 +24,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
   const [filtroPagamento, setFiltroPagamento] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
 
-  const { casa, membros } = useCasa();
+  const { membros } = useCasa();
   const { categorias } = useCategorias();
   const { cartoes } = useCartoes();
   const { gastos, carregando, recarregar } = useGastosDoMes(ano, mes);
@@ -82,26 +81,6 @@ export function HistoricoScreen({ navigation, route }: Props) {
 
   return (
     <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} keyboardShouldPersistTaps="handled">
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <TextInput
-          value={busca}
-          onChangeText={setBusca}
-          placeholder="🔍 Buscar despesa (nome, categoria ou valor)"
-          placeholderTextColor={colors.textSecondary}
-          returnKeyType="search"
-          style={[estiloInput(), { flex: 1, borderRadius: 999 }]}
-        />
-        {busca.length > 0 && (
-          <TouchableOpacity onPress={() => setBusca("")} style={{ padding: spacing.sm, marginLeft: spacing.xs }} accessibilityLabel="Limpar busca">
-            <Text style={{ fontSize: 18, color: colors.textSecondary }}>✕</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {emBusca ? (
-        <ResultadosBusca termo={busca} categorias={categorias} onAbrir={(id) => navigation.navigate("GastoForm", { gastoId: id })} />
-      ) : (
-      <>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <TouchableOpacity onPress={() => mudarMes(-1)} style={{ padding: spacing.sm }}>
           <Text style={{ fontSize: 22, color: colors.accent }}>‹</Text>
@@ -197,14 +176,26 @@ export function HistoricoScreen({ navigation, route }: Props) {
         </View>
       )}
 
-      {gastos.length > 0 && (
-        <Botao
-          titulo={`📤 Enviar resumo de ${MESES[mes]} no WhatsApp`}
-          variante="secundario"
-          onPress={() => enviarWhatsApp(textoResumoMes({ nomeCasa: casa?.nome ?? "", ano, mes, gastos, categorias, membros, renda: casa?.renda_mensal ?? null }))}
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <TextInput
+          value={busca}
+          onChangeText={setBusca}
+          placeholder="🔍 Buscar despesa (nome, categoria ou valor)"
+          placeholderTextColor={colors.textSecondary}
+          returnKeyType="search"
+          style={[estiloInput(), { flex: 1, borderRadius: 999 }]}
         />
-      )}
+        {busca.length > 0 && (
+          <TouchableOpacity onPress={() => setBusca("")} style={{ padding: spacing.sm, marginLeft: spacing.xs }} accessibilityLabel="Limpar busca">
+            <Text style={{ fontSize: 18, color: colors.textSecondary }}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
+      {emBusca ? (
+        <ResultadosBusca termo={busca} categorias={categorias} onAbrir={(id) => navigation.navigate("GastoForm", { gastoId: id })} />
+      ) : (
+      <>
       {!carregando && filtrados.length === 0 && (
         <Text style={[typography.body, { color: colors.textSecondary, textAlign: "center", marginTop: spacing.lg }]}>Nenhuma despesa por aqui.</Text>
       )}
