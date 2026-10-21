@@ -5,9 +5,10 @@ import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-nativ
 import { useCasa } from "../casa/CasaContext";
 import { ResultadosBusca } from "../components/BuscaDespesas";
 import { Botao, Cartao as CartaoUI, Chip, estiloInput } from "../components/ui";
-import { useCartoes, useCategorias, useGastosDoMes } from "../data/hooks";
+import { useCartoes, useCategorias, useContasFixas, useGastosDoMes, usePagamentosDoMes } from "../data/hooks";
+import { competencia, contasDoMes } from "../lib/contas";
 import { emojiCategoria, FORMAS_PAGAMENTO, type Gasto, tituloGasto } from "../data/tipos";
-import { formatarReais, MESES, rotuloDia } from "../lib/format";
+import { formatarReais, hojeISO, MESES, rotuloDia } from "../lib/format";
 import { enviarWhatsApp, textoResumoMes } from "../lib/relatorio";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
@@ -28,11 +29,16 @@ export function HistoricoScreen({ navigation, route }: Props) {
   const { categorias } = useCategorias();
   const { cartoes } = useCartoes();
   const { gastos, carregando, recarregar } = useGastosDoMes(ano, mes);
+  const comp = competencia(ano, mes);
+  const { contas, recarregar: recarregarContas } = useContasFixas();
+  const { pagamentos, recarregar: recarregarPag } = usePagamentosDoMes(comp);
 
   useFocusEffect(
     useCallback(() => {
       recarregar();
-    }, [recarregar]),
+      recarregarContas();
+      recarregarPag();
+    }, [recarregar, recarregarContas, recarregarPag]),
   );
 
   function mudarMes(delta: number) {
@@ -50,6 +56,10 @@ export function HistoricoScreen({ navigation, route }: Props) {
     (g) => (!filtroCategoria || g.categoria_id === filtroCategoria) && (!filtroPessoa || g.pago_por === filtroPessoa) && passaPagamento(g),
   );
   const total = filtrados.reduce((s, g) => s + g.valor, 0);
+  // Contas fixas do mês ainda não pagas (no período de cada conta). Quando pagas, já viram despesa.
+  const contasPrevistas = contasDoMes(contas, pagamentos, comp, hojeISO()).filter((c) => !c.pagamento);
+  const totalPrevistas = contasPrevistas.reduce((s, c) => s + (c.conta.valor ?? 0), 0);
+  const ehPassado = ano < hoje.getFullYear() || (ano === hoje.getFullYear() && mes < hoje.getMonth());
 
   const porDia = useMemo(() => {
     const grupos: { data: string; itens: Gasto[] }[] = [];
@@ -118,7 +128,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
 
       {ehFuturo && (
         <Text style={[typography.label, { textAlign: "center" }]}>
-          Mostra o que já está programado para este mês: parcelas e faturas de cartão.
+          Mostra o que já está programado para este mês: parcelas, faturas de cartão e contas fixas.
         </Text>
       )}
 
@@ -126,10 +136,32 @@ export function HistoricoScreen({ navigation, route }: Props) {
         <Text style={typography.label}>{filtroCategoria || filtroPessoa || filtroPagamento ? "TOTAL FILTRADO" : "TOTAL DO MÊS"}</Text>
         <Text style={{ fontSize: 30, fontWeight: "700", color: colors.textPrimary }}>{formatarReais(total)}</Text>
         <Text style={typography.label}>{filtrados.length} {filtrados.length === 1 ? "despesa" : "despesas"}</Text>
-        {gastos.some((g) => g.cartao_id) && (
-          <Text style={[typography.label, { marginTop: spacing.xs }]}>💳 Compras no cartão contam no mês em que a fatura vence.</Text>
+        {totalPrevistas > 0 && (
+          <Text style={[typography.label, { marginTop: spacing.xs, color: colors.warning }]}>
+            + {formatarReais(totalPrevistas)} em contas fixas ainda não pagas = {formatarReais(total + totalPrevistas)}
+          </Text>
         )}
       </CartaoUI>
+
+      {contasPrevistas.length > 0 && (
+        <TouchableOpacity onPress={() => navigation.navigate("Contas")} activeOpacity={0.8}>
+          <CartaoUI style={{ paddingVertical: spacing.xs }}>
+            <Text style={[typography.label, { paddingVertical: spacing.sm }]}>
+              🧾 {ehPassado ? "CONTAS FIXAS NÃO PAGAS NESTE MÊS" : "CONTAS FIXAS PREVISTAS"} · {formatarReais(totalPrevistas)}
+            </Text>
+            {contasPrevistas.map((c) => (
+              <View key={c.conta.id} style={{ flexDirection: "row", paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <Text style={[typography.body, { flex: 1 }]} numberOfLines={1}>
+                  {c.conta.nome}
+                  {c.parcela ? ` (${c.parcela.atual}/${c.parcela.total})` : ""}
+                </Text>
+                <Text style={[typography.label, { marginHorizontal: spacing.sm }]}>dia {c.vencimento.slice(8, 10)}</Text>
+                <Text style={[typography.body, { fontWeight: "600" }]}>{c.conta.valor != null ? formatarReais(c.conta.valor) : "valor varia"}</Text>
+              </View>
+            ))}
+          </CartaoUI>
+        </TouchableOpacity>
+      )}
 
       <Text style={[typography.label, { marginBottom: -spacing.xs }]}>CATEGORIA</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>

@@ -61,7 +61,7 @@ export async function reagendarLembretes(casaId: string, forcar = false): Promis
     const agora = new Date();
     const comps = [competencia(agora.getFullYear(), agora.getMonth()), competencia(agora.getFullYear(), agora.getMonth() + 1)];
     const [{ data: contas }, { data: pags }, { data: cartoes }, { data: faturasPagas }] = await Promise.all([
-      supabase.from("contas_fixas").select("id, nome, valor, dia_vencimento").eq("casa_id", casaId).eq("ativa", true),
+      supabase.from("contas_fixas").select("*").eq("casa_id", casaId).eq("ativa", true),
       supabase.from("contas_pagamentos").select("conta_id, competencia").eq("casa_id", casaId).in("competencia", comps),
       supabase.from("cartoes").select("id, nome, dia_fechamento, dia_vencimento").eq("casa_id", casaId).eq("arquivado", false),
       // sem o SQL 05 volta erro e data = null: segue sem filtrar

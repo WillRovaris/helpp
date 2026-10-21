@@ -11,7 +11,7 @@ import { emojiCategoria } from "../data/tipos";
 import { type ArquivoLido, ehPDF, lerArquivo, lerLinhasPDF } from "../importacao/leitor";
 import { PdfTexto, type ResultadoPdf } from "../importacao/PdfTexto";
 import { descricaoSemParcela, type ItemImportacao, preparar, type TipoArquivo } from "../importacao/preparar";
-import { competencia } from "../lib/contas";
+import { competencia, periodoNoMes } from "../lib/contas";
 import { diaMes, faturaDaCompra, faturaVizinha, somarMeses } from "../lib/fatura";
 import { dataDeISO, dataISO, formatarReais, gerarUuid, MESES } from "../lib/format";
 import { supabase, traduzirErro } from "../lib/supabase";
@@ -158,12 +158,12 @@ export function ImportarScreen({ navigation }: Props) {
       const meses = [...new Set(datas.map((d) => d.slice(0, 7)))];
       const comps = meses.map((m) => competencia(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1));
       const [{ data: contas }, { data: pags }] = await Promise.all([
-        supabase.from("contas_fixas").select("id, nome, valor, dia_vencimento, categoria_id").eq("casa_id", casa.id).eq("ativa", true),
+        supabase.from("contas_fixas").select("*").eq("casa_id", casa.id).eq("ativa", true),
         supabase.from("contas_pagamentos").select("conta_id, competencia").eq("casa_id", casa.id).in("competencia", comps),
       ]);
       const pagas = new Set((pags ?? []).map((p) => `${p.conta_id}|${p.competencia}`));
       const contasAbertas = comps.flatMap((comp) =>
-        (contas ?? []).filter((c) => !pagas.has(`${c.id}|${comp}`)).map((c) => ({ ...c, valor: c.valor == null ? null : Number(c.valor), competencia: comp })),
+        (contas ?? []).filter((c) => !pagas.has(`${c.id}|${comp}`) && periodoNoMes(c, comp)).map((c) => ({ ...c, valor: c.valor == null ? null : Number(c.valor), competencia: comp })),
       );
 
       if (!cancelado)

@@ -77,6 +77,10 @@ export interface ContaFixa {
   valor: number | null;
   dia_vencimento: number;
   categoria_id: string | null;
+  /** Primeiro mês em que vale (YYYY-MM-01). Vazio = desde sempre. */
+  inicio?: string | null;
+  /** Por quantos meses. Vazio = sem prazo. */
+  meses?: number | null;
 }
 
 export interface PagamentoConta {

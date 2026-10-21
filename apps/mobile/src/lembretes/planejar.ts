@@ -1,5 +1,5 @@
 // Quais lembretes agendar (sem dependências de React Native, para testar no computador).
-import { vencimentoNoMes } from "../lib/contas";
+import { periodoNoMes, vencimentoNoMes } from "../lib/contas";
 import { faturaDaCompra, faturaVizinha } from "../lib/fatura";
 import { dataDeISO, formatarReais } from "../lib/format";
 
@@ -18,7 +18,7 @@ export function planejarLembretes(opts: {
   agora: Date;
   hora: number;
   competencias: string[]; // YYYY-MM-01 (mês atual e seguinte)
-  contas: { id: string; nome: string; valor: number | null; dia_vencimento: number }[];
+  contas: { id: string; nome: string; valor: number | null; dia_vencimento: number; inicio?: string | null; meses?: number | null }[];
   pagas: Set<string>; // `${contaId}|${competencia}`
   cartoes: { id: string; nome: string; dia_fechamento: number; dia_vencimento: number }[];
   /** Faturas já marcadas como pagas: `${cartaoId}|${vencimento}`. */
@@ -41,6 +41,7 @@ export function planejarLembretes(opts: {
   for (const comp of opts.competencias) {
     for (const c of opts.contas) {
       if (opts.pagas.has(`${c.id}|${comp}`)) continue;
+      if (!periodoNoMes(c, comp)) continue; // fora do período da conta (ex.: plano de 12 meses)
       const venc = vencimentoNoMes(comp, c.dia_vencimento);
       adicionar(
         venc,

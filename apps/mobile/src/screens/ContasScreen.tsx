@@ -98,6 +98,7 @@ export function ContasScreen({ navigation }: Props) {
                     <Text style={typography.body} numberOfLines={1}>{c.conta.nome}</Text>
                     <Text style={[typography.label, { color: corSituacao(c) }]}>
                       {textoSituacao(c)} · {c.pagamento ? `em ${diaMes(c.pagamento.pago_em)}` : `dia ${diaMes(c.vencimento)}`}
+                      {c.parcela ? ` · ${c.parcela.atual}/${c.parcela.total}` : ""}
                     </Text>
                   </View>
                   <Text style={[typography.body, { fontWeight: "600", marginRight: spacing.sm }]}>{valor != null ? formatarReais(valor) : "—"}</Text>

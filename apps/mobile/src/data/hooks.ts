@@ -137,7 +137,7 @@ export function useGastosCredito(desde: string) {
 export function useContasFixas() {
   const { itens, ...resto } = useListaAoVivo<ContaFixa>(
     "contas_fixas",
-    (casaId) => supabase.from("contas_fixas").select("id, nome, valor, dia_vencimento, categoria_id").eq("casa_id", casaId).eq("ativa", true).order("dia_vencimento"),
+    (casaId) => supabase.from("contas_fixas").select("*").eq("casa_id", casaId).eq("ativa", true).order("dia_vencimento"),
     [],
   );
   return { contas: itens.map((c) => ({ ...c, valor: c.valor == null ? null : Number(c.valor) })), ...resto };

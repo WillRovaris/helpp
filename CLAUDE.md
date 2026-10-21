@@ -9,7 +9,7 @@ o que mudou para quem usa o app, sem jargão.
 - `apps/mobile` — o app (Expo SDK 57 / React Native, TypeScript). **É aqui que tudo acontece.**
 - `apps/api` — API antiga (Fastify/Prisma) do app de pesquisa de preços. **Não é usada pelo app atual**; fica só de referência.
 - `supabase/` — SQLs numerados. O dono roda cada um **à mão** no Supabase (SQL Editor → Run).
-  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id). `05` (faturas_pagas). `06` (categoria Empréstimo 💸, ícone `cash`), `07` (Igreja ⛪, ícone `church`), `08` (gastos.data_pagamento + correção dos lançamentos manuais no cartão) — conferir se rodaram.
+  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id). `05` (faturas_pagas). `06` (categoria Empréstimo 💸, ícone `cash`), `07` (Igreja ⛪, ícone `church`), `08` (gastos.data_pagamento + correção dos lançamentos manuais no cartão), `09` (contas_fixas.inicio + meses) — conferir se rodaram.
   SQL novo = novo arquivo `05-...sql`, idempotente (`if not exists`), e pedir para ele rodar.
 - O app deve **tolerar** o SQL ainda não ter rodado (ex.: `select("*")` em vez de colunas fixas; mensagem "Falta rodar o SQL 0X").
 
@@ -55,6 +55,7 @@ o que mudou para quem usa o app, sem jargão.
 ## Regras de produto (vieram do dono)
 - **A data informada pela pessoa é a data em que o dinheiro sai** (pedido do dono). Mês da despesa = `data_pagamento` se existir; senão, no cartão, o vencimento da fatura da data da compra (importados/nota); senão, a própria data. Ver `mesDeReferencia` (hooks.ts) e `mesPagamentoCartao` (fatura.ts). No lançamento manual no cartão o campo é "VAI PAGAR EM" (padrão: vencimento da fatura). A fatura de um cartão = tudo dele pago no mês do vencimento.
 - Importar fatura com "Parcela 3/5" lança a 3 e cria a 4 e a 5 nas faturas seguintes (mesmo `parcelamento_id`); na próxima importação a 4/5 é reconhecida e vem desmarcada.
+- Conta fixa pode ter período (`inicio` + `meses`, ex.: plano de saúde 12x): só aparece, avisa e é sugerida na importação dentro do período (`periodoNoMes` em `lib/contas.ts`). O Histórico mostra "Contas fixas previstas" (não pagas) em cada mês, inclusive futuros.
 - Fatura pode ser marcada como paga (`faturas_pagas`): some o aviso ⏰, libera o limite e para o lembrete.
 - **Compartilhar é opcional**: o app tem que funcionar 100% para quem mora sozinho; convite só na tela "Compartilhar".
 - Tema: escolha da pessoa em Configurações (igual ao celular / claro / escuro).
