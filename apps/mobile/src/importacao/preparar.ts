@@ -76,7 +76,10 @@ function nomeProprio(t: string): string {
 export function nomeDoPix(descricao: string): string | null {
   if (!/pix/i.test(descricao)) return null;
   const ehLixo = (s: string) =>
-    !/[a-zà-ÿ]{2}/i.test(s) || /ag[eê]ncia|conta:|\(\d{3,4}\)|•|\*{2}|^\s*(cpf|cnpj)\b/i.test(s) || /pix/i.test(s);
+    !/[a-zà-ÿ]{2}/i.test(s) ||
+    /ag[eê]ncia|conta:|\(\d{3,4}\)|•|\*{2}|^\s*(cpf|cnpj)\b/i.test(s) ||
+    /pix/i.test(s) ||
+    /^\s*(enviad[oa]|recebid[oa]|transfer\w*|pagamento|pgto)\s*$/i.test(s); // só o tipo da operação (BB: "Pix - Enviado - ...")
 
   // Formato com " - " (Nubank e outros): o nome é o primeiro pedaço "limpo" depois do pedaço do Pix.
   const partes = descricao.split(/\s+[-–]\s+/);

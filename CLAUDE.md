@@ -59,7 +59,7 @@ o que mudou para quem usa o app, sem jargão.
 - **Compartilhar é opcional**: o app tem que funcionar 100% para quem mora sozinho; convite só na tela "Compartilhar".
 - Tema: escolha da pessoa em Configurações (igual ao celular / claro / escuro).
 - Bancos dele: cartões Nubank, Digio, C6, Banco do Brasil; contas BB, Caixa, Bradesco, Nubank, C6, Digio.
-  A importação lê OFX e CSV genéricos (`src/importacao/leitor.ts`); se um arquivo real não ler, ajustar o leitor com o cabeçalho dele.
+  A importação lê OFX, CSV, Excel (xlsx/xls/xls-HTML via `xlsx` em `planilha.ts`) e PDF (texto extraído com pdf.js do cdnjs numa WebView escondida — `PdfTexto.tsx` — e interpretado por `lerLinhasPDF`; pede senha se o PDF tiver). Se um arquivo real não ler, ajustar o leitor com o cabeçalho/linhas dele.
   Confirmados com arquivo real: fatura Nubank (CSV), extrato Bradesco (CSV com colunas Crédito/Débito separadas).
 - Importação de extrato: Pix vira só "PIX - Nome de quem recebeu" (`nomeDoPix` em `src/importacao/preparar.ts`) — pedido do dono.
 - NFC-e: leitura no próprio celular via WebView da SEFAZ-SC (`src/fiscal/nfce.ts`); outros estados podem não funcionar.

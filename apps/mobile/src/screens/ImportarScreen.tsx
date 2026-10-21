@@ -5,10 +5,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Cartao, Chip } from "../components/ui";
+import { Botao, Campo, Cartao, Chip } from "../components/ui";
 import { useCartoes, useCategorias } from "../data/hooks";
 import { emojiCategoria } from "../data/tipos";
-import { type ArquivoLido, lerArquivo } from "../importacao/leitor";
+import { type ArquivoLido, ehPDF, lerArquivo, lerLinhasPDF } from "../importacao/leitor";
+import { PdfTexto, type ResultadoPdf } from "../importacao/PdfTexto";
 import { descricaoSemParcela, type ItemImportacao, preparar, type TipoArquivo } from "../importacao/preparar";
 import { competencia } from "../lib/contas";
 import { diaMes, faturaDaCompra, faturaVizinha, somarMeses } from "../lib/fatura";
@@ -52,6 +53,9 @@ export function ImportarScreen({ navigation }: Props) {
   const [lendo, setLendo] = useState(false);
   const [importando, setImportando] = useState(false);
   const [mostrarAjuda, setMostrarAjuda] = useState(false);
+  /** PDF em leitura (texto extraído numa WebView escondida). */
+  const [pdf, setPdf] = useState<{ base64: string; nome: string; senha: string; pedindoSenha: boolean; tentativa: number } | null>(null);
+  const [senhaDigitada, setSenhaDigitada] = useState("");
 
   const cartao = cartoes.find((c) => c.id === cartaoId);
 
@@ -65,28 +69,65 @@ export function ImportarScreen({ navigation }: Props) {
     return { ...alvo, inicio };
   }, [tipo, cartao, arquivo, deslocFatura]);
 
+  function aplicarLido(lido: ArquivoLido, nome: string) {
+    if (!lido.lancamentos.length) throw new Error("Nenhum lançamento encontrado no arquivo.");
+    setArquivo(lido);
+    setNomeArquivo(nome);
+    setAjustes({});
+    setDeslocFatura(0);
+    const ehFatura = lido.pareceFatura;
+    setTipo(ehFatura ? "fatura" : "extrato");
+    if (ehFatura && !cartaoId && cartoes.length === 1) setCartaoId(cartoes[0].id);
+  }
+
+  function avisarErro(e: unknown) {
+    Alert.alert(
+      "Não consegui ler o arquivo",
+      `${e instanceof Error ? e.message : String(e)}\n\nAceita OFX, CSV, Excel (xlsx/xls) e PDF exportados pelo banco. Se não ler, mande o arquivo para ajustarmos.`,
+    );
+  }
+
+  // PDF: o texto é extraído por <PdfTexto> (pode pedir senha) e chega em aoLerPdf.
+  function aoLerPdf(r: ResultadoPdf) {
+    if (!pdf) return;
+    if (r.ok) {
+      try {
+        aplicarLido(lerLinhasPDF(r.linhas), pdf.nome);
+        setPdf(null);
+      } catch (e) {
+        setPdf(null);
+        avisarErro(e);
+      } finally {
+        setLendo(false);
+      }
+      return;
+    }
+    setLendo(false);
+    if (r.precisaSenha) {
+      if (pdf.senha) Alert.alert("Senha incorreta", "Confira a senha do PDF e tente de novo.");
+      setPdf({ ...pdf, pedindoSenha: true, tentativa: pdf.tentativa + 1 });
+    } else {
+      setPdf(null);
+      avisarErro(new Error(r.erro));
+    }
+  }
+
   async function escolherArquivo() {
     const r = await DocumentPicker.getDocumentAsync({ type: "*/*", copyToCacheDirectory: true });
     if (r.canceled || !r.assets[0]) return;
     setLendo(true);
     try {
-      const bytes = await new File(r.assets[0].uri).bytes();
-      const lido = lerArquivo(bytes);
-      if (!lido.lancamentos.length) throw new Error("Nenhum lançamento encontrado no arquivo.");
-      setArquivo(lido);
-      setNomeArquivo(r.assets[0].name);
-      setAjustes({});
-      setDeslocFatura(0);
-      const ehFatura = lido.pareceFatura;
-      setTipo(ehFatura ? "fatura" : "extrato");
-      if (ehFatura && !cartaoId && cartoes.length === 1) setCartaoId(cartoes[0].id);
-    } catch (e) {
-      Alert.alert(
-        "Não consegui ler o arquivo",
-        `${e instanceof Error ? e.message : String(e)}\n\nUse o arquivo OFX ou CSV exportado pelo banco (PDF ainda não é aceito).`,
-      );
-    } finally {
+      const file = new File(r.assets[0].uri);
+      const bytes = await file.bytes();
+      if (ehPDF(bytes)) {
+        setPdf({ base64: await file.base64(), nome: r.assets[0].name, senha: "", pedindoSenha: false, tentativa: 0 });
+        return; // continua em aoLerPdf
+      }
+      aplicarLido(lerArquivo(bytes), r.assets[0].name);
       setLendo(false);
+    } catch (e) {
+      setLendo(false);
+      avisarErro(e);
     }
   }
 
@@ -250,9 +291,25 @@ export function ImportarScreen({ navigation }: Props) {
       <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
         <Text style={typography.body}>
           Baixe no app do seu banco o <Text style={{ fontWeight: "700" }}>extrato da conta</Text> ou a <Text style={{ fontWeight: "700" }}>fatura do cartão</Text> em
-          formato <Text style={{ fontWeight: "700" }}>OFX</Text> ou <Text style={{ fontWeight: "700" }}>CSV</Text>, salve no celular e escolha o arquivo aqui.
+          formato <Text style={{ fontWeight: "700" }}>OFX, CSV, Excel (xlsx/xls) ou PDF</Text>, salve no celular e escolha o arquivo aqui.
         </Text>
         <Botao titulo={lendo ? "Lendo..." : "📄 Escolher arquivo"} onPress={escolherArquivo} carregando={lendo} />
+        {pdf && !pdf.pedindoSenha && <PdfTexto key={pdf.tentativa} base64={pdf.base64} senha={pdf.senha} onResultado={aoLerPdf} />}
+        {pdf?.pedindoSenha && (
+          <Cartao>
+            <Text style={[typography.body, { marginBottom: spacing.sm }]}>🔒 Este PDF tem senha. Muitos bancos usam parte do CPF (ex.: os 5 primeiros números).</Text>
+            <Campo rotulo="SENHA DO PDF" value={senhaDigitada} onChangeText={setSenhaDigitada} secureTextEntry autoFocus />
+            <Botao
+              titulo="Abrir PDF"
+              carregando={lendo}
+              onPress={() => {
+                setLendo(true);
+                setPdf({ ...pdf, senha: senhaDigitada, pedindoSenha: false, tentativa: pdf.tentativa + 1 });
+              }}
+            />
+            <Botao titulo="Cancelar" variante="link" onPress={() => { setPdf(null); setSenhaDigitada(""); }} />
+          </Cartao>
+        )}
         <TouchableOpacity onPress={() => setMostrarAjuda(!mostrarAjuda)}>
           <Text style={[typography.label, { color: colors.accent }]}>{mostrarAjuda ? "▾" : "▸"} Onde encontro esse arquivo no app do banco?</Text>
         </TouchableOpacity>
@@ -263,7 +320,7 @@ export function ImportarScreen({ navigation }: Props) {
               {"• Extrato da conta: Extrato → Exportar / Baixar / Compartilhar → escolha OFX (ou CSV) e o período.\n"}
               {"• Fatura do cartão: Cartão → Fatura → Exportar / Enviar por e-mail → CSV ou OFX.\n\n"}
               {"Se o banco mandar por e-mail, abra o e-mail no celular, baixe o anexo e depois escolha ele aqui (fica na pasta Downloads).\n\n"}
-              {"Se o banco só oferecer PDF, me avise: PDF ainda não é aceito."}
+              {"Se puder escolher, prefira OFX, CSV ou Excel: são mais precisos que o PDF. O PDF funciona na maioria dos extratos, mas precisa de internet para abrir."}
             </Text>
           </Cartao>
         )}
@@ -283,6 +340,22 @@ export function ImportarScreen({ navigation }: Props) {
           <Text style={[typography.label, { color: colors.accent, marginTop: spacing.xs }]}>Trocar arquivo</Text>
         </TouchableOpacity>
       </Cartao>
+      {pdf && !pdf.pedindoSenha && <PdfTexto key={pdf.tentativa} base64={pdf.base64} senha={pdf.senha} onResultado={aoLerPdf} />}
+      {pdf?.pedindoSenha && (
+        <Cartao>
+          <Text style={[typography.body, { marginBottom: spacing.sm }]}>🔒 Este PDF tem senha. Muitos bancos usam parte do CPF (ex.: os 5 primeiros números).</Text>
+          <Campo rotulo="SENHA DO PDF" value={senhaDigitada} onChangeText={setSenhaDigitada} secureTextEntry autoFocus />
+          <Botao
+            titulo="Abrir PDF"
+            carregando={lendo}
+            onPress={() => {
+              setLendo(true);
+              setPdf({ ...pdf, senha: senhaDigitada, pedindoSenha: false, tentativa: pdf.tentativa + 1 });
+            }}
+          />
+          <Botao titulo="Cancelar" variante="link" onPress={() => { setPdf(null); setSenhaDigitada(""); }} />
+        </Cartao>
+      )}
 
       <View>
         <Text style={[typography.label, { marginBottom: spacing.sm }]}>ESTE ARQUIVO É</Text>

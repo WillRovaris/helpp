@@ -4,6 +4,8 @@
 // descrição e valor são descobertas pelo nome do cabeçalho.
 // Sem dependências de React Native, para poder testar no computador.
 
+import { ehPlanilha, planilhaParaCSV } from "./planilha";
+
 export interface LancamentoArquivo {
   /** Identificador estável do lançamento (FITID do OFX ou impressão digital). */
   id: string;
@@ -15,7 +17,7 @@ export interface LancamentoArquivo {
 }
 
 export interface ArquivoLido {
-  formato: "ofx" | "csv";
+  formato: "ofx" | "csv" | "planilha" | "pdf";
   /** Palpite do tipo pelo conteúdo (OFX de cartão, ou CSV com cara de fatura). */
   pareceFatura: boolean;
   banco: string | null;
@@ -226,6 +228,8 @@ export function lerCSV(texto: string): ArquivoLido {
 
   const cData = acharColuna(cab, [/data de compra/, /^data$/, /^date$/, /^data/, /^date/]);
   const cDesc = acharColuna(cab, [/descri/, /^titulo|^title/, /estabelecimento/, /historico/, /lancamento/, /identificador/]);
+  // BB e outros: "Lançamento" (tipo) + "Detalhes" (para quem / onde) em colunas separadas.
+  const cDetalhe = acharColuna(cab, [/^detalhe/, /complemento/, /favorecido/]);
   const cValor = acharColuna(cab, [/valor.*r\$/, /^valor$/, /^amount$/, /^valor/, /amount|value/], /us\$|dolar|cotacao|saldo/);
   const cCredito = acharColuna(cab, [/^credito/]);
   const cDebito = acharColuna(cab, [/^debito/]);
@@ -250,7 +254,8 @@ export function lerCSV(texto: string): ArquivoLido {
     // Linhas sem data válida (cabeçalho repetido, "Total", avisos do banco) são puladas.
     const valor = valorDaLinha(c);
     if (!data || valor == null || valor === 0) continue;
-    const descricao = (cDesc >= 0 ? c[cDesc] : "") || "Lançamento";
+    const detalhe = cDetalhe >= 0 && cDetalhe !== cDesc ? (c[cDetalhe] ?? "").trim() : "";
+    const descricao = [cDesc >= 0 ? c[cDesc] : "", detalhe].filter(Boolean).join(" - ") || "Lançamento";
     const parcelaCol = cParcela >= 0 ? (c[cParcela] ?? "").trim() : "";
     const parcela = parcelaCol && parcelaCol.toLowerCase() !== "única" ? detectarParcela(parcelaCol) : detectarParcela(descricao);
     ids.push(cId >= 0 && c[cId] && cId !== cDesc ? `csv:${c[cId]}` : null);
@@ -267,7 +272,67 @@ export function lerCSV(texto: string): ArquivoLido {
   };
 }
 
+// ---------------------------------------------------------------- PDF
+// O texto do PDF é extraído no celular (pdf.js numa WebView) e chega aqui já
+// separado em linhas. Um lançamento é uma linha que começa com data e tem valor.
+
+export function ehPDF(bytes: Uint8Array): boolean {
+  return bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46; // %PDF
+}
+
+const RE_DINHEIRO = /(?:R\$\s*)?\(?-?\s?\d{1,3}(?:\.\d{3})*,\d{2}\)?(?:\s?\(?[+-]\)?|\s?[CD]\b)?/g;
+
+export function lerLinhasPDF(linhas: string[]): ArquivoLido {
+  const textoTodo = normalizar(linhas.join(" "));
+  const temSaldo = /saldo/.test(textoTodo);
+  const anoPadrao = (() => {
+    const m = textoTodo.match(/\b(20\d{2})\b/);
+    return m ? Number(m[1]) : new Date().getFullYear();
+  })();
+  const pareceFatura = /fatura|cartao de credito|limite (total|disponivel)|vencimento da fatura/.test(textoTodo) && !/extrato de conta|conta corrente/.test(textoTodo);
+
+  const lista: Omit<LancamentoArquivo, "id">[] = [];
+  for (const bruta of linhas) {
+    const linha = bruta.replace(/\s+/g, " ").trim();
+    const mData = linha.match(/^(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s+/);
+    if (!mData) continue;
+    const data = lerData(mData[1], anoPadrao);
+    if (!data) continue;
+    const resto = linha.slice(mData[0].length);
+    if (/^saldo|saldo (anterior|do dia|final)|s a l d o/i.test(resto)) continue;
+
+    const valores = [...resto.matchAll(RE_DINHEIRO)].map((m) => ({ texto: m[0], pos: m.index ?? 0 }));
+    if (!valores.length) continue;
+    // Com coluna de saldo, o último número da linha é o saldo; o valor vem antes dele.
+    const alvo = temSaldo && valores.length >= 2 ? valores[valores.length - 2] : valores[valores.length - 1];
+    const t = alvo.texto.trim();
+    let valor = lerNumero(t.replace(/\(?[+-]\)?$|\s?[CD]$/, "").replace(/^\(|\)$/g, ""));
+    if (valor == null || valor === 0) continue;
+    valor = Math.abs(valor);
+    const saida = /\(-\)$|-\)?$|\sD$|^\(.*\)$|^-/.test(t);
+    const entrada = /\(\+\)$|\+$|\sC$/.test(t);
+    const descricao = resto
+      .slice(0, valores[0].pos)
+      .replace(/\b\d{5,}\b/g, " ") // nº de documento
+      .replace(/\s+/g, " ")
+      .trim() || "Lançamento";
+    // Sem sinal no PDF: entrada se a descrição disser (recebido, salário, depósito...); senão, saída.
+    const ehEntrada = entrada || (!saida && /receb|credito|deposito|salario|estorno|rendimento|resgate/i.test(normalizar(descricao)));
+    // Em fatura de cartão, compra é positiva (como no CSV) e pagamento/estorno negativo.
+    const sinal = pareceFatura ? (ehEntrada || /pagamento|estorno/i.test(descricao) ? -1 : 1) : ehEntrada ? 1 : -1;
+    lista.push({ data, descricao, valor: sinal * valor, parcela: detectarParcela(descricao) });
+  }
+  if (!lista.length) throw new Error("Não encontrei lançamentos (linhas com data e valor) neste PDF.");
+  return {
+    formato: "pdf",
+    pareceFatura,
+    banco: null,
+    lancamentos: idsUnicos(lista, (l) => `pdf:${l.data}:${l.valor.toFixed(2)}:${normalizar(l.descricao)}`),
+  };
+}
+
 export function lerArquivo(bytes: Uint8Array): ArquivoLido {
+  if (ehPlanilha(bytes)) return { ...lerCSV(planilhaParaCSV(bytes)), formato: "planilha" };
   const texto = decodificar(bytes);
   if (/<OFX>|OFXHEADER/i.test(texto)) return lerOFX(texto);
   return lerCSV(texto);
