@@ -17,6 +17,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "GastoForm">;
 
 const OPCOES_PARCELAS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const MESES_CURTOS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const MESES_LONGOS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
 // Lançar (ou editar) um gasto. Pensado para ser rápido: valor → categoria →
 // salvar. O resto já vem preenchido com o mais comum.
@@ -34,6 +35,11 @@ export function GastoFormScreen({ navigation, route }: Props) {
   const [pagoPor, setPagoPor] = useState<string | null>(userId);
   const [data, setData] = useState(hojeISO());
   const [outraData, setOutraData] = useState("");
+  /** Cartão: dia em que vai pagar. null = vencimento da fatura (calculado). */
+  const [pagamento, setPagamento] = useState<string | null>(null);
+  const [outroPagamento, setOutroPagamento] = useState("");
+  /** A despesa carregada para edição já tinha data de pagamento (precisa limpar se virar Pix). */
+  const [pagamentoCarregado, setPagamentoCarregado] = useState(false);
   const [descricao, setDescricao] = useState("");
   /** 1 = à vista. Só vale para gasto novo. */
   const [parcelas, setParcelas] = useState(1);
@@ -62,6 +68,11 @@ export function GastoFormScreen({ navigation, route }: Props) {
           setCartaoId(g.cartao_id);
           setPagoPor(g.pago_por);
           setData(g.data);
+          if (g.data_pagamento) {
+            setPagamentoCarregado(true);
+            setPagamento(g.data_pagamento);
+            setOutroPagamento(g.data_pagamento.split("-").reverse().join("/"));
+          }
           if (g.data !== hojeISO() && g.data !== somarDias(hojeISO(), -1)) setOutraData(g.data.split("-").reverse().join("/"));
           setDescricao(g.descricao ?? "");
           setNotaId(g.nota_id);
@@ -89,6 +100,8 @@ export function GastoFormScreen({ navigation, route }: Props) {
   const usandoOutraData = data !== hojeISO() && data !== ontem;
   const cartao = cartoes.find((c) => c.id === cartaoId);
   const fatura = forma === "credito" && cartao ? faturaDaCompra(data, cartao.dia_fechamento, cartao.dia_vencimento) : null;
+  // No cartão, o mês da despesa é o do pagamento: o dia informado ou o vencimento da fatura.
+  const pagamentoEfetivo = forma === "credito" ? (pagamento ?? fatura?.vencimento ?? data) : data;
 
   /** Valor de cada parcela em centavos; a sobra do arredondamento vai na 1ª. */
   function valoresParcelas(total: number, n: number): number[] {
@@ -109,6 +122,17 @@ export function GastoFormScreen({ navigation, route }: Props) {
     if (forma === "credito" && !cartaoId) {
       return Alert.alert("Cartão", cartoes.length ? "Escolha qual cartão foi usado." : "Cadastre um cartão primeiro (+ Novo cartão).");
     }
+    // Cartão: dia do pagamento informado, ou o vencimento da fatura da data da compra.
+    let pagamentoFinal: string | null = null;
+    if (forma === "credito" && cartao) {
+      if (outroPagamento.trim() && pagamento) {
+        const iso = isoDeTextoBR(outroPagamento);
+        if (!iso) return Alert.alert("Data do pagamento", "Complete a data: dia/mês/ano, por exemplo 25/11/2026.");
+        pagamentoFinal = iso;
+      } else {
+        pagamentoFinal = faturaDaCompra(dataFinal, cartao.dia_fechamento, cartao.dia_vencimento).vencimento;
+      }
+    }
 
     const base = {
       casa_id: casa.id,
@@ -118,11 +142,14 @@ export function GastoFormScreen({ navigation, route }: Props) {
       cartao_id: forma === "credito" ? cartaoId : null,
       pago_por: pagoPor,
     };
+    // data_pagamento só entra quando importa (cartão, ou limpar ao trocar de cartão para Pix):
+    // assim Pix/débito continuam funcionando mesmo antes do SQL 08.
+    const comPagamento = (valor: string | null) => (valor || pagamentoCarregado ? { data_pagamento: valor } : {});
 
     setSalvando(true);
     let error;
     if (gastoId) {
-      ({ error } = await supabase.from("gastos").update({ ...base, valor: centavos / 100, data: dataFinal }).eq("id", gastoId));
+      ({ error } = await supabase.from("gastos").update({ ...base, valor: centavos / 100, data: dataFinal, ...comPagamento(pagamentoFinal) }).eq("id", gastoId));
     } else if (parcelas > 1) {
       // Uma linha por parcela, cada uma no seu mês, todas com o mesmo parcelamento_id.
       const grupo = gerarUuid();
@@ -130,17 +157,22 @@ export function GastoFormScreen({ navigation, route }: Props) {
         ...base,
         valor: v / 100,
         data: somarMeses(dataFinal, i),
+        ...comPagamento(pagamentoFinal ? somarMeses(pagamentoFinal, i) : null),
         parcelamento_id: grupo,
         parcela: i + 1,
         parcelas,
       }));
       ({ error } = await supabase.from("gastos").insert(registros));
     } else {
-      ({ error } = await supabase.from("gastos").insert({ ...base, valor: centavos / 100, data: dataFinal }));
+      ({ error } = await supabase.from("gastos").insert({ ...base, valor: centavos / 100, data: dataFinal, ...comPagamento(pagamentoFinal) }));
     }
     setSalvando(false);
     if (error) {
-      const msg = error.message.includes("parcela") ? "Falta rodar o SQL 03-parcelas-categorias.sql no Supabase." : traduzirErro(error.message);
+      const msg = error.message.includes("data_pagamento")
+        ? "Falta rodar o SQL 08-data-pagamento.sql no Supabase."
+        : error.message.includes("parcela")
+          ? "Falta rodar o SQL 03-parcelas-categorias.sql no Supabase."
+          : traduzirErro(error.message);
       return Alert.alert("Não foi possível salvar", msg);
     }
     navigation.goBack();
@@ -231,9 +263,36 @@ export function GastoFormScreen({ navigation, route }: Props) {
         </Secao>
       )}
       {fatura && cartao && (
-        <Text style={[typography.label, { marginTop: spacing.sm, color: colors.accent }]}>
-          {parcelas > 1 ? "1ª parcela entra" : "Entra"} na fatura que fecha {diaMes(fatura.fechamento)} e vence {diaMes(fatura.vencimento)}
-        </Text>
+        <View style={{ marginTop: spacing.lg }}>
+          <Text style={[typography.label, { marginBottom: spacing.sm }]}>📅 VAI PAGAR EM</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, alignItems: "center" }}>
+            <Chip
+              rotulo={`${diaMes(fatura.vencimento)} · vencimento da fatura`}
+              ativo={!pagamento}
+              onPress={() => {
+                setPagamento(null);
+                setOutroPagamento("");
+              }}
+            />
+            <TextInput
+              value={outroPagamento}
+              onChangeText={(t) => {
+                const m = mascaraData(t);
+                setOutroPagamento(m);
+                const iso = isoDeTextoBR(m);
+                setPagamento(iso ?? (m ? pagamento ?? fatura.vencimento : null));
+              }}
+              placeholder="outro dia (dd/mm/aaaa)"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="number-pad"
+              maxLength={10}
+              style={[estiloInput(), { borderRadius: 999, paddingVertical: 6, minWidth: 170, fontSize: 14, borderColor: pagamento ? colors.accent : colors.border }]}
+            />
+          </View>
+          <Text style={[typography.label, { marginTop: spacing.xs, color: colors.accent }]}>
+            {parcelas > 1 ? "1ª parcela conta" : "Conta"} em {MESES_LONGOS[Number(pagamentoEfetivo.slice(5, 7)) - 1]} (pagamento em {diaMes(pagamentoEfetivo)})
+          </Text>
+        </View>
       )}
 
       {!gastoId && (
@@ -303,12 +362,11 @@ export function GastoFormScreen({ navigation, route }: Props) {
             <View style={{ marginTop: spacing.sm }}>
               <Text style={[typography.label, { color: colors.accent, marginBottom: 4 }]}>
                 {parcelas}x de {formatarReais(valorParcela[parcelas - 1] / 100)}
-                {forma === "credito" && cartao ? " — mês em que cada parcela vence na fatura:" : " — uma por mês:"}
+                {" — mês em que cada parcela é paga:"}
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                 {valorParcela.map((v, i) => {
-                  const dataParcela = somarMeses(data, i);
-                  const ref = forma === "credito" && cartao ? faturaDaCompra(dataParcela, cartao.dia_fechamento, cartao.dia_vencimento).vencimento : dataParcela;
+                  const ref = somarMeses(pagamentoEfetivo, i);
                   return (
                     <Text key={i} style={[typography.label, { borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }]}>
                       {i + 1}ª {MESES_CURTOS[Number(ref.slice(5, 7)) - 1]}/{ref.slice(2, 4)} · {formatarReais(v / 100)}
@@ -329,7 +387,8 @@ export function GastoFormScreen({ navigation, route }: Props) {
         </Secao>
       )}
 
-      <Secao titulo={parcelas > 1 ? "DATA DA COMPRA" : "QUANDO"}>
+      {/* Fora do cartão, esta é a data em que o dinheiro sai (define o mês). No cartão, é a data da compra. */}
+      <Secao titulo={forma === "credito" ? "DATA DA COMPRA" : "DATA DO PAGAMENTO"}>
         <Chip rotulo="Hoje" ativo={data === hojeISO()} onPress={() => { setData(hojeISO()); setOutraData(""); }} />
         <Chip rotulo="Ontem" ativo={data === ontem} onPress={() => { setData(ontem); setOutraData(""); }} />
         <TextInput

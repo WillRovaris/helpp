@@ -52,8 +52,20 @@ export interface ResumoCartao {
 }
 
 /** Junta os gastos de UM cartão nas faturas, a partir de hoje. */
+/**
+ * Mês (YYYY-MM) em que uma compra no cartão é paga: a data de pagamento que a
+ * pessoa informou ou, se não tiver (importada do banco), o vencimento da fatura
+ * em que a data da compra cai.
+ */
+export function mesPagamentoCartao(
+  g: { data: string; data_pagamento?: string | null },
+  cartao: { dia_fechamento: number; dia_vencimento: number },
+): string {
+  return (g.data_pagamento ?? faturaDaCompra(g.data, cartao.dia_fechamento, cartao.dia_vencimento).vencimento).slice(0, 7);
+}
+
 export function resumirCartao(
-  gastos: { valor: number; data: string }[],
+  gastos: { valor: number; data: string; data_pagamento?: string | null }[],
   cartao: { limite: number; dia_fechamento: number; dia_vencimento: number },
   hoje: string,
   /** Diz se a fatura com esse vencimento já foi marcada como paga. */
@@ -64,11 +76,14 @@ export function resumirCartao(
   let totalAberta = 0;
   let totalAnterior = 0;
   let futuras = 0;
+  // Cada fatura é identificada pelo mês do vencimento (um vencimento por mês).
+  const mesAberta = aberta.vencimento.slice(0, 7);
+  const mesAnterior = anterior.vencimento.slice(0, 7);
   for (const g of gastos) {
-    const f = faturaDaCompra(g.data, cartao.dia_fechamento, cartao.dia_vencimento).fechamento;
-    if (f === aberta.fechamento) totalAberta += g.valor;
-    else if (f === anterior.fechamento) totalAnterior += g.valor;
-    else if (f > aberta.fechamento) futuras += g.valor;
+    const m = mesPagamentoCartao(g, cartao);
+    if (m === mesAberta) totalAberta += g.valor;
+    else if (m === mesAnterior) totalAnterior += g.valor;
+    else if (m > mesAberta) futuras += g.valor;
   }
   const fechadaAVencer = hoje <= anterior.vencimento && totalAnterior > 0;
   const paga = estaPaga(anterior.vencimento);

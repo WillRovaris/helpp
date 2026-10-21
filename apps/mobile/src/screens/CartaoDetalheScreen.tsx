@@ -8,7 +8,7 @@ import { useCartoes, useCategorias, useFaturasPagas } from "../data/hooks";
 import { emojiCategoria, type Gasto, tituloGasto } from "../data/tipos";
 import { detectarParcela } from "../importacao/leitor";
 import { descricaoSemParcela } from "../importacao/preparar";
-import { diaMes, faturaDaCompra, faturaVizinha, somarMeses } from "../lib/fatura";
+import { diaMes, faturaDaCompra, faturaVizinha, mesPagamentoCartao, somarMeses } from "../lib/fatura";
 import { formatarReais, gerarUuid, hojeISO, MESES, rotuloDia } from "../lib/format";
 import { supabase, traduzirErro } from "../lib/supabase";
 import type { RootStackParamList } from "../navigation/types";
@@ -49,28 +49,36 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
     escolheuInicio.current = true;
     const anterior = faturaVizinha(atual.fechamento, -1, cartao.dia_fechamento, cartao.dia_vencimento);
     if (hojeISO() > anterior.vencimento) return;
-    const inicioAnterior = faturaVizinha(anterior.fechamento, -1, cartao.dia_fechamento, cartao.dia_vencimento).fechamento;
     Promise.all([
-      supabase.from("gastos").select("id", { count: "exact", head: true }).eq("casa_id", casa.id).eq("cartao_id", cartaoId).gte("data", inicioAnterior).lt("data", anterior.fechamento),
+      supabase
+        .from("gastos")
+        .select("*")
+        .eq("casa_id", casa.id)
+        .eq("cartao_id", cartaoId)
+        .gte("data", somarMeses(anterior.vencimento, -3))
+        .lte("data", somarMeses(anterior.vencimento, 1)),
       supabase.from("faturas_pagas").select("id").eq("cartao_id", cartaoId).eq("vencimento", anterior.vencimento).maybeSingle(),
-    ]).then(([{ count }, { data: paga }]) => {
-      if ((count ?? 0) > 0 && !paga) setDeslocamento(-1);
+    ]).then(([{ data: candidatos }, { data: paga }]) => {
+      const temCompras = (candidatos ?? []).some((g) => mesPagamentoCartao(g, cartao) === anterior.vencimento.slice(0, 7));
+      if (temCompras && !paga) setDeslocamento(-1);
     });
   }, [casa?.id, cartao, atual?.fechamento, cartaoId]);
 
   const carregar = useCallback(async () => {
-    if (!casa || !fatura || !inicio) return;
-    // Fatura = compras de [fechamento anterior, fechamento desta).
+    if (!casa || !fatura || !inicio || !cartao) return;
+    // Fatura = tudo deste cartão que é pago no mês do vencimento dela (data de
+    // pagamento informada, ou calculada pela data da compra).
     const { data } = await supabase
       .from("gastos")
       .select("*")
       .eq("casa_id", casa.id)
       .eq("cartao_id", cartaoId)
-      .gte("data", inicio)
-      .lt("data", fatura.fechamento)
+      .gte("data", somarMeses(fatura.vencimento, -3))
+      .lte("data", somarMeses(fatura.vencimento, 1))
       .order("data", { ascending: false });
-    setGastos((data ?? []).map((g) => ({ ...g, valor: Number(g.valor) })));
-  }, [casa?.id, cartaoId, fatura?.fechamento, inicio]);
+    const mes = fatura.vencimento.slice(0, 7);
+    setGastos((data ?? []).filter((g) => mesPagamentoCartao(g, cartao) === mes).map((g) => ({ ...g, valor: Number(g.valor) })));
+  }, [casa?.id, cartaoId, fatura?.fechamento, fatura?.vencimento, inicio, cartao]);
 
   useFocusEffect(
     useCallback(() => {

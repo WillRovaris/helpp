@@ -33,6 +33,8 @@ export interface Gasto {
   cartao_id: string | null;
   pago_por: string | null;
   nota_id: string | null;
+  /** Dia em que o dinheiro sai (define o mês). Vazio = calculado (cartão: vencimento da fatura). */
+  data_pagamento?: string | null;
   parcelamento_id?: string | null;
   parcela?: number | null;
   parcelas?: number | null;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useCasa } from "../casa/CasaContext";
-import { faturaDaCompra, somarMeses } from "../lib/fatura";
+import { mesPagamentoCartao, somarMeses } from "../lib/fatura";
 import { hojeISO, limitesDoMes } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import type { Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, PagamentoConta } from "./tipos";
@@ -60,10 +60,12 @@ export function useCartoes() {
  * Mês em que o gasto "pesa" no orçamento: compra no cartão conta no mês em que
  * a FATURA VENCE (quando o dinheiro sai); o resto, no dia do gasto.
  */
-export function mesDeReferencia(g: { data: string; cartao_id: string | null }, cartoes: Cartao[]): string {
+export function mesDeReferencia(g: { data: string; cartao_id: string | null; data_pagamento?: string | null }, cartoes: Cartao[]): string {
+  // Data de pagamento informada pela pessoa manda sempre.
+  if (g.data_pagamento) return g.data_pagamento.slice(0, 7);
   const c = g.cartao_id ? cartoes.find((x) => x.id === g.cartao_id) : undefined;
   if (!c) return g.data.slice(0, 7);
-  return faturaDaCompra(g.data, c.dia_fechamento, c.dia_vencimento).vencimento.slice(0, 7);
+  return mesPagamentoCartao(g, c);
 }
 
 /** Gastos que pesam num mês (mes = 0–11), mais recentes primeiro. Cartão = mês do vencimento da fatura. */

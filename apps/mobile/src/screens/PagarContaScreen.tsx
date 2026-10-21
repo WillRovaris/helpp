@@ -81,6 +81,8 @@ export function PagarContaScreen({ navigation, route }: Props) {
           forma_pagamento: forma,
           cartao_id: forma === "credito" ? cartaoId : null,
           pago_por: pagoPor,
+          // No cartão, a data escolhida é quando o dinheiro sai (define o mês e a fatura).
+          ...(forma === "credito" ? { data_pagamento: dataFinal } : {}),
         })
         .select("id")
         .single();
