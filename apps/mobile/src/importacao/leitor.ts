@@ -282,6 +282,71 @@ export function ehPDF(bytes: Uint8Array): boolean {
 
 const RE_DINHEIRO = /(?:R\$\s*)?\(?-?\s?\d{1,3}(?:\.\d{3})*,\d{2}\)?(?:\s?\(?[+-]\)?|\s?[CD]\b)?/g;
 
+const MESES_ABREV: Record<string, number> = { jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6, jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12 };
+
+/** Rodapé/cabeçalho repetido nas páginas (não faz parte de nenhum lançamento). */
+const RE_RODAPE = /tem alguma d[uú]vida|ouvidoria|extrato gerado|metropolitanas|dispon[ií]veis em|atendimento 24h|valores em r\$|^\d+ de \d+$|asseguramos|nos responsabilizamos|saldo l[ií]quido corresponde/i;
+
+/**
+ * Extrato "agrupado por dia" (ex.: Nubank em PDF): a data vem como título
+ * ("21 SET 2026"), seguida de "Total de entradas"/"Total de saídas" e dos
+ * lançamentos daquele bloco, cuja descrição pode continuar nas linhas de baixo.
+ */
+function lerPDFAgrupadoPorDia(linhas: string[]): Omit<LancamentoArquivo, "id">[] {
+  const lista: Omit<LancamentoArquivo, "id">[] = [];
+  let data: string | null = null;
+  let sinal = 0; // +1 entradas, -1 saídas
+  let ultimo: Omit<LancamentoArquivo, "id"> | null = null;
+  let continuacoes = 0;
+
+  for (const bruta of linhas) {
+    let linha = bruta.replace(/\s+/g, " ").trim();
+    if (!linha) continue;
+    if (RE_RODAPE.test(linha)) {
+      ultimo = null;
+      continue;
+    }
+    const mData = linha.match(/^(\d{1,2}) (jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]* (\d{4})\b\s*/i);
+    if (mData) {
+      const mes = MESES_ABREV[mData[2].toLowerCase()];
+      data = `${mData[3]}-${String(mes).padStart(2, "0")}-${mData[1].padStart(2, "0")}`;
+      linha = linha.slice(mData[0].length);
+      ultimo = null;
+    }
+    const nl = normalizar(linha);
+    if (/^total de entradas/.test(nl)) {
+      sinal = 1;
+      ultimo = null;
+      continue;
+    }
+    if (/^total de saidas/.test(nl)) {
+      sinal = -1;
+      ultimo = null;
+      continue;
+    }
+    if (/^saldo/.test(nl) || /^rendimento/.test(nl)) {
+      ultimo = null;
+      continue;
+    }
+    if (!linha) continue;
+
+    const mValor = linha.match(/(\d{1,3}(?:\.\d{3})*,\d{2})$/);
+    if (mValor && data && sinal) {
+      const valor = lerNumero(mValor[1]);
+      if (valor == null || valor === 0) continue;
+      const descricao = linha.slice(0, linha.length - mValor[0].length).trim() || "Lançamento";
+      ultimo = { data, descricao, valor: sinal * valor, parcela: null };
+      lista.push(ultimo);
+      continuacoes = 0;
+    } else if (ultimo && continuacoes < 3) {
+      // continuação da descrição (nome/banco na linha de baixo)
+      ultimo.descricao = `${ultimo.descricao} ${linha}`;
+      continuacoes++;
+    }
+  }
+  return lista;
+}
+
 export function lerLinhasPDF(linhas: string[]): ArquivoLido {
   const textoTodo = normalizar(linhas.join(" "));
   const temSaldo = /saldo/.test(textoTodo);
@@ -322,12 +387,15 @@ export function lerLinhasPDF(linhas: string[]): ArquivoLido {
     const sinal = pareceFatura ? (ehEntrada || /pagamento|estorno/i.test(descricao) ? -1 : 1) : ehEntrada ? 1 : -1;
     lista.push({ data, descricao, valor: sinal * valor, parcela: detectarParcela(descricao) });
   }
-  if (!lista.length) throw new Error("Não encontrei lançamentos (linhas com data e valor) neste PDF.");
+  // Formato alternativo (data como título do dia): usa o que encontrar mais lançamentos.
+  const agrupado = lerPDFAgrupadoPorDia(linhas);
+  const escolhida = agrupado.length > lista.length ? agrupado : lista;
+  if (!escolhida.length) throw new Error("Não encontrei lançamentos (linhas com data e valor) neste PDF.");
   return {
     formato: "pdf",
     pareceFatura,
-    banco: null,
-    lancamentos: idsUnicos(lista, (l) => `pdf:${l.data}:${l.valor.toFixed(2)}:${normalizar(l.descricao)}`),
+    banco: /nubank|nu pagamentos/.test(textoTodo) ? "Nubank" : null,
+    lancamentos: idsUnicos(escolhida, (l) => `pdf:${l.data}:${l.valor.toFixed(2)}:${normalizar(l.descricao)}`),
   };
 }
 

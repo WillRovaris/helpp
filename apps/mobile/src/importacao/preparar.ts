@@ -43,9 +43,9 @@ export interface ResultadoPreparo {
 // Palavras na descrição → ícone da categoria (o app mapeia ícone → categoria da casa).
 const REGRAS_CATEGORIA: [RegExp, string][] = [
   [/limite convertido|convers(ao|ão) de limite|emprestimo|credito pessoal|consignado|financ|antecipacao|refinanciamento|bx\.? ?ant|\bemp\b/, "cash"],
-  [/igreja|dizimo|oferta|paroquia|templo|congregacao|ministerio|diocese|comunidade evang|assembleia de deus/, "church"],
+  [/igreja|church|dizimo|oferta|paroquia|templo|congregacao|ministerio|diocese|comunidade evang|assembleia de deus/, "church"],
   [/supermerc|mercado|atacad|hortifruti|acougue|padaria|assai|carrefour|koch|giassi|angeloni|fort atacad|bistek|komprao/, "cart"],
-  [/ifood|restaur|lanch|pizza|burger|mc ?donald|\bbk\b|subway|cafe|\bbar\b|churrasc|sushi|rappi|ze delivery/, "restaurant"],
+  [/ifood|restaur|lanch|pizza|burger|mc ?donald|\bbk\b|subway|cafe|\bbar\b|churrasc|sushi|rappi|ze delivery|doces e salgados|salgados|confeitaria|sorveteria|acai/, "restaurant"],
   [/posto|combust|shell|ipiranga|petrobras|br mania|uber|99 ?app|99pop|estaciona|pedagio|sem parar|conectcar|onibus|passagem urb/, "car"],
   [/farmac|drogar|\bdroga\b|raia|pague menos|panvel|hospital|clinica|laborat|unimed|odonto|medic|saude/, "medkit"],
   [/escola|colegio|faculdade|universid|curso|livraria|papelaria|material escolar|mensalidade/, "school"],
@@ -53,7 +53,7 @@ const REGRAS_CATEGORIA: [RegExp, string][] = [
   [/hotel|pousada|airbnb|booking|decolar|latam|gol linhas|azul linhas|aeroporto|rodoviaria|viagem|123milhas/, "airplane"],
   [/pet ?shop|petz|cobasi|veterin|racao/, "paw"],
   [/netflix|spotify|disney|hbo|max\.com|prime video|youtube|cinema|ingresso|steam|playstation|xbox|show|teatro/, "game-controller"],
-  [/celesc|copel|cemig|enel|energia|luz|casan|sabesp|agua|saneamento|vivo|claro|\btim\b|\boi\b|internet|net servicos|telefon|\bgas\b|condominio|aluguel|iptu|ipva|seguro|boleto|conta/, "receipt"],
+  [/celesc|copel|cemig|enel|energia|luz|casan|sabesp|agua|saneamento|vivo|claro|\btim\b|\boi\b|internet|net servicos|telefon|\bgas\b|condominio|aluguel|iptu|ipva|seguro|boleto|\bdas\b|simples nacional|imposto|tributo/, "receipt"],
   [/magazine|magalu|casas bahia|leroy|tok ?stok|madeira|construc|material de constr|eletro|moveis|americanas|mercado ?livre|amazon/, "home"],
   [/presente|floricultura|flores/, "gift"],
 ];
@@ -74,18 +74,24 @@ function nomeProprio(t: string): string {
  * Ex.: "Transferência enviada pelo Pix - MARIA DA SILVA - •••.123.456-•• - NU PAGAMENTOS..." → "Maria da Silva".
  */
 export function nomeDoPix(descricao: string): string | null {
-  if (!/pix/i.test(descricao)) return null;
+  if (!/pix|transfer/i.test(descricao)) return null;
   const ehLixo = (s: string) =>
     !/[a-zà-ÿ]{2}/i.test(s) ||
     /ag[eê]ncia|conta:|\(\d{3,4}\)|•|\*{2}|^\s*(cpf|cnpj)\b/i.test(s) ||
-    /pix/i.test(s) ||
-    /^\s*(enviad[oa]|recebid[oa]|transfer\w*|pagamento|pgto)\s*$/i.test(s); // só o tipo da operação (BB: "Pix - Enviado - ...")
+    /pix|transfer/i.test(s) ||
+    /^\s*(enviad[oa]|recebid[oa]|pagamento|pgto)\s*$/i.test(s); // só o tipo da operação (BB: "Pix - Enviado - ...")
 
-  // Formato com " - " (Nubank e outros): o nome é o primeiro pedaço "limpo" depois do pedaço do Pix.
   const partes = descricao.split(/\s+[-–]\s+/);
-  const iPix = partes.findIndex((p) => /pix/i.test(p));
+  const iPix = partes.findIndex((p) => /pix|transfer/i.test(p));
   let nome: string | null = null;
-  if (partes.length > 1 && iPix >= 0) nome = partes.slice(iPix + 1).find((p) => !ehLixo(p)) ?? null;
+
+  // 1) Nome no mesmo pedaço, depois do tipo da operação (PDF do Nubank: "Transferência enviada pelo Pix FULANO").
+  if (iPix >= 0) {
+    const depois = partes[iPix].replace(/^.*(?:\bpix\b|enviad[oa]\b|recebid[oa]\b|transfer\S*)\s*(?:pelo pix\s*)?(?:para\s+|p\/\s*|des:?\s*)?/i, "");
+    if (/[a-zà-ÿ]{2}/i.test(depois.replace(/\d{2}\/\d{2}|\d{2}:\d{2}/g, ""))) nome = depois;
+  }
+  // 2) Formato com " - " (CSV do Nubank, BB): o primeiro pedaço "limpo" depois do pedaço do Pix.
+  if (!nome && partes.length > 1 && iPix >= 0) nome = partes.slice(iPix + 1).find((p) => !ehLixo(p)) ?? null;
 
   // Formato numa linha só: "PIX ENVIADO PARA FULANO", "TRANSFERENCIA PIX DES: FULANO 15/10", "Pix - Enviado 15/10 12:30 FULANO".
   if (!nome) {
@@ -146,6 +152,18 @@ export function preparar(opts: {
     sinalCompra = somaPos >= somaNeg ? 1 : -1;
   }
 
+  // Quem mandou dinheiro PARA esta conta no mesmo arquivo. Se a conta também manda
+  // para esse mesmo nome, é transferência entre contas da própria pessoa (não é despesa).
+  const nomesQueEnviaram = new Set(
+    tipo === "extrato"
+      ? lancamentos
+          .filter((l) => l.valor > 0)
+          .map((l) => nomeDoPix(l.descricao))
+          .filter((n): n is string => !!n)
+          .map(normalizar)
+      : [],
+  );
+
   const usadosExistentes = new Set<number>();
   const contasUsadas = new Set<string>();
   const itens: ItemImportacao[] = [];
@@ -153,6 +171,10 @@ export function preparar(opts: {
 
   for (const l of lancamentos) {
     const desc = normalizar(l.descricao);
+    // Texto "útil" para regras de categoria e de fatura: no Pix, só o nome de quem recebeu;
+    // nos outros, a descrição sem agência/conta (o banco do destinatário confunde as regras).
+    const nomePix = nomeDoPix(l.descricao);
+    const textoBase = normalizar(nomePix ?? l.descricao.replace(/\s*[-–]?\s*ag[eê]ncia.*$/i, ""));
     const ehSaida = tipo === "extrato" ? l.valor < 0 : Math.sign(l.valor) === sinalCompra;
     if (!ehSaida || (tipo === "fatura" && PAGAMENTO_NA_FATURA.test(desc) && !/pagamento (de )?(boleto|conta)/.test(desc))) {
       ignorados++;
@@ -185,7 +207,10 @@ export function preparar(opts: {
       incluir = false;
       aviso = `Parcela ${l.parcela} já está lançada (veio de uma fatura anterior)`;
     }
-    else if (tipo === "extrato" && PAGAMENTO_FATURA.test(desc)) {
+    else if (tipo === "extrato" && nomesQueEnviaram.has(normalizar(nomeDoPix(l.descricao) ?? "\u0000"))) {
+      incluir = false;
+      aviso = "Transferência entre suas contas — não é despesa";
+    } else if (tipo === "extrato" && PAGAMENTO_FATURA.test(textoBase)) {
       incluir = false;
       aviso = "Pagamento de fatura — as compras já contam no cartão";
     } else {
@@ -231,7 +256,7 @@ export function preparar(opts: {
       descricao: forma === "pix" && nomeDoPix(l.descricao) ? `PIX - ${nomeDoPix(l.descricao)}` : l.descricao,
       valor,
       parcela: l.parcela,
-      iconeSugerido: contaBaixa ? "receipt" : sugerirIcone(l.descricao),
+      iconeSugerido: contaBaixa ? "receipt" : sugerirIcone(textoBase),
       forma,
       incluir,
       aviso,

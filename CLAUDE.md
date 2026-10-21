@@ -60,7 +60,8 @@ o que mudou para quem usa o app, sem jargão.
 - Tema: escolha da pessoa em Configurações (igual ao celular / claro / escuro).
 - Bancos dele: cartões Nubank, Digio, C6, Banco do Brasil; contas BB, Caixa, Bradesco, Nubank, C6, Digio.
   A importação lê OFX, CSV, Excel (xlsx/xls/xls-HTML via `xlsx` em `planilha.ts`) e PDF (texto extraído com pdf.js do cdnjs numa WebView escondida — `PdfTexto.tsx` — e interpretado por `lerLinhasPDF`; pede senha se o PDF tiver). Se um arquivo real não ler, ajustar o leitor com o cabeçalho/linhas dele.
-  Confirmados com arquivo real: fatura Nubank (CSV), extrato Bradesco (CSV com colunas Crédito/Débito separadas).
+  Confirmados com arquivo real: fatura Nubank (CSV), extrato Bradesco (CSV com colunas Crédito/Débito separadas), extrato Nubank PJ em PDF (data como título do dia + "Total de entradas/saídas").
+  Pix para o mesmo nome que mandou dinheiro para a conta no arquivo = transferência entre contas da pessoa (vem desmarcado).
 - Importação de extrato: Pix vira só "PIX - Nome de quem recebeu" (`nomeDoPix` em `src/importacao/preparar.ts`) — pedido do dono.
 - NFC-e: leitura no próprio celular via WebView da SEFAZ-SC (`src/fiscal/nfce.ts`); outros estados podem não funcionar.
 
