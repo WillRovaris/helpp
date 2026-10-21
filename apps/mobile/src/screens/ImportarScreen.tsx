@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Campo, Cartao, Chip } from "../components/ui";
+import { Botao, Campo, Cartao, Chip, useEspacoRodape } from "../components/ui";
 import { useCartoes, useCategorias } from "../data/hooks";
 import { emojiCategoria } from "../data/tipos";
 import { type ArquivoLido, ehPDF, lerArquivo, lerLinhasPDF } from "../importacao/leitor";
@@ -37,6 +37,7 @@ function somarDiasISO(iso: string, dias: number): string {
 }
 
 export function ImportarScreen({ navigation }: Props) {
+  const rodape = useEspacoRodape();
   const { userId } = useAuth();
   const { casa } = useCasa();
   const { categorias } = useCategorias();
@@ -288,7 +289,7 @@ export function ImportarScreen({ navigation }: Props) {
 
   if (!arquivo) {
     return (
-      <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
+      <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }}>
         <Text style={typography.body}>
           Baixe no app do seu banco o <Text style={{ fontWeight: "700" }}>extrato da conta</Text> ou a <Text style={{ fontWeight: "700" }}>fatura do cartão</Text> em
           formato <Text style={{ fontWeight: "700" }}>OFX, CSV, Excel (xlsx/xls) ou PDF</Text>, salve no celular e escolha o arquivo aqui.
@@ -329,7 +330,7 @@ export function ImportarScreen({ navigation }: Props) {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 }}>
+    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }}>
       <Cartao>
         <Text style={typography.label}>ARQUIVO</Text>
         <Text style={[typography.body, { fontWeight: "600" }]} numberOfLines={1}>{nomeArquivo}</Text>

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Cartao, Chip } from "../components/ui";
+import { Botao, Cartao, Chip, useEspacoRodape } from "../components/ui";
 import { useCartoes, useCategorias } from "../data/hooks";
 import { emojiCategoria, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
 import { chaveDoQr } from "../fiscal/nfce";
@@ -19,6 +19,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "NotaConfirmar">;
 // Itens podem ser tirados (ex.: algo comprado para outra finalidade, como os doces):
 // a despesa fica só com o que sobrou.
 export function NotaConfirmarScreen({ navigation, route }: Props) {
+  const rodape = useEspacoRodape();
   const { qr, nota } = route.params;
   const { userId } = useAuth();
   const { casa, membros } = useCasa();
@@ -133,7 +134,7 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 }}>
+    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }}>
       <Cartao>
         <Text style={[typography.body, { fontWeight: "700" }]}>{nota.estabelecimento}</Text>
         <Text style={typography.label}>{rotuloDia(data)}{nota.endereco ? ` · ${nota.endereco}` : ""}</Text>

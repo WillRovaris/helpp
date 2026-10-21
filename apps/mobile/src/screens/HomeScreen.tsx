@@ -5,7 +5,7 @@ import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
-import { Botao, Cartao } from "../components/ui";
+import { Botao, Cartao, useEspacoRodape } from "../components/ui";
 import { useCartoes, useCategorias, useContasFixas, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useUltimosGastos } from "../data/hooks";
 import { reagendarLembretes } from "../lembretes/lembretes";
 import { competencia, contasComoDespesas, contasDoMes, textoSituacao } from "../lib/contas";
@@ -21,6 +21,7 @@ import { colors, spacing, typography } from "../theme";
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export function HomeScreen({ navigation }: Props) {
+  const rodape = useEspacoRodape();
   const { casa, membros, meuNome } = useCasa();
   const hoje = new Date();
   const { gastos, recarregar } = useGastosDoMes(hoje.getFullYear(), hoje.getMonth());
@@ -65,8 +66,8 @@ export function HomeScreen({ navigation }: Props) {
   const pendentesUrgentes = contasAbertas.filter((c) => c.situacao === "atrasada" || c.situacao === "vence-logo");
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top", "left", "right"]}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
           <View style={{ flex: 1 }}>
             <Text style={typography.subtitle}>Olá, {meuNome}</Text>

@@ -1,12 +1,13 @@
 import React from "react";
 import { Alert, ScrollView, Share, Text } from "react-native";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Cartao } from "../components/ui";
+import { Botao, Cartao, useEspacoRodape } from "../components/ui";
 import { colors, spacing, typography } from "../theme";
 
 // Opcional: só para quem quer dividir a casa com outra pessoa.
 // Quem mora sozinho(a) nunca precisa abrir esta tela.
 export function CompartilharScreen() {
+  const rodape = useEspacoRodape();
   const { casa, membros, novoConvite } = useCasa();
   if (!casa) return null;
 
@@ -32,7 +33,7 @@ export function CompartilharScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
+    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }}>
       <Cartao>
         <Text style={typography.label}>QUEM PARTICIPA</Text>
         {membros.map((m) => (

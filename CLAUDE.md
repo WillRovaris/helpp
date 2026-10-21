@@ -49,6 +49,7 @@ o que mudou para quem usa o app, sem jargão.
 - Cores: **sempre** `colors.*` / `typography.*` de `src/theme.ts` lidas no render (são getters por causa do tema claro/escuro).
   Não usar cor dentro de `StyleSheet.create` nem em constante no topo do arquivo.
 - Formulários usam `TelaFormulario` (`src/components/ui.tsx`) para o teclado não cobrir o campo.
+- Toda tela com rolagem usa `paddingBottom: useEspacoRodape()` (botões do Android ficam por cima do app — no S20 FE da Thamara o último item ficava escondido).
 - Valores em dinheiro: campo tipo maquininha (`centavosDoTexto` + `formatarReais`); datas digitadas com `mascaraData`.
 - Listas da casa ficam ao vivo com `useListaAoVivo` (`src/data/hooks.ts`: busca + realtime do Supabase).
 

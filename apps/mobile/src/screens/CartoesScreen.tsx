@@ -3,7 +3,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback } from "react";
 import { ScrollView, Text } from "react-native";
 import { ResumoCartaoCard } from "../components/ResumoCartaoCard";
-import { Botao } from "../components/ui";
+import { Botao, useEspacoRodape } from "../components/ui";
 import { useCartoes, useFaturasPagas, useGastosCredito } from "../data/hooks";
 import { resumirCartao, somarMeses } from "../lib/fatura";
 import { hojeISO } from "../lib/format";
@@ -13,6 +13,7 @@ import { colors, spacing, typography } from "../theme";
 type Props = NativeStackScreenProps<RootStackParamList, "Cartoes">;
 
 export function CartoesScreen({ navigation }: Props) {
+  const rodape = useEspacoRodape();
   const hoje = hojeISO();
   const { cartoes, carregando } = useCartoes();
   const { gastosCredito, recarregar } = useGastosCredito(somarMeses(hoje, -3));
@@ -26,7 +27,7 @@ export function CartoesScreen({ navigation }: Props) {
   );
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
+    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }}>
       {!carregando && cartoes.length === 0 && (
         <Text style={[typography.body, { color: colors.textSecondary }]}>
           Cadastre seus cartões de crédito para acompanhar a fatura e quanto ainda falta do limite.

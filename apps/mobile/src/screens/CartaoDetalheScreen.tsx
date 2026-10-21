@@ -3,7 +3,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Cartao } from "../components/ui";
+import { Botao, Cartao, useEspacoRodape } from "../components/ui";
 import { useCartoes, useCategorias, useFaturasPagas } from "../data/hooks";
 import { emojiCategoria, type Gasto, tituloGasto } from "../data/tipos";
 import { detectarParcela } from "../importacao/leitor";
@@ -19,6 +19,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "CartaoDetalhe">;
 // Uma fatura por vez, com ‹ › para ver as anteriores e as futuras (parcelas).
 // Abre na fatura que está para vencer (se ainda não foi paga); senão, na aberta.
 export function CartaoDetalheScreen({ navigation, route }: Props) {
+  const rodape = useEspacoRodape();
   const { cartaoId } = route.params;
   const { casa, membros } = useCasa();
   const { cartoes } = useCartoes();
@@ -168,7 +169,7 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
   const nomePessoa = new Map(membros.map((m) => [m.user_id, m.nome]));
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
+    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <TouchableOpacity onPress={() => setDeslocamento(deslocamento - 1)} style={{ padding: spacing.sm }}>
           <Text style={{ fontSize: 22, color: colors.accent }}>‹</Text>

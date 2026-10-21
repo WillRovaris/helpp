@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Cartao, Chip } from "../components/ui";
+import { Botao, Cartao, Chip, useEspacoRodape } from "../components/ui";
 import { type ConfigLembretes, lerConfigLembretes, salvarConfigLembretes } from "../lembretes/lembretes";
 import { formatarReais } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
@@ -19,6 +19,7 @@ const TEMAS: { valor: PreferenciaTema; rotulo: string }[] = [
 ];
 
 export function ConfiguracoesScreen({ navigation }: Props) {
+  const rodape = useEspacoRodape();
   const { session, signOut } = useAuth();
   const { casa, membros } = useCasa();
   const { preferencia, escolher } = useTema();
@@ -41,7 +42,7 @@ export function ConfiguracoesScreen({ navigation }: Props) {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
+    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }}>
       <Cartao>
         <Text style={[typography.label, { marginBottom: spacing.sm }]}>APARÊNCIA</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>

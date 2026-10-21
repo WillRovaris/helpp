@@ -2,7 +2,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { Botao, Cartao } from "../components/ui";
+import { Botao, Cartao, useEspacoRodape } from "../components/ui";
 import { useCategorias, useContasFixas, usePagamentosDoMes } from "../data/hooks";
 import { emojiCategoria } from "../data/tipos";
 import { type ContaDoMes, competencia, contasDoMes, textoSituacao } from "../lib/contas";
@@ -18,6 +18,7 @@ export function corSituacao(c: ContaDoMes): string {
 }
 
 export function ContasScreen({ navigation }: Props) {
+  const rodape = useEspacoRodape();
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());
   const [mes, setMes] = useState(hoje.getMonth());
@@ -47,7 +48,7 @@ export function ContasScreen({ navigation }: Props) {
   const categoriaPorId = new Map(categorias.map((c) => [c.id, c]));
 
   return (
-    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
+    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <TouchableOpacity onPress={() => mudarMes(-1)} style={{ padding: spacing.sm }}>
           <Text style={{ fontSize: 22, color: colors.accent }}>‹</Text>

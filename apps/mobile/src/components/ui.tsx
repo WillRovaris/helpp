@@ -1,7 +1,16 @@
 import { HeaderHeightContext } from "@react-navigation/elements";
 import React, { useContext } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View, ViewStyle } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography } from "../theme";
+
+/**
+ * Espaço no fim das telas com rolagem: a altura dos botões de navegação do
+ * Android (que ficam por cima do app) + uma folga, para o último item não ficar escondido.
+ */
+export function useEspacoRodape(): number {
+  return useSafeAreaInsets().bottom + spacing.xl;
+}
 
 export function Botao({
   titulo,
@@ -100,9 +109,10 @@ const chipStyles = StyleSheet.create({
  */
 export function TelaFormulario({ children, contentStyle }: { children: React.ReactNode; contentStyle?: ViewStyle }) {
   const alturaCabecalho = useContext(HeaderHeightContext) ?? 0;
+  const rodape = useEspacoRodape();
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior="padding" keyboardVerticalOffset={alturaCabecalho}>
-      <ScrollView contentContainerStyle={[{ padding: spacing.lg, paddingBottom: spacing.xl * 2 }, contentStyle]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[{ padding: spacing.lg, paddingBottom: rodape + spacing.xl }, contentStyle]} keyboardShouldPersistTaps="handled">
         {children}
       </ScrollView>
     </KeyboardAvoidingView>

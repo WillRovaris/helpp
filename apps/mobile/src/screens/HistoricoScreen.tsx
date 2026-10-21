@@ -5,7 +5,7 @@ import React, { useCallback, useContext, useMemo, useRef, useState } from "react
 import { KeyboardAvoidingView, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { ResultadosBusca } from "../components/BuscaDespesas";
-import { Cartao as CartaoUI, Chip, estiloInput } from "../components/ui";
+import { Cartao as CartaoUI, Chip, estiloInput, useEspacoRodape } from "../components/ui";
 import { useCartoes, useCategorias, useContasFixas, useGastosDoMes, usePagamentosDoMes } from "../data/hooks";
 import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
 import { emojiCategoria, FORMAS_PAGAMENTO, type Gasto, tituloGasto } from "../data/tipos";
@@ -16,6 +16,7 @@ import { colors, spacing, typography } from "../theme";
 type Props = NativeStackScreenProps<RootStackParamList, "Historico">;
 
 export function HistoricoScreen({ navigation, route }: Props) {
+  const rodape = useEspacoRodape();
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());
   const [mes, setMes] = useState(hoje.getMonth());
@@ -86,7 +87,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior="padding" keyboardVerticalOffset={alturaCabecalho}>
-    <ScrollView ref={rolagem} style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={rolagem} style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }} keyboardShouldPersistTaps="handled">
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <TouchableOpacity onPress={() => mudarMes(-1)} style={{ padding: spacing.sm }}>
           <Text style={{ fontSize: 22, color: colors.accent }}>‹</Text>
