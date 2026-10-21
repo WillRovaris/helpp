@@ -93,12 +93,20 @@ export function useGastosDoMes(ano: number, mes: number) {
   };
 }
 
-/** Últimos gastos lançados (para a tela inicial), independente do mês. Parcelas com data futura ficam de fora. */
+/** Últimos gastos lançados (para a tela inicial), independente do mês. Parcelas de meses futuros ficam de fora. */
 export function useUltimosGastos(qtd: number) {
   const hoje = hojeISO();
   const { itens, ...resto } = useListaAoVivo<Gasto>(
     "gastos",
-    (casaId) => supabase.from("gastos").select("*").eq("casa_id", casaId).lte("data", hoje).order("created_at", { ascending: false }).limit(qtd),
+    // Tudo que foi lançado aparece (mesmo com data à frente); só as parcelas de meses futuros ficam de fora.
+    (casaId) =>
+      supabase
+        .from("gastos")
+        .select("*")
+        .eq("casa_id", casaId)
+        .or(`data.lte.${hoje},parcelamento_id.is.null`)
+        .order("created_at", { ascending: false })
+        .limit(qtd),
     [qtd, hoje],
   );
   return { ultimos: itens.map((g) => ({ ...g, valor: Number(g.valor) })), ...resto };
