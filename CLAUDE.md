@@ -55,7 +55,7 @@ o que mudou para quem usa o app, sem jargão.
 ## Regras de produto (vieram do dono)
 - **A data informada pela pessoa é a data em que o dinheiro sai** (pedido do dono). Mês da despesa = `data_pagamento` se existir; senão, no cartão, o vencimento da fatura da data da compra (importados/nota); senão, a própria data. Ver `mesDeReferencia` (hooks.ts) e `mesPagamentoCartao` (fatura.ts). No lançamento manual no cartão o campo é "VAI PAGAR EM" (padrão: vencimento da fatura). A fatura de um cartão = tudo dele pago no mês do vencimento.
 - Importar fatura com "Parcela 3/5" lança a 3 e cria a 4 e a 5 nas faturas seguintes (mesmo `parcelamento_id`); na próxima importação a 4/5 é reconhecida e vem desmarcada.
-- Conta fixa pode ter período (`inicio` + `meses`, ex.: plano de saúde 12x): só aparece, avisa e é sugerida na importação dentro do período (`periodoNoMes` em `lib/contas.ts`). O Histórico mostra "Contas fixas previstas" (não pagas) em cada mês, inclusive futuros.
+- Conta fixa pode ter período (`inicio` + `meses`, ex.: plano de saúde 12x): só aparece, avisa e é sugerida na importação dentro do período (`periodoNoMes` em `lib/contas.ts`). Contas fixas do mês ainda não pagas entram como despesa comum (sem diferenciação — pedido do dono) no total, na lista do Histórico (no dia do vencimento; tocar abre "Paguei"), nas categorias e no WhatsApp: `contasComoDespesas` em `lib/contas.ts`.
 - Fatura pode ser marcada como paga (`faturas_pagas`): some o aviso ⏰, libera o limite e para o lembrete.
 - **Compartilhar é opcional**: o app tem que funcionar 100% para quem mora sozinho; convite só na tela "Compartilhar".
 - Tema: escolha da pessoa em Configurações (igual ao celular / claro / escuro).

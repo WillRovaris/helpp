@@ -1,4 +1,4 @@
-import type { ContaFixa, PagamentoConta } from "../data/tipos";
+import type { ContaFixa, Gasto, PagamentoConta } from "../data/tipos";
 import { dataDeISO, dataISO } from "./format";
 
 /** Competência (YYYY-MM-01) de um mês; `mes` é 0–11. */
@@ -68,4 +68,28 @@ export function textoSituacao(c: ContaDoMes): string {
   if (c.dias === 0) return "Vence hoje";
   if (c.dias === 1) return "Vence amanhã";
   return `Vence em ${c.dias} dias`;
+}
+
+/**
+ * Contas fixas do mês ainda não pagas, no formato de despesa: entram no total e
+ * na lista junto com as outras (no dia do vencimento). Quando pagas, já viraram
+ * despesa de verdade e não aparecem aqui.
+ */
+export function contasComoDespesas(lista: ContaDoMes[], comp: string): Gasto[] {
+  return lista
+    .filter((c) => !c.pagamento)
+    .map((c) => ({
+      id: `conta:${c.conta.id}:${comp}`,
+      valor: c.conta.valor ?? 0,
+      data: c.vencimento,
+      descricao: c.conta.nome,
+      categoria_id: c.conta.categoria_id,
+      forma_pagamento: "debito" as const,
+      cartao_id: null,
+      pago_por: null,
+      nota_id: null,
+      parcela: c.parcela?.atual ?? null,
+      parcelas: c.parcela?.total ?? null,
+      contaFixa: { contaId: c.conta.id, competencia: comp, valorVaria: c.conta.valor == null },
+    }));
 }

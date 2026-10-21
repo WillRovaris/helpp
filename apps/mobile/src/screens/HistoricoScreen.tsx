@@ -6,7 +6,7 @@ import { useCasa } from "../casa/CasaContext";
 import { ResultadosBusca } from "../components/BuscaDespesas";
 import { Cartao as CartaoUI, Chip, estiloInput } from "../components/ui";
 import { useCartoes, useCategorias, useContasFixas, useGastosDoMes, usePagamentosDoMes } from "../data/hooks";
-import { competencia, contasDoMes } from "../lib/contas";
+import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
 import { emojiCategoria, FORMAS_PAGAMENTO, type Gasto, tituloGasto } from "../data/tipos";
 import { formatarReais, hojeISO, MESES, rotuloDia } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
@@ -48,17 +48,16 @@ export function HistoricoScreen({ navigation, route }: Props) {
 
   const passaPagamento = (g: Gasto) => {
     if (!filtroPagamento) return true;
+    if (g.contaFixa) return false; // conta ainda não paga não tem forma de pagamento
     if (filtroPagamento.startsWith("cartao:")) return g.cartao_id === filtroPagamento.slice(7);
     return g.forma_pagamento === filtroPagamento;
   };
-  const filtrados = gastos.filter(
-    (g) => (!filtroCategoria || g.categoria_id === filtroCategoria) && (!filtroPessoa || g.pago_por === filtroPessoa) && passaPagamento(g),
-  );
+  // Contas fixas do mês ainda não pagas entram como despesas comuns (no dia do vencimento).
+  const contasAPagar = contasComoDespesas(contasDoMes(contas, pagamentos, comp, hojeISO()), comp);
+  const filtrados = [...gastos, ...contasAPagar]
+    .filter((g) => (!filtroCategoria || g.categoria_id === filtroCategoria) && (!filtroPessoa || g.pago_por === filtroPessoa) && passaPagamento(g))
+    .sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));
   const total = filtrados.reduce((s, g) => s + g.valor, 0);
-  // Contas fixas do mês ainda não pagas (no período de cada conta). Quando pagas, já viram despesa.
-  const contasPrevistas = contasDoMes(contas, pagamentos, comp, hojeISO()).filter((c) => !c.pagamento);
-  const totalPrevistas = contasPrevistas.reduce((s, c) => s + (c.conta.valor ?? 0), 0);
-  const ehPassado = ano < hoje.getFullYear() || (ano === hoje.getFullYear() && mes < hoje.getMonth());
 
   const porDia = useMemo(() => {
     const grupos: { data: string; itens: Gasto[] }[] = [];
@@ -115,32 +114,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
         <Text style={typography.label}>{filtroCategoria || filtroPessoa || filtroPagamento ? "TOTAL FILTRADO" : "TOTAL DO MÊS"}</Text>
         <Text style={{ fontSize: 30, fontWeight: "700", color: colors.textPrimary }}>{formatarReais(total)}</Text>
         <Text style={typography.label}>{filtrados.length} {filtrados.length === 1 ? "despesa" : "despesas"}</Text>
-        {totalPrevistas > 0 && (
-          <Text style={[typography.label, { marginTop: spacing.xs, color: colors.warning }]}>
-            + {formatarReais(totalPrevistas)} em contas fixas ainda não pagas = {formatarReais(total + totalPrevistas)}
-          </Text>
-        )}
       </CartaoUI>
-
-      {contasPrevistas.length > 0 && (
-        <TouchableOpacity onPress={() => navigation.navigate("Contas")} activeOpacity={0.8}>
-          <CartaoUI style={{ paddingVertical: spacing.xs }}>
-            <Text style={[typography.label, { paddingVertical: spacing.sm }]}>
-              🧾 {ehPassado ? "CONTAS FIXAS NÃO PAGAS NESTE MÊS" : "CONTAS FIXAS PREVISTAS"} · {formatarReais(totalPrevistas)}
-            </Text>
-            {contasPrevistas.map((c) => (
-              <View key={c.conta.id} style={{ flexDirection: "row", paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border }}>
-                <Text style={[typography.body, { flex: 1 }]} numberOfLines={1}>
-                  {c.conta.nome}
-                  {c.parcela ? ` (${c.parcela.atual}/${c.parcela.total})` : ""}
-                </Text>
-                <Text style={[typography.label, { marginHorizontal: spacing.sm }]}>dia {c.vencimento.slice(8, 10)}</Text>
-                <Text style={[typography.body, { fontWeight: "600" }]}>{c.conta.valor != null ? formatarReais(c.conta.valor) : "valor varia"}</Text>
-              </View>
-            ))}
-          </CartaoUI>
-        </TouchableOpacity>
-      )}
 
       <Text style={[typography.label, { marginBottom: -spacing.xs }]}>CATEGORIA</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
@@ -180,10 +154,11 @@ export function HistoricoScreen({ navigation, route }: Props) {
         <TextInput
           value={busca}
           onChangeText={setBusca}
-          placeholder="🔍 Buscar despesa (nome, categoria ou valor)"
+          placeholder="🔍 Buscar despesa"
           placeholderTextColor={colors.textSecondary}
           returnKeyType="search"
-          style={[estiloInput(), { flex: 1, borderRadius: 999 }]}
+          numberOfLines={1}
+          style={[estiloInput(), { flex: 1, borderRadius: 999, height: 48, paddingVertical: 0, textAlignVertical: "center" }]}
         />
         {busca.length > 0 && (
           <TouchableOpacity onPress={() => setBusca("")} style={{ padding: spacing.sm, marginLeft: spacing.xs }} accessibilityLabel="Limpar busca">
@@ -212,11 +187,17 @@ export function HistoricoScreen({ navigation, route }: Props) {
               const forma = g.forma_pagamento === "credito" && g.cartao_id
                 ? `💳 ${cartaoPorId.get(g.cartao_id)?.nome ?? "Crédito"}`
                 : FORMAS_PAGAMENTO.find((f) => f.valor === g.forma_pagamento)?.rotulo;
-              const detalhes = [forma, membros.length > 1 && g.pago_por ? nomePessoa.get(g.pago_por) : null].filter(Boolean).join(" · ");
+              const detalhes = g.contaFixa
+                ? "🧾 conta fixa · a pagar"
+                : [forma, membros.length > 1 && g.pago_por ? nomePessoa.get(g.pago_por) : null].filter(Boolean).join(" · ");
               return (
                 <TouchableOpacity
                   key={g.id}
-                  onPress={() => navigation.navigate("GastoForm", { gastoId: g.id })}
+                  onPress={() =>
+                    g.contaFixa
+                      ? navigation.navigate("PagarConta", { contaId: g.contaFixa.contaId, competencia: g.contaFixa.competencia })
+                      : navigation.navigate("GastoForm", { gastoId: g.id })
+                  }
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
@@ -232,7 +213,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
                     </Text>
                     <Text style={typography.label}>{detalhes}</Text>
                   </View>
-                  <Text style={[typography.body, { fontWeight: "600" }]}>{formatarReais(g.valor)}</Text>
+                  <Text style={[typography.body, { fontWeight: "600" }]}>{g.contaFixa?.valorVaria ? "valor varia" : formatarReais(g.valor)}</Text>
                 </TouchableOpacity>
               );
             })}

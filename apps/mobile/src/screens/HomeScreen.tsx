@@ -8,7 +8,7 @@ import { CartaoSobra, PorCategoria, textoComparacao } from "../components/Resumo
 import { Botao, Cartao } from "../components/ui";
 import { useCartoes, useCategorias, useContasFixas, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useUltimosGastos } from "../data/hooks";
 import { reagendarLembretes } from "../lembretes/lembretes";
-import { competencia, contasDoMes, textoSituacao } from "../lib/contas";
+import { competencia, contasComoDespesas, contasDoMes, textoSituacao } from "../lib/contas";
 import { corSituacao } from "./ContasScreen";
 import { emojiCategoria, tituloGasto } from "../data/tipos";
 import { corLimite } from "../components/ResumoCartaoCard";
@@ -49,12 +49,18 @@ export function HomeScreen({ navigation }: Props) {
 
   if (!casa) return null;
 
-  const total = gastos.reduce((s, g) => s + g.valor, 0);
   // Mês passado só até o mesmo dia de hoje, para a comparação ser justa.
   const totalAnteriorAteHoje = gastosAnteriores.filter((g) => Number(g.data.slice(8, 10)) <= hoje.getDate()).reduce((s, g) => s + g.valor, 0);
-  const comparacao = textoComparacao(total, totalAnteriorAteHoje);
+  // Comparação justa: só o que já foi lançado (até hoje) nos dois meses.
+  const comparacao = textoComparacao(
+    gastos.filter((g) => Number(g.data.slice(8, 10)) <= hoje.getDate()).reduce((s, g) => s + g.valor, 0),
+    totalAnteriorAteHoje,
+  );
   const categoriaPorId = new Map(categorias.map((c) => [c.id, c]));
   const contasMes = contasDoMes(contas, pagamentos, comp, hojeISO());
+  // Total do mês = despesas lançadas + contas fixas do mês ainda não pagas (um custo só).
+  const despesasMes = [...gastos, ...contasComoDespesas(contasMes, comp)];
+  const total = despesasMes.reduce((s, g) => s + g.valor, 0);
   const contasAbertas = contasMes.filter((c) => !c.pagamento);
   const pendentesUrgentes = contasAbertas.filter((c) => c.situacao === "atrasada" || c.situacao === "vence-logo");
 
@@ -164,7 +170,7 @@ export function HomeScreen({ navigation }: Props) {
         )}
 
         <PorCategoria
-          gastos={gastos}
+          gastos={despesasMes}
           categorias={categorias}
           onPressCategoria={(id) => navigation.navigate("Historico", id ? { categoriaId: id } : {})}
         />
@@ -174,7 +180,7 @@ export function HomeScreen({ navigation }: Props) {
           variante="secundario"
           onPress={() =>
             enviarWhatsApp(
-              textoResumoMes({ nomeCasa: casa.nome, ano: hoje.getFullYear(), mes: hoje.getMonth(), gastos, categorias, membros, renda: casa.renda_mensal }),
+              textoResumoMes({ nomeCasa: casa.nome, ano: hoje.getFullYear(), mes: hoje.getMonth(), gastos: despesasMes, categorias, membros, renda: casa.renda_mensal }),
             )
           }
         />

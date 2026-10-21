@@ -38,6 +38,8 @@ export interface Gasto {
   parcelamento_id?: string | null;
   parcela?: number | null;
   parcelas?: number | null;
+  /** Conta fixa do mês ainda não paga, mostrada como despesa (não existe na tabela gastos). */
+  contaFixa?: { contaId: string; competencia: string; valorVaria: boolean };
 }
 
 // O banco guarda o nome do ícone; sem pacote de ícones por enquanto, cada um vira um emoji.
