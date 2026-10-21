@@ -19,6 +19,8 @@ export function HistoricoScreen({ navigation, route }: Props) {
   const [mes, setMes] = useState(hoje.getMonth());
   const [filtroCategoria, setFiltroCategoria] = useState<string | null>(route.params?.categoriaId ?? null);
   const [filtroPessoa, setFiltroPessoa] = useState<string | null>(null);
+  /** "pix" | "debito" | "dinheiro" | "credito" (qualquer cartão) | "cartao:<id>" (um cartão). */
+  const [filtroPagamento, setFiltroPagamento] = useState<string | null>(null);
 
   const { casa, membros } = useCasa();
   const { categorias } = useCategorias();
@@ -37,7 +39,14 @@ export function HistoricoScreen({ navigation, route }: Props) {
     setMes(d.getMonth());
   }
 
-  const filtrados = gastos.filter((g) => (!filtroCategoria || g.categoria_id === filtroCategoria) && (!filtroPessoa || g.pago_por === filtroPessoa));
+  const passaPagamento = (g: Gasto) => {
+    if (!filtroPagamento) return true;
+    if (filtroPagamento.startsWith("cartao:")) return g.cartao_id === filtroPagamento.slice(7);
+    return g.forma_pagamento === filtroPagamento;
+  };
+  const filtrados = gastos.filter(
+    (g) => (!filtroCategoria || g.categoria_id === filtroCategoria) && (!filtroPessoa || g.pago_por === filtroPessoa) && passaPagamento(g),
+  );
   const total = filtrados.reduce((s, g) => s + g.valor, 0);
 
   const porDia = useMemo(() => {
@@ -70,7 +79,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
       </View>
 
       <CartaoUI>
-        <Text style={typography.label}>{filtroCategoria || filtroPessoa ? "TOTAL FILTRADO" : "TOTAL DO MÊS"}</Text>
+        <Text style={typography.label}>{filtroCategoria || filtroPessoa || filtroPagamento ? "TOTAL FILTRADO" : "TOTAL DO MÊS"}</Text>
         <Text style={{ fontSize: 30, fontWeight: "700", color: colors.textPrimary }}>{formatarReais(total)}</Text>
         <Text style={typography.label}>{filtrados.length} {filtrados.length === 1 ? "despesa" : "despesas"}</Text>
         {gastos.some((g) => g.cartao_id) && (
@@ -78,6 +87,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
         )}
       </CartaoUI>
 
+      <Text style={[typography.label, { marginBottom: -spacing.xs }]}>CATEGORIA</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
         <Chip rotulo="Todas" ativo={!filtroCategoria} onPress={() => setFiltroCategoria(null)} />
         {categorias.map((c) => (
@@ -85,6 +95,23 @@ export function HistoricoScreen({ navigation, route }: Props) {
         ))}
       </ScrollView>
 
+      <Text style={[typography.label, { marginBottom: -spacing.xs }]}>COMO PAGOU</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+        <Chip rotulo="Todos" ativo={!filtroPagamento} onPress={() => setFiltroPagamento(null)} />
+        {[
+          { valor: "pix", rotulo: "Pix" },
+          { valor: "debito", rotulo: "Débito" },
+          { valor: "dinheiro", rotulo: "Dinheiro" },
+          { valor: "credito", rotulo: "💳 Todos os cartões" },
+          ...cartoes.map((c) => ({ valor: `cartao:${c.id}`, rotulo: `💳 ${c.nome}` })),
+        ].map((o) => (
+          <Chip key={o.valor} rotulo={o.rotulo} ativo={filtroPagamento === o.valor} onPress={() => setFiltroPagamento(filtroPagamento === o.valor ? null : o.valor)} />
+        ))}
+      </ScrollView>
+
+      {membros.length > 1 && (
+        <Text style={[typography.label, { marginBottom: -spacing.xs }]}>QUEM PAGOU</Text>
+      )}
       {membros.length > 1 && (
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <Chip rotulo="Todos" ativo={!filtroPessoa} onPress={() => setFiltroPessoa(null)} />
