@@ -9,6 +9,7 @@ import { emojiCategoria, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/t
 import { diaMes, faturaDaCompra, somarMeses } from "../lib/fatura";
 import { centavosDoTexto, formatarReais, gerarUuid, hojeISO, isoDeTextoBR, mascaraData, rotuloDia, somarDias } from "../lib/format";
 import { supabase, traduzirErro } from "../lib/supabase";
+import { type DespesaComparavel, pareceMesmaDespesa } from "../lib/duplicadas";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 import { ItensDaNota } from "./NotaConfirmarScreen";
@@ -147,6 +148,15 @@ export function GastoFormScreen({ navigation, route }: Props) {
     const comPagamento = (valor: string | null) => (valor || pagamentoCarregado ? { data_pagamento: valor } : {});
 
     setSalvando(true);
+    // Despesa nova: avisa se alguém da casa já lançou uma igual (mesmo valor, data próxima, parecida).
+    if (!gastoId) {
+      const valorComparado = (parcelas > 1 ? valoresParcelas(centavos, parcelas)[0] : centavos) / 100;
+      const repetida = await procurarRepetida({ valor: valorComparado, data: dataFinal, descricao: descricao.trim() || null, categoria_id: categoriaId });
+      if (repetida && !(await confirmarRepetida(repetida))) {
+        setSalvando(false);
+        return;
+      }
+    }
     let error;
     if (gastoId) {
       ({ error } = await supabase.from("gastos").update({ ...base, valor: centavos / 100, data: dataFinal, ...comPagamento(pagamentoFinal) }).eq("id", gastoId));
@@ -176,6 +186,41 @@ export function GastoFormScreen({ navigation, route }: Props) {
       return Alert.alert("Não foi possível salvar", msg);
     }
     navigation.goBack();
+  }
+
+  /** Procura despesa igual já lançada (até 1 dia de diferença). Sem internet, não bloqueia. */
+  async function procurarRepetida(nova: DespesaComparavel): Promise<(DespesaComparavel & { pago_por: string | null }) | null> {
+    if (!casa) return null;
+    try {
+      const { data: candidatas } = await supabase
+        .from("gastos")
+        .select("valor, data, descricao, categoria_id, pago_por")
+        .eq("casa_id", casa.id)
+        .eq("valor", nova.valor)
+        .gte("data", somarDias(nova.data, -1))
+        .lte("data", somarDias(nova.data, 1));
+      const achada = (candidatas ?? []).map((g) => ({ ...g, valor: Number(g.valor) })).find((g) => pareceMesmaDespesa(nova, g));
+      return achada ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  function confirmarRepetida(g: DespesaComparavel & { pago_por: string | null }): Promise<boolean> {
+    const quem = membros.find((m) => m.user_id === g.pago_por);
+    const cat = categorias.find((c) => c.id === g.categoria_id);
+    const autor = quem ? (quem.user_id === userId ? "Você já lançou" : `${quem.nome} lançou`) : "Já existe";
+    return new Promise((resolver) =>
+      Alert.alert(
+        "⚠️ Essa despesa parece já ter sido lançada",
+        `${autor} em ${g.data.split("-").reverse().slice(0, 2).join("/")}: ${cat ? `${emojiCategoria(cat.icone)} ${cat.nome} · ` : ""}${g.descricao ? `${g.descricao} · ` : ""}${formatarReais(g.valor)}\n\nLançar mesmo assim?`,
+        [
+          { text: "Cancelar", style: "cancel", onPress: () => resolver(false) },
+          { text: "Lançar", onPress: () => resolver(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolver(false) },
+      ),
+    );
   }
 
   async function apagar(todasParcelas: boolean) {
