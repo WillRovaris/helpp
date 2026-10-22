@@ -8,7 +8,8 @@ import { useCartoes, useCategorias } from "../data/hooks";
 import { emojiCategoria, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
 import { diaMes, faturaDaCompra, somarMeses } from "../lib/fatura";
 import { centavosDoTexto, formatarReais, gerarUuid, hojeISO, isoDeTextoBR, mascaraData, rotuloDia, somarDias } from "../lib/format";
-import { supabase, traduzirErro } from "../lib/supabase";
+import { linhas, obter } from "../offline/banco";
+import { atualizar, excluir as excluirRegistros, inserir, inserirVarios } from "../offline/repo";
 import { type DespesaComparavel, pareceMesmaDespesa } from "../lib/duplicadas";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
@@ -56,12 +57,9 @@ export function GastoFormScreen({ navigation, route }: Props) {
   useEffect(() => {
     navigation.setOptions({ title: gastoId ? "Editar despesa" : "Lançar despesa" });
     if (!gastoId) return;
-    supabase
-      .from("gastos")
-      .select("*")
-      .eq("id", gastoId)
-      .single()
-      .then(({ data: g }) => {
+    {
+      const g = obter("gastos", gastoId);
+      {
         if (g) {
           setCentavos(Math.round(Number(g.valor) * 100));
           setCategoriaId(g.categoria_id);
@@ -79,17 +77,13 @@ export function GastoFormScreen({ navigation, route }: Props) {
           setNotaId(g.nota_id);
           if (g.parcelamento_id) setParcelamento({ id: g.parcelamento_id, parcela: g.parcela, parcelas: g.parcelas });
           if (g.nota_id) {
-            supabase
-              .from("nota_itens")
-              .select("nome, quantidade, valor_total")
-              .eq("nota_id", g.nota_id)
-              .then(({ data: itens }) =>
-                setItensNota((itens ?? []).map((i) => ({ nome: i.nome, quantidade: Number(i.quantidade), valorTotal: Number(i.valor_total) }))),
-              );
+            const itens = linhas("nota_itens").filter((i) => i.nota_id === g.nota_id);
+            setItensNota(itens.map((i) => ({ nome: i.nome, quantidade: Number(i.quantidade), valorTotal: Number(i.valor_total) })));
           }
         }
         setCarregandoGasto(false);
-      });
+      }
+    }
   }, [gastoId, navigation]);
 
   // Crédito com um cartão só: já seleciona ele.
@@ -157,9 +151,9 @@ export function GastoFormScreen({ navigation, route }: Props) {
         return;
       }
     }
-    let error;
+    // Grava no celular (aparece na hora) e sobe para a nuvem na sincronização.
     if (gastoId) {
-      ({ error } = await supabase.from("gastos").update({ ...base, valor: centavos / 100, data: dataFinal, ...comPagamento(pagamentoFinal) }).eq("id", gastoId));
+      atualizar("gastos", gastoId, { ...base, valor: centavos / 100, data: dataFinal, ...comPagamento(pagamentoFinal) });
     } else if (parcelas > 1) {
       // Uma linha por parcela, cada uma no seu mês, todas com o mesmo parcelamento_id.
       const grupo = gerarUuid();
@@ -172,38 +166,22 @@ export function GastoFormScreen({ navigation, route }: Props) {
         parcela: i + 1,
         parcelas,
       }));
-      ({ error } = await supabase.from("gastos").insert(registros));
+      inserirVarios("gastos", registros);
     } else {
-      ({ error } = await supabase.from("gastos").insert({ ...base, valor: centavos / 100, data: dataFinal, ...comPagamento(pagamentoFinal) }));
+      inserir("gastos", { ...base, valor: centavos / 100, data: dataFinal, ...comPagamento(pagamentoFinal) });
     }
     setSalvando(false);
-    if (error) {
-      const msg = error.message.includes("data_pagamento")
-        ? "Falta rodar o SQL 08-data-pagamento.sql no Supabase."
-        : error.message.includes("parcela")
-          ? "Falta rodar o SQL 03-parcelas-categorias.sql no Supabase."
-          : traduzirErro(error.message);
-      return Alert.alert("Não foi possível salvar", msg);
-    }
     navigation.goBack();
   }
 
-  /** Procura despesa igual já lançada (até 1 dia de diferença). Sem internet, não bloqueia. */
+  /** Procura despesa igual já lançada (até 1 dia de diferença), na cópia do celular (funciona sem internet). */
   async function procurarRepetida(nova: DespesaComparavel): Promise<(DespesaComparavel & { pago_por: string | null }) | null> {
     if (!casa) return null;
-    try {
-      const { data: candidatas } = await supabase
-        .from("gastos")
-        .select("valor, data, descricao, categoria_id, pago_por")
-        .eq("casa_id", casa.id)
-        .eq("valor", nova.valor)
-        .gte("data", somarDias(nova.data, -1))
-        .lte("data", somarDias(nova.data, 1));
-      const achada = (candidatas ?? []).map((g) => ({ ...g, valor: Number(g.valor) })).find((g) => pareceMesmaDespesa(nova, g));
-      return achada ?? null;
-    } catch {
-      return null;
-    }
+    const achada = linhas("gastos")
+      .filter((g) => g.casa_id === casa.id)
+      .map((g) => ({ valor: Number(g.valor), data: g.data, descricao: g.descricao, categoria_id: g.categoria_id, pago_por: g.pago_por ?? g.created_by ?? null }))
+      .find((g) => pareceMesmaDespesa(nova, g));
+    return achada ?? null;
   }
 
   function confirmarRepetida(g: DespesaComparavel & { pago_por: string | null }): Promise<boolean> {
@@ -224,14 +202,15 @@ export function GastoFormScreen({ navigation, route }: Props) {
   }
 
   async function apagar(todasParcelas: boolean) {
-    const { error } = todasParcelas && parcelamento
-      ? await supabase.from("gastos").delete().eq("parcelamento_id", parcelamento.id)
-      : await supabase.from("gastos").delete().eq("id", gastoId!);
-    if (error) return Alert.alert("Erro", traduzirErro(error.message));
-    // Gasto de uma conta fixa paga: a conta volta a ficar em aberto.
-    if (!todasParcelas) await supabase.from("contas_pagamentos").delete().eq("gasto_id", gastoId!);
-    // Gasto que veio de nota: apaga a nota junto, para ela poder ser lida de novo.
-    if (notaId) await supabase.from("notas").delete().eq("id", notaId);
+    const ids = todasParcelas && parcelamento ? linhas("gastos").filter((g) => g.parcelamento_id === parcelamento.id).map((g) => g.id) : [gastoId!];
+    // Gasto de uma conta fixa paga: a conta volta a ficar em aberto (o pagamento sai antes da despesa).
+    excluirRegistros("contas_pagamentos", linhas("contas_pagamentos").filter((p) => ids.includes(p.gasto_id)).map((p) => p.id));
+    excluirRegistros("gastos", ids);
+    // Gasto que veio de nota: apaga a nota (e os itens) junto, para ela poder ser lida de novo.
+    if (notaId) {
+      excluirRegistros("nota_itens", linhas("nota_itens").filter((i) => i.nota_id === notaId).map((i) => i.id));
+      excluirRegistros("notas", [notaId]);
+    }
     navigation.goBack();
   }
 

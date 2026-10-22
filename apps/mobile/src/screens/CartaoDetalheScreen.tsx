@@ -10,7 +10,8 @@ import { detectarParcela } from "../importacao/leitor";
 import { descricaoSemParcela } from "../importacao/preparar";
 import { diaMes, faturaDaCompra, faturaVizinha, mesPagamentoCartao, somarMeses } from "../lib/fatura";
 import { formatarReais, gerarUuid, hojeISO, MESES, rotuloDia } from "../lib/format";
-import { supabase, traduzirErro } from "../lib/supabase";
+import { linhas, ouvirMudancas } from "../offline/banco";
+import { atualizar, excluir, inserir, inserirVarios } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
@@ -50,36 +51,28 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
     escolheuInicio.current = true;
     const anterior = faturaVizinha(atual.fechamento, -1, cartao.dia_fechamento, cartao.dia_vencimento);
     if (hojeISO() > anterior.vencimento) return;
-    Promise.all([
-      supabase
-        .from("gastos")
-        .select("*")
-        .eq("casa_id", casa.id)
-        .eq("cartao_id", cartaoId)
-        .gte("data", somarMeses(anterior.vencimento, -3))
-        .lte("data", somarMeses(anterior.vencimento, 1)),
-      supabase.from("faturas_pagas").select("id").eq("cartao_id", cartaoId).eq("vencimento", anterior.vencimento).maybeSingle(),
-    ]).then(([{ data: candidatos }, { data: paga }]) => {
-      const temCompras = (candidatos ?? []).some((g) => mesPagamentoCartao(g, cartao) === anterior.vencimento.slice(0, 7));
-      if (temCompras && !paga) setDeslocamento(-1);
-    });
+    const temCompras = linhas("gastos").some(
+      (g) => g.casa_id === casa.id && g.cartao_id === cartaoId && mesPagamentoCartao(g as { data: string }, cartao) === anterior.vencimento.slice(0, 7),
+    );
+    const paga = linhas("faturas_pagas").some((p) => p.cartao_id === cartaoId && p.vencimento === anterior.vencimento);
+    if (temCompras && !paga) setDeslocamento(-1);
   }, [casa?.id, cartao, atual?.fechamento, cartaoId]);
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(() => {
     if (!casa || !fatura || !inicio || !cartao) return;
     // Fatura = tudo deste cartão que é pago no mês do vencimento dela (data de
-    // pagamento informada, ou calculada pela data da compra).
-    const { data } = await supabase
-      .from("gastos")
-      .select("*")
-      .eq("casa_id", casa.id)
-      .eq("cartao_id", cartaoId)
-      .gte("data", somarMeses(fatura.vencimento, -3))
-      .lte("data", somarMeses(fatura.vencimento, 1))
-      .order("data", { ascending: false });
+    // pagamento informada, ou calculada pela data da compra). Lido do celular.
     const mes = fatura.vencimento.slice(0, 7);
-    setGastos((data ?? []).filter((g) => mesPagamentoCartao(g, cartao) === mes).map((g) => ({ ...g, valor: Number(g.valor) })));
+    setGastos(
+      linhas("gastos")
+        .filter((g) => g.casa_id === casa.id && g.cartao_id === cartaoId && mesPagamentoCartao(g as { data: string }, cartao) === mes)
+        .sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0))
+        .map((g) => ({ ...g, valor: Number(g.valor) }) as Gasto),
+    );
   }, [casa?.id, cartaoId, fatura?.fechamento, fatura?.vencimento, inicio, cartao]);
+
+  // Atualiza quando algo muda no celular ou chega da nuvem.
+  useEffect(() => ouvirMudancas((t) => t === "gastos" && carregar()), [carregar]);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,13 +90,8 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
   async function marcarPaga() {
     if (!casa || !fatura) return;
     setSalvandoPaga(true);
-    const { error } = await supabase.from("faturas_pagas").insert({ casa_id: casa.id, cartao_id: cartaoId, vencimento: fatura.vencimento, valor: total });
+    inserir("faturas_pagas", { casa_id: casa.id, cartao_id: cartaoId, vencimento: fatura.vencimento, valor: total, pago_em: hojeISO() });
     setSalvandoPaga(false);
-    if (error) {
-      const msg = error.message.includes("faturas_pagas") ? "Falta rodar o SQL 05-faturas-pagas.sql no Supabase." : traduzirErro(error.message);
-      return Alert.alert("Não foi possível marcar", msg);
-    }
-    recarregarPagas();
   }
 
   // Compras com "Parcela 3/5" na descrição que ainda não têm as próximas parcelas lançadas
@@ -121,8 +109,7 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
         const [atual, total] = p.split("/").map(Number);
         const grupo = gerarUuid();
         const descricao = descricaoSemParcela(g.descricao!);
-        const { error } = await supabase.from("gastos").update({ descricao, parcelamento_id: grupo, parcela: atual, parcelas: total }).eq("id", g.id);
-        if (error) return Alert.alert("Não foi possível lançar", traduzirErro(error.message));
+        atualizar("gastos", g.id, { descricao, parcelamento_id: grupo, parcela: atual, parcelas: total });
         const futuras = [];
         for (let k = atual + 1; k <= total; k++) {
           futuras.push({
@@ -139,7 +126,7 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
             parcelas: total,
           });
         }
-        await supabase.from("gastos").insert(futuras);
+        inserirVarios("gastos", futuras);
         criadas += futuras.length;
       }
       Alert.alert("Pronto!", `${criadas} parcelas lançadas nas próximas faturas.`);
@@ -156,8 +143,7 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
         text: "Desmarcar",
         style: "destructive",
         onPress: async () => {
-          await supabase.from("faturas_pagas").delete().eq("id", registroPaga!.id);
-          recarregarPagas();
+          excluir("faturas_pagas", [registroPaga!.id]);
         },
       },
     ]);

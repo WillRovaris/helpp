@@ -4,7 +4,8 @@ import { Alert } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Campo, TelaFormulario } from "../components/ui";
 import { centavosDoTexto, formatarReais } from "../lib/format";
-import { supabase, traduzirErro } from "../lib/supabase";
+import { obter } from "../offline/banco";
+import { atualizar, inserir } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
 import { spacing } from "../theme";
 
@@ -22,18 +23,12 @@ export function CartaoFormScreen({ navigation, route }: Props) {
   useEffect(() => {
     navigation.setOptions({ title: cartaoId ? "Editar cartão" : "Novo cartão" });
     if (!cartaoId) return;
-    supabase
-      .from("cartoes")
-      .select("nome, limite, dia_fechamento, dia_vencimento")
-      .eq("id", cartaoId)
-      .single()
-      .then(({ data }) => {
-        if (!data) return;
-        setNome(data.nome);
-        setLimiteCentavos(Math.round(Number(data.limite) * 100));
-        setFechamento(String(data.dia_fechamento));
-        setVencimento(String(data.dia_vencimento));
-      });
+    const data = obter("cartoes", cartaoId);
+    if (!data) return;
+    setNome(data.nome);
+    setLimiteCentavos(Math.round(Number(data.limite) * 100));
+    setFechamento(String(data.dia_fechamento));
+    setVencimento(String(data.dia_vencimento));
   }, [cartaoId, navigation]);
 
   async function salvar() {
@@ -44,12 +39,8 @@ export function CartaoFormScreen({ navigation, route }: Props) {
     if (!(diaF >= 1 && diaF <= 31) || !(diaV >= 1 && diaV <= 31)) return Alert.alert("Dias", "Fechamento e vencimento são dias de 1 a 31.");
 
     const registro = { casa_id: casa.id, nome: nome.trim(), limite: limiteCentavos / 100, dia_fechamento: diaF, dia_vencimento: diaV };
-    setSalvando(true);
-    const { error } = cartaoId
-      ? await supabase.from("cartoes").update(registro).eq("id", cartaoId)
-      : await supabase.from("cartoes").insert(registro);
-    setSalvando(false);
-    if (error) return Alert.alert("Não foi possível salvar", traduzirErro(error.message));
+    if (cartaoId) atualizar("cartoes", cartaoId, registro);
+    else inserir("cartoes", { ...registro, arquivado: false });
     navigation.goBack();
   }
 
@@ -59,10 +50,9 @@ export function CartaoFormScreen({ navigation, route }: Props) {
       {
         text: "Remover",
         style: "destructive",
-        onPress: async () => {
-          const { error } = await supabase.from("cartoes").update({ arquivado: true }).eq("id", cartaoId!);
-          if (error) Alert.alert("Erro", traduzirErro(error.message));
-          else navigation.goBack();
+        onPress: () => {
+          atualizar("cartoes", cartaoId!, { arquivado: true });
+          navigation.goBack();
         },
       },
     ]);

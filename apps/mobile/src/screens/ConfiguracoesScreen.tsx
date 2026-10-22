@@ -6,6 +6,7 @@ import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, Chip, useEspacoRodape } from "../components/ui";
 import { type ConfigLembretes, lerConfigLembretes, salvarConfigLembretes } from "../lembretes/lembretes";
 import { formatarReais } from "../lib/format";
+import { tamanhoFila } from "../offline/banco";
 import type { RootStackParamList } from "../navigation/types";
 import { type PreferenciaTema, useTema } from "../tema/TemaContext";
 import { colors, spacing, typography } from "../theme";
@@ -35,7 +36,11 @@ export function ConfiguracoesScreen({ navigation }: Props) {
   }
 
   function sair() {
-    Alert.alert("Sair da conta?", "Seus dados continuam salvos. É só entrar de novo depois.", [
+    const n = tamanhoFila();
+    const aviso = n
+      ? `⚠️ ${n} ${n === 1 ? "lançamento ainda não subiu" : "lançamentos ainda não subiram"} para a nuvem (sem internet). Se sair agora, ${n === 1 ? "ele será perdido" : "eles serão perdidos"}. Conecte à internet e espere sincronizar antes de sair.`
+      : "Seus dados continuam salvos na nuvem. É só entrar de novo depois.";
+    Alert.alert("Sair da conta?", aviso, [
       { text: "Cancelar", style: "cancel" },
       { text: "Sair", style: "destructive", onPress: signOut },
     ]);

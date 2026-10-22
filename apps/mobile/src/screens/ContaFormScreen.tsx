@@ -9,7 +9,8 @@ import { emojiCategoria } from "../data/tipos";
 import { competencia } from "../lib/contas";
 import { somarMeses } from "../lib/fatura";
 import { centavosDoTexto, formatarReais, MESES } from "../lib/format";
-import { supabase, traduzirErro } from "../lib/supabase";
+import { obter } from "../offline/banco";
+import { atualizar, inserir } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
@@ -70,12 +71,9 @@ export function ContaFormScreen({ navigation, route }: Props) {
   useEffect(() => {
     navigation.setOptions({ title: contaId ? "Editar conta" : "Nova conta fixa" });
     if (!contaId) return;
-    supabase
-      .from("contas_fixas")
-      .select("*")
-      .eq("id", contaId)
-      .single()
-      .then(({ data }) => {
+    {
+      const data = obter("contas_fixas", contaId);
+      {
         if (!data) return;
         setNome(data.nome);
         setVaria(data.valor == null);
@@ -86,7 +84,8 @@ export function ContaFormScreen({ navigation, route }: Props) {
         setInicio(data.inicio ?? null);
         setMeses(data.meses ?? null);
         if (data.meses && !OPCOES_MESES.includes(data.meses)) setMesesOutro(String(data.meses));
-      });
+      }
+    }
   }, [contaId, navigation]);
 
   // Conta nova: categoria "Contas" já marcada.
@@ -115,15 +114,8 @@ export function ContaFormScreen({ navigation, route }: Props) {
       categoria_id: categoriaId,
       ...(usaPeriodo ? { inicio: meses != null ? inicioEfetivo : inicio, meses } : {}),
     };
-    setSalvando(true);
-    const { error } = contaId
-      ? await supabase.from("contas_fixas").update(registro).eq("id", contaId)
-      : await supabase.from("contas_fixas").insert(registro);
-    setSalvando(false);
-    if (error) {
-      const msg = /inicio|meses/.test(error.message) ? "Falta rodar o SQL 09-contas-fixas-periodo.sql no Supabase." : traduzirErro(error.message);
-      return Alert.alert("Não foi possível salvar", msg);
-    }
+    if (contaId) atualizar("contas_fixas", contaId, registro);
+    else inserir("contas_fixas", { ...registro, ativa: true });
     navigation.goBack();
   }
 
@@ -133,10 +125,9 @@ export function ContaFormScreen({ navigation, route }: Props) {
       {
         text: "Remover",
         style: "destructive",
-        onPress: async () => {
-          const { error } = await supabase.from("contas_fixas").update({ ativa: false }).eq("id", contaId!);
-          if (error) Alert.alert("Erro", traduzirErro(error.message));
-          else navigation.goBack();
+        onPress: () => {
+          atualizar("contas_fixas", contaId!, { ativa: false });
+          navigation.goBack();
         },
       },
     ]);

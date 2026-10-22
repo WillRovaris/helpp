@@ -8,7 +8,8 @@ import { useCartoes, useCategorias } from "../data/hooks";
 import { emojiCategoria, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
 import { chaveDoQr } from "../fiscal/nfce";
 import { formatarReais, hojeISO, rotuloDia } from "../lib/format";
-import { supabase, traduzirErro } from "../lib/supabase";
+import { linhas } from "../offline/banco";
+import { inserir, inserirVarios } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
@@ -68,35 +69,27 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
       return Alert.alert("Cartão", cartoes.length ? "Escolha qual cartão foi usado." : "Cadastre um cartão primeiro (tela inicial → Cartões).");
     }
 
+    // Nota já lida antes (por este ou pelo outro celular)?
+    if (linhas("notas").some((n) => n.casa_id === casa.id && n.chave_acesso === chave)) {
+      return Alert.alert("Nota já lançada", "Essa nota fiscal já foi registrada antes.", [{ text: "OK", onPress: () => navigation.popToTop() }]);
+    }
+
     setSalvando(true);
     try {
-      const { data: notaRow, error: erroNota } = await supabase
-        .from("notas")
-        .insert({
-          casa_id: casa.id,
-          chave_acesso: chave,
-          estabelecimento: nota.estabelecimento,
-          cnpj: nota.cnpj || null,
-          endereco: nota.endereco || null,
-          total: nota.total,
-          // A página da SEFAZ mostra horário de Brasília (sem fuso no texto).
-          data_compra: nota.dataCompra ? `${nota.dataCompra}-03:00` : null,
-          created_by: userId,
-        })
-        .select("id")
-        .single();
-      if (erroNota) {
-        if (erroNota.code === "23505") {
-          Alert.alert("Nota já lançada", "Essa nota fiscal já foi registrada antes.", [{ text: "OK", onPress: () => navigation.popToTop() }]);
-        } else {
-          Alert.alert("Não foi possível salvar", traduzirErro(erroNota.message));
-        }
-        return;
-      }
-
-      const desfazer = () => supabase.from("notas").delete().eq("id", notaRow.id);
-
-      const { error: erroItens } = await supabase.from("nota_itens").insert(
+      // Grava no celular (nota, itens e despesa) e sobe tudo na próxima sincronização, nessa ordem.
+      const notaRow = inserir("notas", {
+        casa_id: casa.id,
+        chave_acesso: chave,
+        estabelecimento: nota.estabelecimento,
+        cnpj: nota.cnpj || null,
+        endereco: nota.endereco || null,
+        total: nota.total,
+        // A página da SEFAZ mostra horário de Brasília (sem fuso no texto).
+        data_compra: nota.dataCompra ? `${nota.dataCompra}-03:00` : null,
+        created_by: userId,
+      });
+      inserirVarios(
+        "nota_itens",
         itensMantidos.map((i) => ({
           nota_id: notaRow.id,
           casa_id: casa.id,
@@ -106,12 +99,7 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
           valor_total: i.valorTotal,
         })),
       );
-      if (erroItens) {
-        await desfazer();
-        return Alert.alert("Não foi possível salvar", traduzirErro(erroItens.message));
-      }
-
-      const { error: erroGasto } = await supabase.from("gastos").insert({
+      inserir("gastos", {
         casa_id: casa.id,
         valor: totalDespesa,
         data,
@@ -122,10 +110,6 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
         pago_por: pagoPor,
         nota_id: notaRow.id,
       });
-      if (erroGasto) {
-        await desfazer();
-        return Alert.alert("Não foi possível salvar", traduzirErro(erroGasto.message));
-      }
 
       navigation.popToTop();
     } finally {

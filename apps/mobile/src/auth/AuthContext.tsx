@@ -1,6 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase, traduzirErro } from "../lib/supabase";
+import { limparTudo } from "../offline/banco";
 
 type Result = { error: string | null };
 
@@ -42,6 +43,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut();
+    // apaga a cópia local: outra pessoa pode entrar neste celular
+    limparTudo();
   }
 
   return (

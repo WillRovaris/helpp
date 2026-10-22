@@ -5,6 +5,7 @@ import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
+import { StatusSincronizacao } from "../components/StatusSincronizacao";
 import { Botao, Cartao, useEspacoRodape } from "../components/ui";
 import { useCartoes, useCategorias, useContasFixas, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useUltimosGastos } from "../data/hooks";
 import { reagendarLembretes } from "../lembretes/lembretes";
@@ -77,6 +78,8 @@ export function HomeScreen({ navigation }: Props) {
             <Text style={{ fontSize: 24 }}>⚙️</Text>
           </TouchableOpacity>
         </View>
+
+        <StatusSincronizacao />
 
         <Cartao>
           <TouchableOpacity onPress={() => navigation.navigate("Historico", {})} activeOpacity={0.8}>

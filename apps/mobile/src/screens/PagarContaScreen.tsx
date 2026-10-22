@@ -9,7 +9,8 @@ import { type ContaFixa, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/t
 import { vencimentoNoMes } from "../lib/contas";
 import { diaMes } from "../lib/fatura";
 import { centavosDoTexto, formatarReais, hojeISO, isoDeTextoBR, MESES, mascaraData, somarDias } from "../lib/format";
-import { supabase, traduzirErro } from "../lib/supabase";
+import { linhas, obter } from "../offline/banco";
+import { excluir, inserir } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
@@ -34,18 +35,16 @@ export function PagarContaScreen({ navigation, route }: Props) {
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      supabase.from("contas_fixas").select("id, nome, valor, dia_vencimento, categoria_id").eq("id", contaId).single(),
-      supabase.from("contas_pagamentos").select("id, valor, pago_em, gasto_id").eq("conta_id", contaId).eq("competencia", competencia).maybeSingle(),
-    ]).then(([{ data: c }, { data: p }]) => {
-      if (c) {
-        const contaLida = { ...c, valor: c.valor == null ? null : Number(c.valor) };
-        setConta(contaLida);
-        setCentavos(contaLida.valor ? Math.round(contaLida.valor * 100) : 0);
-        navigation.setOptions({ title: c.nome });
-      }
-      if (p) setPagamento({ ...p, valor: Number(p.valor) });
-    });
+    // lido da cópia do celular (funciona sem internet)
+    const c = obter("contas_fixas", contaId);
+    if (c) {
+      const contaLida = { ...c, valor: c.valor == null ? null : Number(c.valor) } as ContaFixa;
+      setConta(contaLida);
+      setCentavos(contaLida.valor ? Math.round(contaLida.valor * 100) : 0);
+      navigation.setOptions({ title: c.nome });
+    }
+    const p = linhas("contas_pagamentos").find((x) => x.conta_id === contaId && x.competencia === competencia);
+    if (p) setPagamento({ id: p.id, valor: Number(p.valor), pago_em: p.pago_em, gasto_id: p.gasto_id });
   }, [contaId, competencia, navigation]);
 
   useEffect(() => {
@@ -68,27 +67,25 @@ export function PagarContaScreen({ navigation, route }: Props) {
     }
     if (forma === "credito" && !cartaoId) return Alert.alert("Cartão", "Escolha qual cartão foi usado.");
 
+    if (linhas("contas_pagamentos").some((x) => x.conta_id === conta.id && x.competencia === competencia)) {
+      return Alert.alert("Já paga", "Essa conta já está paga neste mês.");
+    }
     setSalvando(true);
     try {
-      const { data: gasto, error: erroGasto } = await supabase
-        .from("gastos")
-        .insert({
-          casa_id: casa.id,
-          valor: centavos / 100,
-          data: dataFinal,
-          descricao: conta.nome,
-          categoria_id: conta.categoria_id,
-          forma_pagamento: forma,
-          cartao_id: forma === "credito" ? cartaoId : null,
-          pago_por: pagoPor,
-          // No cartão, a data escolhida é quando o dinheiro sai (define o mês e a fatura).
-          ...(forma === "credito" ? { data_pagamento: dataFinal } : {}),
-        })
-        .select("id")
-        .single();
-      if (erroGasto) return Alert.alert("Não foi possível salvar", traduzirErro(erroGasto.message));
-
-      const { error } = await supabase.from("contas_pagamentos").insert({
+      // Despesa + registro de pagamento: gravados no celular e enviados na sincronização.
+      const gasto = inserir("gastos", {
+        casa_id: casa.id,
+        valor: centavos / 100,
+        data: dataFinal,
+        descricao: conta.nome,
+        categoria_id: conta.categoria_id,
+        forma_pagamento: forma,
+        cartao_id: forma === "credito" ? cartaoId : null,
+        pago_por: pagoPor,
+        // No cartão, a data escolhida é quando o dinheiro sai (define o mês e a fatura).
+        ...(forma === "credito" ? { data_pagamento: dataFinal } : {}),
+      });
+      inserir("contas_pagamentos", {
         conta_id: conta.id,
         casa_id: casa.id,
         competencia,
@@ -96,10 +93,6 @@ export function PagarContaScreen({ navigation, route }: Props) {
         pago_em: dataFinal,
         gasto_id: gasto.id,
       });
-      if (error) {
-        await supabase.from("gastos").delete().eq("id", gasto.id);
-        return Alert.alert("Não foi possível salvar", error.code === "23505" ? "Essa conta já está paga neste mês." : traduzirErro(error.message));
-      }
       navigation.goBack();
     } finally {
       setSalvando(false);
@@ -112,10 +105,9 @@ export function PagarContaScreen({ navigation, route }: Props) {
       {
         text: "Desfazer",
         style: "destructive",
-        onPress: async () => {
-          const { error } = await supabase.from("contas_pagamentos").delete().eq("id", pagamento!.id);
-          if (error) return Alert.alert("Erro", traduzirErro(error.message));
-          if (pagamento!.gasto_id) await supabase.from("gastos").delete().eq("id", pagamento!.gasto_id);
+        onPress: () => {
+          excluir("contas_pagamentos", [pagamento!.id]);
+          if (pagamento!.gasto_id) excluir("gastos", [pagamento!.gasto_id]);
           navigation.goBack();
         },
       },

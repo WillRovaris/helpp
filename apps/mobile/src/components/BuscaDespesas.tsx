@@ -3,9 +3,14 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { type Categoria, emojiCategoria, type Gasto, tituloGasto } from "../data/tipos";
 import { formatarReais, MESES } from "../lib/format";
-import { supabase } from "../lib/supabase";
+import { linhas } from "../offline/banco";
 import { colors, spacing, typography } from "../theme";
 import { Cartao } from "./ui";
+
+/** Minúsculas e sem acento, para "agua" achar "Água". */
+function semAcento(t: string): string {
+  return t.normalize("NFD").replace(/[\u0300-\u036F]/g, "").toLowerCase();
+}
 
 /**
  * Resultado da busca do Histórico: procura em TODOS os meses pela descrição,
@@ -33,18 +38,21 @@ export function ResultadosBusca({
       const limpo = termo.trim().replace(/[,()%*]/g, " ").replace(/\s+/g, " ").trim();
       const numero = termo.trim().match(/^\d+(?:[.,]\d{1,2})?$/) ? Number(termo.trim().replace(",", ".")) : null;
 
-      let consulta = supabase.from("gastos").select("*").eq("casa_id", casa.id);
-      if (numero != null) {
-        consulta = consulta.eq("valor", numero);
-      } else {
-        const idsCategoria = categorias.filter((c) => c.nome.toLowerCase().includes(limpo.toLowerCase())).map((c) => c.id);
-        const filtros = [`descricao.ilike.%${limpo}%`];
-        if (idsCategoria.length) filtros.push(`categoria_id.in.(${idsCategoria.join(",")})`);
-        consulta = consulta.or(filtros.join(","));
-      }
-      const { data } = await consulta.order("data", { ascending: false }).limit(100);
+      // Busca na cópia do celular (funciona sem internet), sem diferenciar acentos e maiúsculas.
+      const termoNorm = semAcento(limpo);
+      const idsCategoria = new Set(categorias.filter((c) => semAcento(c.nome).includes(termoNorm)).map((c) => c.id));
+      const achados = linhas("gastos")
+        .filter((g) => g.casa_id === casa.id)
+        .filter((g) =>
+          numero != null
+            ? Math.abs(Number(g.valor) - numero) < 0.005
+            : semAcento(g.descricao ?? "").includes(termoNorm) || (g.categoria_id != null && idsCategoria.has(g.categoria_id)),
+        )
+        .sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0))
+        .slice(0, 100)
+        .map((g) => ({ ...g, valor: Number(g.valor) }) as Gasto);
       if (!cancelado) {
-        setResultados((data ?? []).map((g) => ({ ...g, valor: Number(g.valor) })));
+        setResultados(achados);
         setBuscando(false);
       }
     }, 350);

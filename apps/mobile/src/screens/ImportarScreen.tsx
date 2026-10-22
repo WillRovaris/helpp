@@ -14,7 +14,8 @@ import { descricaoSemParcela, type ItemImportacao, preparar, type TipoArquivo } 
 import { competencia, periodoNoMes } from "../lib/contas";
 import { diaMes, faturaDaCompra, faturaVizinha, somarMeses } from "../lib/fatura";
 import { dataDeISO, dataISO, formatarReais, gerarUuid, MESES } from "../lib/format";
-import { supabase, traduzirErro } from "../lib/supabase";
+import { linhas as linhasLocais } from "../offline/banco";
+import { inserirVarios } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
@@ -142,29 +143,24 @@ export function ImportarScreen({ navigation }: Props) {
       const ate = somarDiasISO(datas[datas.length - 1], 3);
       const ids = arquivo.lancamentos.map((l) => l.id);
 
-      const jaImportados = new Set<string>();
-      for (let i = 0; i < ids.length; i += 40) {
-        const { data } = await supabase.from("gastos").select("importacao_id").eq("casa_id", casa.id).in("importacao_id", ids.slice(i, i + 40));
-        for (const g of data ?? []) if (g.importacao_id) jaImportados.add(g.importacao_id);
-      }
-      const { data: ex } = await supabase.from("gastos").select("data, valor, cartao_id, importacao_id").eq("casa_id", casa.id).gte("data", de).lte("data", ate);
+      // Tudo lido da cópia do celular (funciona sem internet).
+      const daCasa = (t: "gastos" | "contas_fixas" | "contas_pagamentos") => linhasLocais(t).filter((l) => l.casa_id === casa.id);
+      const gastosCasa = daCasa("gastos");
+      const idsArquivo = new Set(ids);
+      const jaImportados = new Set<string>(gastosCasa.map((g) => g.importacao_id).filter((x): x is string => !!x && idsArquivo.has(x)));
+      const ex = gastosCasa.filter((g) => g.data >= de && g.data <= ate);
       // Parcelas já lançadas (de faturas anteriores ou à mão) a partir de ~2 meses antes do arquivo.
-      const { data: parc } = await supabase
-        .from("gastos")
-        .select("*")
-        .eq("casa_id", casa.id)
-        .not("parcelas", "is", null)
-        .gte("data", somarDiasISO(datas[0], -62));
+      const parc = gastosCasa.filter((g) => g.parcelas != null && g.data >= somarDiasISO(datas[0], -62));
 
       const meses = [...new Set(datas.map((d) => d.slice(0, 7)))];
       const comps = meses.map((m) => competencia(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1));
-      const [{ data: contas }, { data: pags }] = await Promise.all([
-        supabase.from("contas_fixas").select("*").eq("casa_id", casa.id).eq("ativa", true),
-        supabase.from("contas_pagamentos").select("conta_id, competencia").eq("casa_id", casa.id).in("competencia", comps),
-      ]);
+      const contas = daCasa("contas_fixas").filter((c) => c.ativa !== false);
+      const pags = daCasa("contas_pagamentos").filter((p) => comps.includes(p.competencia));
       const pagas = new Set((pags ?? []).map((p) => `${p.conta_id}|${p.competencia}`));
       const contasAbertas = comps.flatMap((comp) =>
-        (contas ?? []).filter((c) => !pagas.has(`${c.id}|${comp}`) && periodoNoMes(c, comp)).map((c) => ({ ...c, valor: c.valor == null ? null : Number(c.valor), competencia: comp })),
+        (contas ?? [])
+          .filter((c) => !pagas.has(`${c.id}|${comp}`) && periodoNoMes(c, comp))
+          .map((c) => ({ id: c.id, nome: c.nome, dia_vencimento: c.dia_vencimento, categoria_id: c.categoria_id, valor: c.valor == null ? null : Number(c.valor), competencia: comp })),
       );
 
       if (!cancelado)
@@ -250,15 +246,8 @@ export function ImportarScreen({ navigation }: Props) {
         return lista;
       });
       const futuras = linhas.length - selecionados.length;
-      const { data: criados, error } = await supabase.from("gastos").insert(linhas).select("id, importacao_id");
-      if (error) {
-        const msg = error.message.includes("importacao_id")
-          ? "Falta rodar o SQL 04-importacao.sql no Supabase."
-          : error.code === "23505"
-            ? "Alguns lançamentos já tinham sido importados. Abra o arquivo de novo para atualizar a lista."
-            : traduzirErro(error.message);
-        return Alert.alert("Não foi possível importar", msg);
-      }
+      // Grava no celular e sobe na sincronização.
+      const criados = inserirVarios("gastos", linhas);
 
       const gastoPorImportacao = new Map((criados ?? []).map((g) => [g.importacao_id, g.id]));
       const baixas = selecionados
@@ -271,7 +260,7 @@ export function ImportarScreen({ navigation }: Props) {
           pago_em: i.dataOriginal,
           gasto_id: gastoPorImportacao.get(i.id) ?? null,
         }));
-      for (const b of baixas) await supabase.from("contas_pagamentos").insert(b); // conta já paga no mês: ignora o erro
+      inserirVarios("contas_pagamentos", baixas);
 
       Alert.alert(
         "Importado!",

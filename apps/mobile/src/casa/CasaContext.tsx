@@ -1,6 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { supabase, traduzirErro } from "../lib/supabase";
+import { gravarLocal, gravarMeta, type Linha, lerMeta, linhas, obter, ouvirMudancas } from "../offline/banco";
+import { atualizar } from "../offline/repo";
+
+function paraCasa(l: Linha): Casa {
+  return { id: l.id, nome: l.nome, codigo_convite: l.codigo_convite, renda_mensal: l.renda_mensal != null ? Number(l.renda_mensal) : null };
+}
 
 export interface Casa {
   id: string;
@@ -42,6 +48,22 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
   const [membros, setMembros] = useState<Membro[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /** Mostra o que está guardado no celular (abre na hora, mesmo sem internet). */
+  const lerDoCelular = useCallback((): boolean => {
+    if (!userId) return false;
+    const casaId = lerMeta(`casa:${userId}`);
+    const local = casaId ? obter("casas", casaId) : undefined;
+    if (!local) return false;
+    setCasa(paraCasa(local));
+    setMembros(
+      linhas("membros")
+        .filter((m) => m.casa_id === casaId)
+        .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")))
+        .map((m) => ({ user_id: m.user_id, nome: m.nome })),
+    );
+    return true;
+  }, [userId]);
+
   const recarregar = useCallback(async () => {
     if (!userId) {
       setCasa(null);
@@ -49,6 +71,7 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
+    if (lerDoCelular()) setLoading(false);
     const { data: meu, error: erroMeu } = await supabase.from("membros").select("casa_id").eq("user_id", userId).maybeSingle();
     // Falha de rede: mantém o que já estava na tela (não manda a pessoa de volta
     // para "Começar" achando que ela não tem casa).
@@ -57,6 +80,7 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (!meu) {
+      gravarMeta(`casa:${userId}`, null);
       setCasa(null);
       setMembros([]);
       setLoading(false);
@@ -66,16 +90,29 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
       // "*" em vez de colunas fixas: se o SQL da renda (02-renda.sql) ainda não
       // rodou, a coluna só não vem — em vez de dar erro e "perder" a casa.
       supabase.from("casas").select("*").eq("id", meu.casa_id).single(),
-      supabase.from("membros").select("user_id, nome").eq("casa_id", meu.casa_id).order("created_at"),
+      supabase.from("membros").select("*").eq("casa_id", meu.casa_id).order("created_at"),
     ]);
     if (erroCasa || !casaRow) {
       setLoading(false);
       return;
     }
-    setCasa(casaRow ? { id: casaRow.id, nome: casaRow.nome, codigo_convite: casaRow.codigo_convite, renda_mensal: casaRow.renda_mensal != null ? Number(casaRow.renda_mensal) : null } : null);
-    if (membrosRows) setMembros(membrosRows);
+    // guarda no celular para abrir sem internet da próxima vez
+    gravarLocal("casas", [casaRow]);
+    if (membrosRows) gravarLocal("membros", membrosRows);
+    gravarMeta(`casa:${userId}`, casaRow.id);
+    setCasa(paraCasa(casaRow));
+    if (membrosRows) setMembros(membrosRows.map((m) => ({ user_id: m.user_id, nome: m.nome })));
     setLoading(false);
-  }, [userId]);
+  }, [userId, lerDoCelular]);
+
+  // Mudanças que chegam pela sincronização (ex.: renda alterada no outro celular).
+  useEffect(
+    () =>
+      ouvirMudancas((t) => {
+        if (t === "casas" || t === "membros") lerDoCelular();
+      }),
+    [lerDoCelular],
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -123,11 +160,8 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
 
   async function definirRenda(valor: number | null): Promise<Result> {
     if (!casa) return { error: "Sem casa" };
-    const { error } = await supabase.from("casas").update({ renda_mensal: valor }).eq("id", casa.id);
-    if (error) {
-      if (error.message.includes("renda_mensal")) return { error: "Falta rodar o SQL 02-renda.sql no Supabase." };
-      return { error: traduzirErro(error.message) };
-    }
+    // grava no celular e sobe na próxima sincronização (funciona sem internet)
+    atualizar("casas", casa.id, { renda_mensal: valor });
     setCasa({ ...casa, renda_mensal: valor });
     return { error: null };
   }

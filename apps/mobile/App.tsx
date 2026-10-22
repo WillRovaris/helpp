@@ -3,6 +3,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "./src/auth/AuthContext";
 import { CasaProvider } from "./src/casa/CasaContext";
 import { RootNavigator } from "./src/navigation/RootNavigator";
+import { SincronizacaoProvider } from "./src/offline/SincronizacaoContext";
 import { TemaProvider } from "./src/tema/TemaContext";
 
 export default function App() {
@@ -10,9 +11,11 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <CasaProvider>
-          <TemaProvider>
-            <RootNavigator />
-          </TemaProvider>
+          <SincronizacaoProvider>
+            <TemaProvider>
+              <RootNavigator />
+            </TemaProvider>
+          </SincronizacaoProvider>
         </CasaProvider>
       </AuthProvider>
     </SafeAreaProvider>

@@ -1,59 +1,64 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCasa } from "../casa/CasaContext";
 import { mesPagamentoCartao, somarMeses } from "../lib/fatura";
 import { hojeISO, limitesDoMes } from "../lib/format";
-import { supabase } from "../lib/supabase";
+import { type Linha, linhas, ouvirMudancas, type Tabela } from "../offline/banco";
+import { useSincronizacao } from "../offline/SincronizacaoContext";
 import type { Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, PagamentoConta } from "./tipos";
 
 /**
- * Busca uma lista da casa e mantém atualizada em tempo real: quando o outro
- * celular grava algo na mesma tabela, a lista recarrega sozinha.
+ * Lista de uma tabela da casa, lida da cópia no celular (funciona sem internet).
+ * Atualiza sozinha quando algo é gravado no celular ou chega da nuvem.
+ * `recarregar` pede uma sincronização com a nuvem.
  */
-function useListaAoVivo<T>(tabela: string, buscar: (casaId: string) => PromiseLike<{ data: T[] | null }>, deps: unknown[]) {
+function useTabela<T>(tabela: Tabela, selecionar: (todas: Linha[]) => T[], deps: unknown[]) {
   const { casa } = useCasa();
-  const [itens, setItens] = useState<T[]>([]);
-  const [carregando, setCarregando] = useState(true);
+  const { sincronizarAgora } = useSincronizacao();
+  const [versao, setVersao] = useState(0);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const recarregar = useCallback(async () => {
-    if (!casa) return;
-    const { data } = await buscar(casa.id);
-    setItens(data ?? []);
-    setCarregando(false);
-  }, [casa?.id, ...deps]);
+  useEffect(
+    () =>
+      ouvirMudancas((t) => {
+        if (t === tabela) setVersao((v) => v + 1);
+      }),
+    [tabela],
+  );
 
-  useEffect(() => {
-    if (!casa) return;
-    recarregar();
-    const canal = supabase
-      .channel(`${tabela}-${casa.id}-${Math.random().toString(36).slice(2)}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: tabela, filter: `casa_id=eq.${casa.id}` }, () => recarregar())
-      .subscribe();
-    return () => {
-      supabase.removeChannel(canal);
-    };
-  }, [casa?.id, recarregar, tabela]);
+  const itens = useMemo(
+    () => (casa ? selecionar(linhas(tabela).filter((l) => l.casa_id === casa.id)) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [casa?.id, versao, tabela, ...deps],
+  );
+  const recarregar = useCallback(() => sincronizarAgora(), [sincronizarAgora]);
+  return { itens, carregando: false, recarregar };
+}
 
-  return { itens, carregando, recarregar };
+const porTexto = (campo: string, desc = false) => (a: Linha, b: Linha) => {
+  const x = String(a[campo] ?? "");
+  const y = String(b[campo] ?? "");
+  return desc ? (x < y ? 1 : x > y ? -1 : 0) : x < y ? -1 : x > y ? 1 : 0;
+};
+
+function comoGasto(g: Linha): Gasto {
+  return { ...g, valor: Number(g.valor) } as Gasto;
 }
 
 export function useCategorias() {
-  const { itens, ...resto } = useListaAoVivo<Categoria>(
+  const { itens, ...resto } = useTabela<Categoria>(
     "categorias",
-    (casaId) => supabase.from("categorias").select("id, nome, icone, cor, ordem").eq("casa_id", casaId).eq("arquivada", false).order("ordem"),
+    (t) => t.filter((c) => !c.arquivada).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)) as Categoria[],
     [],
   );
   return { categorias: itens, ...resto };
 }
 
 export function useCartoes() {
-  const { itens, ...resto } = useListaAoVivo<Cartao>(
+  const { itens, ...resto } = useTabela<Cartao>(
     "cartoes",
-    (casaId) =>
-      supabase.from("cartoes").select("id, nome, limite, dia_fechamento, dia_vencimento").eq("casa_id", casaId).eq("arquivado", false).order("created_at"),
+    (t) => t.filter((c) => !c.arquivado).sort(porTexto("created_at")).map((c) => ({ ...c, limite: Number(c.limite) })) as Cartao[],
     [],
   );
-  return { cartoes: itens.map((c) => ({ ...c, limite: Number(c.limite) })), ...resto };
+  return { cartoes: itens, ...resto };
 }
 
 /**
@@ -71,47 +76,36 @@ export function mesDeReferencia(g: { data: string; cartao_id: string | null; dat
 /** Gastos que pesam num mês (mes = 0–11), mais recentes primeiro. Cartão = mês do vencimento da fatura. */
 export function useGastosDoMes(ano: number, mes: number) {
   const { inicio, fim } = limitesDoMes(ano, mes);
-  // Compras no cartão de até ~2 meses antes podem vencer neste mês.
-  const desde = somarMeses(inicio, -2);
-  const { cartoes } = useCartoes();
-  const { itens, ...resto } = useListaAoVivo<Gasto>(
-    "gastos",
-    (casaId) =>
-      supabase
-        .from("gastos")
-        // "*": inclui as colunas de parcela quando o SQL 03 já rodou, sem quebrar antes disso.
-        .select("*")
-        .eq("casa_id", casaId)
-        .gte("data", desde)
-        .lte("data", fim)
-        .order("data", { ascending: false })
-        .order("created_at", { ascending: false }),
-    [desde, fim],
-  );
+  const desde = somarMeses(inicio, -2); // compras no cartão de até ~2 meses antes podem vencer neste mês
   const alvo = inicio.slice(0, 7);
-  return {
-    gastos: itens.filter((g) => mesDeReferencia(g, cartoes) === alvo).map((g) => ({ ...g, valor: Number(g.valor) })),
-    ...resto,
-  };
+  const { cartoes } = useCartoes();
+  const { itens, ...resto } = useTabela<Gasto>(
+    "gastos",
+    (t) =>
+      t
+        .filter((g) => g.data >= desde && g.data <= fim)
+        .map(comoGasto)
+        .filter((g) => mesDeReferencia(g, cartoes) === alvo)
+        .sort((a, b) => porTexto("data", true)(a, b) || porTexto("created_at", true)(a, b)),
+    [desde, fim, alvo, cartoes],
+  );
+  return { gastos: itens, ...resto };
 }
 
 /** Últimos gastos lançados (para a tela inicial), independente do mês. Parcelas de meses futuros ficam de fora. */
 export function useUltimosGastos(qtd: number) {
   const hoje = hojeISO();
-  const { itens, ...resto } = useListaAoVivo<Gasto>(
+  const { itens, ...resto } = useTabela<Gasto>(
     "gastos",
-    // Tudo que foi lançado aparece (mesmo com data à frente); só as parcelas de meses futuros ficam de fora.
-    (casaId) =>
-      supabase
-        .from("gastos")
-        .select("*")
-        .eq("casa_id", casaId)
-        .or(`data.lte.${hoje},parcelamento_id.is.null`)
-        .order("created_at", { ascending: false })
-        .limit(qtd),
+    (t) =>
+      t
+        .filter((g) => g.data <= hoje || !g.parcelamento_id)
+        .sort(porTexto("created_at", true))
+        .slice(0, qtd)
+        .map(comoGasto),
     [qtd, hoje],
   );
-  return { ultimos: itens.map((g) => ({ ...g, valor: Number(g.valor) })), ...resto };
+  return { ultimos: itens, ...resto };
 }
 
 /**
@@ -119,47 +113,40 @@ export function useUltimosGastos(qtd: number) {
  * parcelas futuras) — o suficiente para fatura aberta, fechada e limite usado.
  */
 export function useGastosCredito(desde: string) {
-  const { itens, ...resto } = useListaAoVivo<Gasto>(
+  const { itens, ...resto } = useTabela<Gasto>(
     "gastos",
-    (casaId) =>
-      supabase
-        .from("gastos")
-        .select("*")
-        .eq("casa_id", casaId)
-        .not("cartao_id", "is", null)
-        .gte("data", desde)
-        .order("data", { ascending: false }),
+    (t) => t.filter((g) => g.cartao_id && g.data >= desde).sort(porTexto("data", true)).map(comoGasto),
     [desde],
   );
-  return { gastosCredito: itens.map((g) => ({ ...g, valor: Number(g.valor) })), ...resto };
+  return { gastosCredito: itens, ...resto };
 }
 
 export function useContasFixas() {
-  const { itens, ...resto } = useListaAoVivo<ContaFixa>(
+  const { itens, ...resto } = useTabela<ContaFixa>(
     "contas_fixas",
-    (casaId) => supabase.from("contas_fixas").select("*").eq("casa_id", casaId).eq("ativa", true).order("dia_vencimento"),
+    (t) =>
+      t
+        .filter((c) => c.ativa !== false)
+        .sort((a, b) => a.dia_vencimento - b.dia_vencimento)
+        .map((c) => ({ ...c, valor: c.valor == null ? null : Number(c.valor) })) as ContaFixa[],
     [],
   );
-  return { contas: itens.map((c) => ({ ...c, valor: c.valor == null ? null : Number(c.valor) })), ...resto };
+  return { contas: itens, ...resto };
 }
 
 /** Pagamentos das contas fixas de um mês (competencia = dia 1 do mês, YYYY-MM-01). */
 export function usePagamentosDoMes(competencia: string) {
-  const { itens, ...resto } = useListaAoVivo<PagamentoConta>(
+  const { itens, ...resto } = useTabela<PagamentoConta>(
     "contas_pagamentos",
-    (casaId) => supabase.from("contas_pagamentos").select("id, conta_id, competencia, valor, pago_em, gasto_id").eq("casa_id", casaId).eq("competencia", competencia),
+    (t) => t.filter((p) => p.competencia === competencia).map((p) => ({ ...p, valor: Number(p.valor) })) as PagamentoConta[],
     [competencia],
   );
-  return { pagamentos: itens.map((p) => ({ ...p, valor: Number(p.valor) })), ...resto };
+  return { pagamentos: itens, ...resto };
 }
 
-/** Faturas marcadas como pagas (últimos meses). Sem o SQL 05, volta lista vazia. */
+/** Faturas marcadas como pagas. */
 export function useFaturasPagas() {
-  const { itens, ...resto } = useListaAoVivo<FaturaPaga>(
-    "faturas_pagas",
-    (casaId) => supabase.from("faturas_pagas").select("id, cartao_id, vencimento, valor, pago_em").eq("casa_id", casaId).order("vencimento", { ascending: false }).limit(200),
-    [],
-  );
+  const { itens, ...resto } = useTabela<FaturaPaga>("faturas_pagas", (t) => t.sort(porTexto("vencimento", true)) as FaturaPaga[], []);
   const pagas = new Set(itens.map((p) => `${p.cartao_id}|${p.vencimento}`));
   return { faturasPagas: itens, faturaPaga: (cartaoId: string, vencimento: string) => pagas.has(`${cartaoId}|${vencimento}`), ...resto };
 }

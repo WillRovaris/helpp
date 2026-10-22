@@ -9,9 +9,18 @@ o que mudou para quem usa o app, sem jargão.
 - `apps/mobile` — o app (Expo SDK 57 / React Native, TypeScript). **É aqui que tudo acontece.**
 - `apps/api` — API antiga (Fastify/Prisma) do app de pesquisa de preços. **Não é usada pelo app atual**; fica só de referência.
 - `supabase/` — SQLs numerados. O dono roda cada um **à mão** no Supabase (SQL Editor → Run).
-  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id). `05` (faturas_pagas). `06` (categoria Empréstimo 💸, ícone `cash`), `07` (Igreja ⛪, ícone `church`), `08` (gastos.data_pagamento + correção dos lançamentos manuais no cartão), `09` (contas_fixas.inicio + meses) — conferir se rodaram.
+  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id). `05` (faturas_pagas). `06` (categoria Empréstimo 💸, ícone `cash`), `07` (Igreja ⛪, ícone `church`), `08` (gastos.data_pagamento + correção dos lançamentos manuais no cartão), `09` (contas_fixas.inicio + meses), `10` (sincronização: updated_at em todas as tabelas + tabela `exclusoes`) — conferir se rodaram.
   SQL novo = novo arquivo `05-...sql`, idempotente (`if not exists`), e pedir para ele rodar.
 - O app deve **tolerar** o SQL ainda não ter rodado (ex.: `select("*")` em vez de colunas fixas; mensagem "Falta rodar o SQL 0X").
+
+## Modo offline (desde a versão 1.3.0)
+- O app **lê sempre da cópia no celular** (`src/offline/banco.ts`, SQLite via `expo-sqlite`, carregada em memória) e **grava pelo `src/offline/repo.ts`** (`inserir`, `inserirVarios`, `atualizar`, `excluir`): grava local + entra na fila.
+- **Nunca** usar `supabase.from(...)` nas telas. Só `src/offline/sync.ts` (envia a fila e traz o que mudou por `updated_at` + `exclusoes`) e o `CasaContext` (casa/membros e as funções `criar_casa`/`entrar_na_casa`/`novo_convite`, que precisam de internet) falam com a nuvem.
+- IDs são gerados no celular (`gerarUuid`). Conflito: vale a última gravação. Pagamento de conta repetido (23505) desfaz a despesa repetida.
+- Sincroniza sozinho: ao abrir, ao voltar ao app, a cada minuto, logo após gravar e quando o tempo real avisa. Faixa de status na tela inicial: `StatusSincronizacao.tsx` (novidades de outra pessoa, aguardando internet, sem internet).
+- Hooks em `src/data/hooks.ts` usam `useTabela` (lê local e escuta `ouvirMudancas`).
+- Sair da conta apaga a cópia local (avisa se houver fila pendente).
+- Teste da sincronização: simulação com 2 celulares e nuvem falsa (mock de expo-sqlite + supabase) — 20 cenários; refazer se mexer em `sync.ts`.
 
 ## Backend
 - Supabase projeto "Helpp", ref `tpsytskbvcousydgpnlp`, chave *publishable* em `apps/mobile/src/lib/supabase.ts` (pode ficar no código; segurança é o RLS).
@@ -30,7 +39,7 @@ o que mudou para quem usa o app, sem jargão.
   npx eas-cli build -p android --profile preview --non-interactive --no-wait
   ```
   Ao gerar APK com módulo nativo novo, **suba `version` e `versionCode`** em `app.json` (runtimeVersion = appVersion),
-  senão a OTA pode chegar num APK antigo sem o módulo e quebrar. Versão atual: **1.2.0 / versionCode 3**.
+  senão a OTA pode chegar num APK antigo sem o módulo e quebrar. Versão atual: **1.3.0 / versionCode 4**.
 - Fora deste PC é preciso estar logado no Expo: `npx eas-cli login`, ou variável de ambiente `EXPO_TOKEN`
   (token criado em expo.dev → Account settings → Access tokens). **Nunca** escrever o token em arquivo do repositório.
 
