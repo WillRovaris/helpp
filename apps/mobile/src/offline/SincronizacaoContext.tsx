@@ -19,7 +19,8 @@ interface EstadoSync {
   /** Despesas novas de outra pessoa da casa, desde a última vez que a pessoa viu o aviso. */
   novidades: Linha[];
   novidadesDesde: string | null;
-  sincronizarAgora: () => void;
+  /** Sem `forcar`, não repete se a última sincronização foi há menos de 30 s. */
+  sincronizarAgora: (forcar?: boolean) => void;
   limparNovidades: () => void;
 }
 
@@ -134,6 +135,17 @@ export function SincronizacaoProvider({ children }: { children: React.ReactNode 
     };
   }, [casaId, rodar]);
 
+  // Telas pedem sincronização ao abrir; para não ficar sincronizando sem parar, só se a última foi há mais de 30 s.
+  const ultimaTentativa = useRef(0);
+  const sincronizarAgora = useCallback(
+    (forcar = false) => {
+      if (!forcar && Date.now() - ultimaTentativa.current < 30_000 && tamanhoFila() === 0) return;
+      ultimaTentativa.current = Date.now();
+      rodar();
+    },
+    [rodar],
+  );
+
   const limparNovidades = useCallback(() => {
     setNovidades([]);
     setNovidadesDesde(null);
@@ -144,7 +156,7 @@ export function SincronizacaoProvider({ children }: { children: React.ReactNode 
   }, [casaId]);
 
   return (
-    <Contexto.Provider value={{ sincronizando, online, ultimaSync, pendentes, pendentesDespesas, novidades, novidadesDesde, sincronizarAgora: rodar, limparNovidades }}>
+    <Contexto.Provider value={{ sincronizando, online, ultimaSync, pendentes, pendentesDespesas, novidades, novidadesDesde, sincronizarAgora, limparNovidades }}>
       {children}
     </Contexto.Provider>
   );

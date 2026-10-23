@@ -1,18 +1,16 @@
 import React from "react";
-import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { formatarReais } from "../lib/format";
 import { useSincronizacao } from "../offline/SincronizacaoContext";
 import { colors, radius, spacing, typography } from "../theme";
 
-/** "hoje às 14:32" ou "20/10 às 14:32". */
+/** "22/10 às 14:32" (sempre com data e hora). */
 export function quandoFoi(iso: string | null): string {
-  if (!iso) return "nunca";
+  if (!iso) return "ainda não sincronizou";
   const d = new Date(iso);
-  const hoje = new Date();
   const hora = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  const mesmoDia = d.toDateString() === hoje.toDateString();
-  return mesmoDia ? `hoje às ${hora}` : `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} às ${hora}`;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} às ${hora}`;
 }
 
 /**
@@ -25,10 +23,10 @@ export function StatusSincronizacao() {
   const { sincronizando, online, ultimaSync, pendentes, pendentesDespesas, novidades, novidadesDesde, sincronizarAgora, limparNovidades } = useSincronizacao();
 
   let icone = "☁️";
-  let texto = `Tudo sincronizado · ${quandoFoi(ultimaSync)}`;
+  let texto = `Última sincronização: ${quandoFoi(ultimaSync)}`;
   let cor = colors.textSecondary;
   let fundo = "transparent";
-  let aoTocar = sincronizarAgora;
+  let aoTocar = () => sincronizarAgora(true);
 
   if (novidades.length) {
     const nomes = [...new Set(novidades.map((g) => membros.find((m) => m.user_id === g.created_by)?.nome).filter(Boolean))].join(" e ") || "outra pessoa";
@@ -78,7 +76,7 @@ export function StatusSincronizacao() {
           borderColor: colors.border,
         }}
       >
-        {sincronizando ? <ActivityIndicator size="small" color={colors.accent} /> : <Text>{icone}</Text>}
+        <Text>{icone}</Text>
         <Text style={[typography.label, { color: cor, flex: 1 }]} numberOfLines={2}>
           {texto}
         </Text>
