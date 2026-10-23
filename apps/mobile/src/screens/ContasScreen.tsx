@@ -7,9 +7,10 @@ import { useCategorias, useContasFixas, usePagamentosDoMes } from "../data/hooks
 import { emojiCategoria } from "../data/tipos";
 import { type ContaDoMes, competencia, contasDoMes, textoSituacao } from "../lib/contas";
 import { diaMes } from "../lib/fatura";
-import { formatarReais, hojeISO, MESES } from "../lib/format";
+import { hojeISO, MESES } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
+import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Contas">;
 
@@ -18,6 +19,7 @@ export function corSituacao(c: ContaDoMes): string {
 }
 
 export function ContasScreen({ navigation }: Props) {
+  const { mostrarValor } = usePrivacidade();
   const rodape = useEspacoRodape();
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());
@@ -66,12 +68,12 @@ export function ContasScreen({ navigation }: Props) {
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
             <View>
               <Text style={typography.label}>A PAGAR</Text>
-              <Text style={{ fontSize: 24, fontWeight: "700", color: colors.textPrimary }}>{formatarReais(aPagar)}</Text>
+              <Text style={{ fontSize: 24, fontWeight: "700", color: colors.textPrimary }}>{mostrarValor(aPagar)}</Text>
               {variaveisAbertas > 0 && <Text style={typography.label}>+ {variaveisAbertas} com valor variável</Text>}
             </View>
             <View style={{ alignItems: "flex-end" }}>
               <Text style={typography.label}>JÁ PAGO</Text>
-              <Text style={{ fontSize: 24, fontWeight: "700", color: colors.accent }}>{formatarReais(pago)}</Text>
+              <Text style={{ fontSize: 24, fontWeight: "700", color: colors.accent }}>{mostrarValor(pago)}</Text>
               <Text style={typography.label}>
                 {lista.filter((c) => c.pagamento).length} de {lista.length} contas
               </Text>
@@ -102,7 +104,7 @@ export function ContasScreen({ navigation }: Props) {
                       {c.parcela ? ` · ${c.parcela.atual}/${c.parcela.total}` : ""}
                     </Text>
                   </View>
-                  <Text style={[typography.body, { fontWeight: "600", marginRight: spacing.sm }]}>{valor != null ? formatarReais(valor) : "—"}</Text>
+                  <Text style={[typography.body, { fontWeight: "600", marginRight: spacing.sm }]}>{valor != null ? mostrarValor(valor) : "—"}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => navigation.navigate("PagarConta", { contaId: c.conta.id, competencia: comp })}

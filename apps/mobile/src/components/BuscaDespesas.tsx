@@ -2,10 +2,11 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { type Categoria, emojiCategoria, type Gasto, tituloGasto } from "../data/tipos";
-import { formatarReais, MESES } from "../lib/format";
+import { MESES } from "../lib/format";
 import { linhas } from "../offline/banco";
 import { colors, spacing, typography } from "../theme";
 import { Cartao } from "./ui";
+import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 /** Minúsculas e sem acento, para "agua" achar "Água". */
 function semAcento(t: string): string {
@@ -25,6 +26,7 @@ export function ResultadosBusca({
   categorias: Categoria[];
   onAbrir: (gastoId: string) => void;
 }) {
+  const { mostrarValor } = usePrivacidade();
   const { casa } = useCasa();
   const [resultados, setResultados] = useState<Gasto[]>([]);
   const [buscando, setBuscando] = useState(false);
@@ -74,7 +76,7 @@ export function ResultadosBusca({
   return (
     <>
       <Text style={typography.label}>
-        {resultados.length} {resultados.length === 1 ? "despesa encontrada" : "despesas encontradas"} · {formatarReais(total)}
+        {resultados.length} {resultados.length === 1 ? "despesa encontrada" : "despesas encontradas"} · {mostrarValor(total)}
         {resultados.length === 100 ? " (mostrando as 100 mais recentes)" : ""}
       </Text>
       <Cartao style={{ paddingVertical: spacing.xs }}>
@@ -96,7 +98,7 @@ export function ResultadosBusca({
                   {d}/{m}/{a} · {MESES[Number(m) - 1]}
                 </Text>
               </View>
-              <Text style={[typography.body, { fontWeight: "600" }]}>{formatarReais(g.valor)}</Text>
+              <Text style={[typography.body, { fontWeight: "600" }]}>{mostrarValor(g.valor)}</Text>
             </TouchableOpacity>
           );
         })}

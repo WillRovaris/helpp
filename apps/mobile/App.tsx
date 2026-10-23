@@ -4,6 +4,7 @@ import { AuthProvider } from "./src/auth/AuthContext";
 import { CasaProvider } from "./src/casa/CasaContext";
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { SincronizacaoProvider } from "./src/offline/SincronizacaoContext";
+import { PrivacidadeProvider } from "./src/privacidade/PrivacidadeContext";
 import { TemaProvider } from "./src/tema/TemaContext";
 
 export default function App() {
@@ -13,7 +14,9 @@ export default function App() {
         <CasaProvider>
           <SincronizacaoProvider>
             <TemaProvider>
-              <RootNavigator />
+              <PrivacidadeProvider>
+                <RootNavigator />
+              </PrivacidadeProvider>
             </TemaProvider>
           </SincronizacaoProvider>
         </CasaProvider>

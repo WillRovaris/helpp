@@ -1,9 +1,9 @@
 import React from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
-import { formatarReais } from "../lib/format";
 import { useSincronizacao } from "../offline/SincronizacaoContext";
 import { colors, radius, spacing, typography } from "../theme";
+import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 /** "22/10 às 14:32" (sempre com data e hora). */
 export function quandoFoi(iso: string | null): string {
@@ -19,6 +19,7 @@ export function quandoFoi(iso: string | null): string {
  * Tocar sincroniza na hora (ou mostra as novidades).
  */
 export function StatusSincronizacao() {
+  const { mostrarValor } = usePrivacidade();
   const { membros } = useCasa();
   const { sincronizando, online, ultimaSync, pendentes, pendentesDespesas, novidades, novidadesDesde, sincronizarAgora, limparNovidades } = useSincronizacao();
 
@@ -39,7 +40,7 @@ export function StatusSincronizacao() {
         "Novidades",
         novidades
           .slice(0, 15)
-          .map((g) => `• ${String(g.data).split("-").reverse().slice(0, 2).join("/")} ${g.descricao ?? "Despesa"} — ${formatarReais(Number(g.valor))}`)
+          .map((g) => `• ${String(g.data).split("-").reverse().slice(0, 2).join("/")} ${g.descricao ?? "Despesa"} — ${mostrarValor(Number(g.valor))}`)
           .join("\n") + (novidades.length > 15 ? `\n… e mais ${novidades.length - 15}` : ""),
         [{ text: "OK", onPress: limparNovidades }],
       );

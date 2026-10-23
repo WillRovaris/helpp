@@ -2,9 +2,9 @@ import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import type { Categoria, Gasto } from "../data/tipos";
 import { emojiCategoria } from "../data/tipos";
-import { formatarReais } from "../lib/format";
 import { colors, radius, spacing, typography } from "../theme";
 import { Cartao } from "./ui";
+import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 /** Barra horizontal simples (0–1), sem biblioteca de gráfico. */
 export function Barra({ fracao, cor }: { fracao: number; cor: string }) {
@@ -17,6 +17,7 @@ export function Barra({ fracao, cor }: { fracao: number; cor: string }) {
 
 /** Renda × gastos: quanto já foi e quanto sobra. */
 export function CartaoSobra({ total, renda, onDefinirRenda }: { total: number; renda: number | null; onDefinirRenda: () => void }) {
+  const { mostrarValor } = usePrivacidade();
   if (renda == null || renda <= 0) {
     return (
       <TouchableOpacity onPress={onDefinirRenda}>
@@ -31,9 +32,9 @@ export function CartaoSobra({ total, renda, onDefinirRenda }: { total: number; r
     <TouchableOpacity onPress={onDefinirRenda} activeOpacity={0.8}>
       <Barra fracao={fracao} cor={cor} />
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: spacing.xs }}>
-        <Text style={typography.label}>{Math.round(fracao * 100)}% da renda ({formatarReais(renda)})</Text>
+        <Text style={typography.label}>{Math.round(fracao * 100)}% da renda ({mostrarValor(renda)})</Text>
         <Text style={[typography.label, { color: sobra < 0 ? colors.danger : colors.accent, fontWeight: "700" }]}>
-          {sobra < 0 ? `Passou ${formatarReais(-sobra)}` : `Sobra ${formatarReais(sobra)}`}
+          {sobra < 0 ? `Passou ${mostrarValor(-sobra)}` : `Sobra ${mostrarValor(sobra)}`}
         </Text>
       </View>
     </TouchableOpacity>
@@ -61,6 +62,7 @@ export function PorCategoria({
   categorias: Categoria[];
   onPressCategoria: (categoriaId: string | null) => void;
 }) {
+  const { mostrarValor } = usePrivacidade();
   const total = gastos.reduce((s, g) => s + g.valor, 0);
   if (total <= 0) return null;
 
@@ -82,7 +84,7 @@ export function PorCategoria({
                 {emojiCategoria(cat?.icone)} {cat?.nome ?? "Sem categoria"}
               </Text>
               <Text style={typography.body}>
-                <Text style={{ fontWeight: "600" }}>{formatarReais(soma)}</Text>
+                <Text style={{ fontWeight: "600" }}>{mostrarValor(soma)}</Text>
                 <Text style={typography.label}>  {Math.round((soma / total) * 100)}%</Text>
               </Text>
             </View>

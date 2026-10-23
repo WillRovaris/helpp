@@ -14,14 +14,16 @@ import { corSituacao } from "./ContasScreen";
 import { emojiCategoria, tituloGasto } from "../data/tipos";
 import { corLimite } from "../components/ResumoCartaoCard";
 import { diaMes, resumirCartao, somarMeses } from "../lib/fatura";
-import { formatarReais, hojeISO, MESES, rotuloDia } from "../lib/format";
+import { hojeISO, MESES, rotuloDia } from "../lib/format";
 import { enviarWhatsApp, textoResumoMes } from "../lib/relatorio";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
+import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export function HomeScreen({ navigation }: Props) {
+  const { mostrarValor, visivel, alternar } = usePrivacidade();
   const rodape = useEspacoRodape();
   const { casa, membros, meuNome } = useCasa();
   const hoje = new Date();
@@ -74,6 +76,9 @@ export function HomeScreen({ navigation }: Props) {
             <Text style={typography.subtitle}>Olá, {meuNome}</Text>
             <Text style={typography.title}>{casa.nome}</Text>
           </View>
+          <TouchableOpacity onPress={alternar} style={{ padding: spacing.sm }} accessibilityLabel={visivel ? "Esconder valores" : "Mostrar valores"}>
+            <Text style={{ fontSize: 24 }}>{visivel ? "👁️" : "🙈"}</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate("Configuracoes")} style={{ padding: spacing.sm }} accessibilityLabel="Configurações">
             <Text style={{ fontSize: 24 }}>⚙️</Text>
           </TouchableOpacity>
@@ -84,7 +89,7 @@ export function HomeScreen({ navigation }: Props) {
         <Cartao>
           <TouchableOpacity onPress={() => navigation.navigate("Historico", {})} activeOpacity={0.8}>
             <Text style={typography.label}>DESPESAS DE {MESES[hoje.getMonth()].toUpperCase()}</Text>
-            <Text style={{ fontSize: 34, fontWeight: "700", color: colors.textPrimary, marginTop: spacing.xs }}>{formatarReais(total)}</Text>
+            <Text style={{ fontSize: 34, fontWeight: "700", color: colors.textPrimary, marginTop: spacing.xs }}>{mostrarValor(total)}</Text>
             {comparacao && <Text style={[typography.label, { color: comparacao.cor }]}>{comparacao.texto}</Text>}
           </TouchableOpacity>
           <View style={{ marginTop: spacing.md }}>
@@ -110,7 +115,7 @@ export function HomeScreen({ navigation }: Props) {
               ) : (
                 pendentesUrgentes.slice(0, 3).map((c) => (
                   <Text key={c.conta.id} style={[typography.body, { marginTop: spacing.xs, color: corSituacao(c) }]}>
-                    {c.situacao === "atrasada" ? "⚠️" : "⏰"} {c.conta.nome}{c.conta.valor ? ` (${formatarReais(c.conta.valor)})` : ""} · {textoSituacao(c).toLowerCase()}
+                    {c.situacao === "atrasada" ? "⚠️" : "⏰"} {c.conta.nome}{c.conta.valor ? ` (${mostrarValor(c.conta.valor)})` : ""} · {textoSituacao(c).toLowerCase()}
                   </Text>
                 ))
               )}
@@ -130,19 +135,19 @@ export function HomeScreen({ navigation }: Props) {
                 >
                   <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                     <Text style={[typography.body, { fontWeight: "600" }]}>💳 {c.nome}</Text>
-                    <Text style={[typography.body, { fontWeight: "600" }]}>{formatarReais(r.aberta.total)}</Text>
+                    <Text style={[typography.body, { fontWeight: "600" }]}>{mostrarValor(r.aberta.total)}</Text>
                   </View>
                   <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                     <Text style={typography.label}>fatura vence {diaMes(r.aberta.vencimento)}</Text>
                     {c.limite > 0 && (
                       <Text style={[typography.label, { color: corLimite(r.limiteUsado, c.limite), fontWeight: "700" }]}>
-                        {r.disponivel >= 0 ? `faltam ${formatarReais(r.disponivel)}` : `estourou ${formatarReais(-r.disponivel)}`}
+                        {r.disponivel >= 0 ? `faltam ${mostrarValor(r.disponivel)}` : `estourou ${mostrarValor(-r.disponivel)}`}
                       </Text>
                     )}
                   </View>
                   {r.fechada && !r.fechada.paga && (
                     <Text style={[typography.label, { color: colors.warning }]}>
-                      ⏰ fatura fechada {formatarReais(r.fechada.total)} vence {diaMes(r.fechada.vencimento)}
+                      ⏰ fatura fechada {mostrarValor(r.fechada.total)} vence {diaMes(r.fechada.vencimento)}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -166,7 +171,7 @@ export function HomeScreen({ navigation }: Props) {
                     <Text style={typography.body} numberOfLines={1}>{tituloGasto(g, cat?.nome)}</Text>
                     <Text style={typography.label}>{rotuloDia(g.data)}</Text>
                   </View>
-                  <Text style={[typography.body, { fontWeight: "600" }]}>{formatarReais(g.valor)}</Text>
+                  <Text style={[typography.body, { fontWeight: "600" }]}>{mostrarValor(g.valor)}</Text>
                 </TouchableOpacity>
               );
             })}

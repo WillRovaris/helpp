@@ -1,7 +1,7 @@
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { HeaderHeightContext } from "@react-navigation/elements";
-import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { KeyboardAvoidingView, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { ResultadosBusca } from "../components/BuscaDespesas";
@@ -9,13 +9,25 @@ import { Cartao as CartaoUI, Chip, estiloInput, useEspacoRodape } from "../compo
 import { useCartoes, useCategorias, useContasFixas, useGastosDoMes, usePagamentosDoMes } from "../data/hooks";
 import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
 import { emojiCategoria, FORMAS_PAGAMENTO, type Gasto, tituloGasto } from "../data/tipos";
-import { formatarReais, hojeISO, MESES, rotuloDia } from "../lib/format";
+import { hojeISO, MESES, rotuloDia } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
+import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Historico">;
 
 export function HistoricoScreen({ navigation, route }: Props) {
+  const { mostrarValor, visivel, alternar } = usePrivacidade();
+  // Olho no cabeçalho: mostra/esconde os valores (mesmo controle da tela inicial).
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={alternar} style={{ padding: spacing.xs }} accessibilityLabel={visivel ? "Esconder valores" : "Mostrar valores"}>
+          <Text style={{ fontSize: 22 }}>{visivel ? "👁️" : "🙈"}</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, visivel, alternar]);
   const rodape = useEspacoRodape();
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());
@@ -120,7 +132,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
 
       <CartaoUI>
         <Text style={typography.label}>{filtroCategoria || filtroPessoa || filtroPagamento ? "TOTAL FILTRADO" : "TOTAL DO MÊS"}</Text>
-        <Text style={{ fontSize: 30, fontWeight: "700", color: colors.textPrimary }}>{formatarReais(total)}</Text>
+        <Text style={{ fontSize: 30, fontWeight: "700", color: colors.textPrimary }}>{mostrarValor(total)}</Text>
         <Text style={typography.label}>{filtrados.length} {filtrados.length === 1 ? "despesa" : "despesas"}</Text>
       </CartaoUI>
 
@@ -191,7 +203,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
         <View key={grupo.data}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.xs }}>
             <Text style={typography.label}>{rotuloDia(grupo.data).toUpperCase()}</Text>
-            <Text style={typography.label}>{formatarReais(grupo.itens.reduce((s, g) => s + g.valor, 0))}</Text>
+            <Text style={typography.label}>{mostrarValor(grupo.itens.reduce((s, g) => s + g.valor, 0))}</Text>
           </View>
           <CartaoUI style={{ paddingVertical: spacing.xs }}>
             {grupo.itens.map((g, i) => {
@@ -225,7 +237,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
                     </Text>
                     <Text style={typography.label}>{detalhes}</Text>
                   </View>
-                  <Text style={[typography.body, { fontWeight: "600" }]}>{g.contaFixa?.valorVaria ? "valor varia" : formatarReais(g.valor)}</Text>
+                  <Text style={[typography.body, { fontWeight: "600" }]}>{g.contaFixa?.valorVaria ? "valor varia" : mostrarValor(g.valor)}</Text>
                 </TouchableOpacity>
               );
             })}

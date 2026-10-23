@@ -9,17 +9,19 @@ import { emojiCategoria, type Gasto, tituloGasto } from "../data/tipos";
 import { detectarParcela } from "../importacao/leitor";
 import { descricaoSemParcela } from "../importacao/preparar";
 import { diaMes, faturaDaCompra, faturaVizinha, mesPagamentoCartao, somarMeses } from "../lib/fatura";
-import { formatarReais, gerarUuid, hojeISO, MESES, rotuloDia } from "../lib/format";
+import { gerarUuid, hojeISO, MESES, rotuloDia } from "../lib/format";
 import { linhas, ouvirMudancas } from "../offline/banco";
 import { atualizar, excluir, inserir, inserirVarios } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
+import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "CartaoDetalhe">;
 
 // Uma fatura por vez, com ‹ › para ver as anteriores e as futuras (parcelas).
 // Abre na fatura que está para vencer (se ainda não foi paga); senão, na aberta.
 export function CartaoDetalheScreen({ navigation, route }: Props) {
+  const { mostrarValor } = usePrivacidade();
   const rodape = useEspacoRodape();
   const { cartaoId } = route.params;
   const { casa, membros } = useCasa();
@@ -171,7 +173,7 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
 
       <Cartao>
         <Text style={typography.label}>TOTAL DA FATURA</Text>
-        <Text style={{ fontSize: 30, fontWeight: "700", color: colors.textPrimary }}>{formatarReais(total)}</Text>
+        <Text style={{ fontSize: 30, fontWeight: "700", color: colors.textPrimary }}>{mostrarValor(total)}</Text>
         <Text style={typography.label}>
           Fecha {diaMes(fatura.fechamento)} · vence {diaMes(fatura.vencimento)}
         </Text>
@@ -214,7 +216,7 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
                     {membros.length > 1 && g.pago_por ? ` · ${nomePessoa.get(g.pago_por) ?? ""}` : ""}
                   </Text>
                 </View>
-                <Text style={[typography.body, { fontWeight: "600" }]}>{formatarReais(g.valor)}</Text>
+                <Text style={[typography.body, { fontWeight: "600" }]}>{mostrarValor(g.valor)}</Text>
               </TouchableOpacity>
             );
           })}
