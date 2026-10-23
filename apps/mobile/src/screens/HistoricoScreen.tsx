@@ -12,22 +12,16 @@ import { emojiCategoria, FORMAS_PAGAMENTO, type Gasto, tituloGasto } from "../da
 import { hojeISO, MESES, rotuloDia } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
-import { usePrivacidade } from "../privacidade/PrivacidadeContext";
+import { BotaoOlho, usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Historico">;
 
 export function HistoricoScreen({ navigation, route }: Props) {
-  const { mostrarValor, visivel, alternar } = usePrivacidade();
+  const { mostrarValor } = usePrivacidade();
   // Olho no cabeçalho: mostra/esconde os valores (mesmo controle da tela inicial).
   useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity onPress={alternar} style={{ padding: spacing.xs }} accessibilityLabel={visivel ? "Esconder valores" : "Mostrar valores"}>
-          <Text style={{ fontSize: 22 }}>{visivel ? "👁️" : "🙈"}</Text>
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation, visivel, alternar]);
+    navigation.setOptions({ headerRight: () => <BotaoOlho tamanho={24} /> });
+  }, [navigation]);
   const rodape = useEspacoRodape();
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());

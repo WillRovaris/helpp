@@ -18,12 +18,12 @@ import { hojeISO, MESES, rotuloDia } from "../lib/format";
 import { enviarWhatsApp, textoResumoMes } from "../lib/relatorio";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
-import { usePrivacidade } from "../privacidade/PrivacidadeContext";
+import { BotaoOlho, usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export function HomeScreen({ navigation }: Props) {
-  const { mostrarValor, visivel, alternar } = usePrivacidade();
+  const { mostrarValor } = usePrivacidade();
   const rodape = useEspacoRodape();
   const { casa, membros, meuNome } = useCasa();
   const hoje = new Date();
@@ -76,9 +76,7 @@ export function HomeScreen({ navigation }: Props) {
             <Text style={typography.subtitle}>Olá, {meuNome}</Text>
             <Text style={typography.title}>{casa.nome}</Text>
           </View>
-          <TouchableOpacity onPress={alternar} style={{ padding: spacing.sm }} accessibilityLabel={visivel ? "Esconder valores" : "Mostrar valores"}>
-            <Text style={{ fontSize: 24 }}>{visivel ? "👁️" : "🙈"}</Text>
-          </TouchableOpacity>
+          <BotaoOlho />
           <TouchableOpacity onPress={() => navigation.navigate("Configuracoes")} style={{ padding: spacing.sm }} accessibilityLabel="Configurações">
             <Text style={{ fontSize: 24 }}>⚙️</Text>
           </TouchableOpacity>

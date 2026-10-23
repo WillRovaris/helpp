@@ -1,5 +1,7 @@
 import React, { createContext, useCallback, useContext, useState } from "react";
+import { Image, TouchableOpacity } from "react-native";
 import { formatarReais } from "../lib/format";
+import { colors } from "../theme";
 
 interface Privacidade {
   /** Valores em dinheiro aparecem? Começa escondido toda vez que o app abre. */
@@ -26,4 +28,18 @@ export function usePrivacidade(): Privacidade {
   const ctx = useContext(Contexto);
   if (!ctx) throw new Error("usePrivacidade deve ser usado dentro de PrivacidadeProvider");
   return ctx;
+}
+
+/** Botão do olho: fechado = valores escondidos, aberto = visíveis. Cor segue o tema. */
+export function BotaoOlho({ tamanho = 26 }: { tamanho?: number }) {
+  const { visivel, alternar } = usePrivacidade();
+  return (
+    <TouchableOpacity onPress={alternar} style={{ padding: 8 }} accessibilityLabel={visivel ? "Esconder valores" : "Mostrar valores"} hitSlop={8}>
+      <Image
+        source={visivel ? require("../../assets/olho-aberto.png") : require("../../assets/olho-fechado.png")}
+        style={{ width: tamanho, height: tamanho, tintColor: colors.textPrimary }}
+        resizeMode="contain"
+      />
+    </TouchableOpacity>
+  );
 }
