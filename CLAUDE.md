@@ -54,7 +54,7 @@ o que mudou para quem usa o app, sem jargão.
 
 ## Convenções do código
 - Textos da interface em português do Brasil; nomes de variáveis em português. Na interface é **"despesa"** (não "gasto"); no código/banco continua `gasto`.
-- Tela inicial: um botão "+ Lançar despesa" (atalhos Ler nota / Importar / Conta fixa ficam dentro dele) e "📋 Histórico" no rodapé — pedido do dono.
+- Tela inicial (pedido do dono): total do mês (tocar = Histórico), "+ Lançar despesa" (atalhos Ler nota / Importar / Conta fixa dentro), "💳 Cartões de crédito" (fatura, vencimento, limite ficam lá dentro), contas fixas, categorias e por último "Últimos lançamentos". SEM botão de WhatsApp nem de Histórico no rodapé. Data no lançamento já vem preenchida com hoje (editável).
 - Cores: **sempre** `colors.*` / `typography.*` de `src/theme.ts` lidas no render (são getters por causa do tema claro/escuro).
   Não usar cor dentro de `StyleSheet.create` nem em constante no topo do arquivo.
 - Formulários usam `TelaFormulario` (`src/components/ui.tsx`) para o teclado não cobrir o campo.

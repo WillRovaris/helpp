@@ -36,7 +36,8 @@ export function GastoFormScreen({ navigation, route }: Props) {
   const [cartaoId, setCartaoId] = useState<string | null>(null);
   const [pagoPor, setPagoPor] = useState<string | null>(userId);
   const [data, setData] = useState(hojeISO());
-  const [outraData, setOutraData] = useState("");
+  /** Data digitada (dd/mm/aaaa). Já vem com a data de hoje; a pessoa edita se foi em outro dia. */
+  const [outraData, setOutraData] = useState(hojeISO().split("-").reverse().join("/"));
   /** Cartão: dia em que vai pagar. null = vencimento da fatura (calculado). */
   const [pagamento, setPagamento] = useState<string | null>(null);
   const [outroPagamento, setOutroPagamento] = useState("");
@@ -72,7 +73,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
             setPagamento(g.data_pagamento);
             setOutroPagamento(g.data_pagamento.split("-").reverse().join("/"));
           }
-          if (g.data !== hojeISO() && g.data !== somarDias(hojeISO(), -1)) setOutraData(g.data.split("-").reverse().join("/"));
+          setOutraData(g.data.split("-").reverse().join("/"));
           setDescricao(g.descricao ?? "");
           setNotaId(g.nota_id);
           if (g.parcelamento_id) setParcelamento({ id: g.parcelamento_id, parcela: g.parcela, parcelas: g.parcelas });
@@ -91,8 +92,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
     if (forma === "credito" && !cartaoId && cartoes.length === 1) setCartaoId(cartoes[0].id);
   }, [forma, cartoes, cartaoId]);
 
-  const ontem = somarDias(hojeISO(), -1);
-  const usandoOutraData = data !== hojeISO() && data !== ontem;
+
   const cartao = cartoes.find((c) => c.id === cartaoId);
   const fatura = forma === "credito" && cartao ? faturaDaCompra(data, cartao.dia_fechamento, cartao.dia_vencimento) : null;
   // No cartão, o mês da despesa é o do pagamento: o dia informado ou o vencimento da fatura.
@@ -109,7 +109,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
     if (centavos <= 0) return Alert.alert("Valor", "Digite quanto foi a despesa.");
     if (!gastoId && parcelas > 1 && centavos < parcelas) return Alert.alert("Parcelas", "O valor é pequeno demais para tantas parcelas.");
     let dataFinal = data;
-    if (outraData.trim() && usandoOutraData) {
+    {
       const iso = isoDeTextoBR(outraData);
       if (!iso) return Alert.alert("Data", "Complete a data: dia/mês/ano, por exemplo 05/10/2026.");
       dataFinal = iso;
@@ -413,8 +413,6 @@ export function GastoFormScreen({ navigation, route }: Props) {
 
       {/* Fora do cartão, esta é a data em que o dinheiro sai (define o mês). No cartão, é a data da compra. */}
       <Secao titulo={forma === "credito" ? "DATA DA COMPRA" : "DATA DO PAGAMENTO"}>
-        <Chip rotulo="Hoje" ativo={data === hojeISO()} onPress={() => { setData(hojeISO()); setOutraData(""); }} />
-        <Chip rotulo="Ontem" ativo={data === ontem} onPress={() => { setData(ontem); setOutraData(""); }} />
         <TextInput
           value={outraData}
           onChangeText={(t) => {
@@ -427,10 +425,11 @@ export function GastoFormScreen({ navigation, route }: Props) {
           placeholderTextColor={colors.textSecondary}
           keyboardType="number-pad"
           maxLength={10}
-          style={[estiloInput(), { borderRadius: 999, paddingVertical: 6, minWidth: 130, fontSize: 14, borderColor: usandoOutraData ? colors.accent : colors.border }]}
+          selectTextOnFocus
+          style={[estiloInput(), { minWidth: 150, fontSize: 16 }]}
         />
+        <Text style={typography.label}>{isoDeTextoBR(outraData) ? rotuloDia(isoDeTextoBR(outraData)!) : "complete a data"}</Text>
       </Secao>
-      {usandoOutraData && <Text style={[typography.label, { marginTop: spacing.xs }]}>{rotuloDia(data)}</Text>}
 
       <Botao titulo={parcelas > 1 ? `Salvar ${parcelas} parcelas` : "Salvar"} onPress={salvar} carregando={salvando} style={{ marginTop: spacing.xl }} />
       {gastoId && <Botao titulo="Excluir despesa" variante="link" onPress={excluir} style={{ marginTop: spacing.sm }} />}
