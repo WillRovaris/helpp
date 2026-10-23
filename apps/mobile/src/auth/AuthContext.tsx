@@ -1,5 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { AppState } from "react-native";
 import { supabase, traduzirErro } from "../lib/supabase";
 import { limparTudo } from "../offline/banco";
 
@@ -27,7 +28,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => setSession(newSession));
-    return () => sub.subscription.unsubscribe();
+    // Renova o login só com o app aberto; em segundo plano (ou sem internet) não fica tentando.
+    supabase.auth.startAutoRefresh();
+    const estado = AppState.addEventListener("change", (s) => {
+      if (s === "active") supabase.auth.startAutoRefresh();
+      else supabase.auth.stopAutoRefresh();
+    });
+    return () => {
+      sub.subscription.unsubscribe();
+      estado.remove();
+    };
   }, []);
 
   async function signIn(email: string, password: string): Promise<Result> {

@@ -3,7 +3,7 @@ import { AppState } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { supabase } from "../lib/supabase";
-import { gravarMeta, lerMeta, type Linha, tamanhoFila } from "./banco";
+import { despesasNaFila, gravarMeta, lerMeta, type Linha, tamanhoFila } from "./banco";
 import { quandoGravar } from "./repo";
 import { sincronizar } from "./sync";
 
@@ -12,7 +12,10 @@ interface EstadoSync {
   /** null = ainda não tentou. */
   online: boolean | null;
   ultimaSync: string | null;
+  /** Alterações na fila (qualquer tabela). */
   pendentes: number;
+  /** Dessas, quantas são despesas. */
+  pendentesDespesas: number;
   /** Despesas novas de outra pessoa da casa, desde a última vez que a pessoa viu o aviso. */
   novidades: Linha[];
   novidadesDesde: string | null;
@@ -34,6 +37,11 @@ export function SincronizacaoProvider({ children }: { children: React.ReactNode 
   const [online, setOnline] = useState<boolean | null>(null);
   const [ultimaSync, setUltimaSync] = useState<string | null>(null);
   const [pendentes, setPendentes] = useState(0);
+  const [pendentesDespesas, setPendentesDespesas] = useState(0);
+  const atualizarPendentes = useCallback(() => {
+    setPendentes(tamanhoFila());
+    setPendentesDespesas(despesasNaFila());
+  }, []);
   const [novidades, setNovidades] = useState<Linha[]>([]);
   const [novidadesDesde, setNovidadesDesde] = useState<string | null>(null);
   const deNovo = useRef(false);
@@ -43,7 +51,7 @@ export function SincronizacaoProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (!casaId) return;
     setUltimaSync(lerMeta(`ultima_sync:${casaId}`));
-    setPendentes(tamanhoFila());
+    atualizarPendentes();
     try {
       const salvas = lerMeta(`novidades:${casaId}`);
       setNovidades(salvas ? JSON.parse(salvas) : []);
@@ -84,20 +92,20 @@ export function SincronizacaoProvider({ children }: { children: React.ReactNode 
     } finally {
       rodando.current = false;
       setSincronizando(false);
-      setPendentes(tamanhoFila());
+      atualizarPendentes();
     }
-  }, [casaId, userId]);
+  }, [casaId, userId, atualizarPendentes]);
 
   // Depois de cada gravação: mostra "aguardando" e tenta subir logo (pequena espera para juntar várias).
   const espera = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     quandoGravar(() => {
-      setPendentes(tamanhoFila());
+      atualizarPendentes();
       if (espera.current) clearTimeout(espera.current);
       espera.current = setTimeout(() => rodar(), 800);
     });
     return () => quandoGravar(() => {});
-  }, [rodar]);
+  }, [rodar, atualizarPendentes]);
 
   // Ao abrir, ao voltar para o app e a cada minuto.
   useEffect(() => {
@@ -136,7 +144,7 @@ export function SincronizacaoProvider({ children }: { children: React.ReactNode 
   }, [casaId]);
 
   return (
-    <Contexto.Provider value={{ sincronizando, online, ultimaSync, pendentes, novidades, novidadesDesde, sincronizarAgora: rodar, limparNovidades }}>
+    <Contexto.Provider value={{ sincronizando, online, ultimaSync, pendentes, pendentesDespesas, novidades, novidadesDesde, sincronizarAgora: rodar, limparNovidades }}>
       {children}
     </Contexto.Provider>
   );

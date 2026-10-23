@@ -123,6 +123,11 @@ export function tirarDaFila(seq: number) {
   db.runSync("delete from fila where seq = ?", seq);
 }
 
+/** Quantas despesas (tabela gastos) ainda não subiram — é o que aparece no aviso. */
+export function despesasNaFila(): number {
+  return db.getFirstSync<{ n: number }>("select count(*) as n from fila where tabela = 'gastos'")?.n ?? 0;
+}
+
 export function tamanhoFila(): number {
   return db.getFirstSync<{ n: number }>("select count(*) as n from fila")?.n ?? 0;
 }

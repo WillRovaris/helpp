@@ -22,7 +22,7 @@ export function quandoFoi(iso: string | null): string {
  */
 export function StatusSincronizacao() {
   const { membros } = useCasa();
-  const { sincronizando, online, ultimaSync, pendentes, novidades, novidadesDesde, sincronizarAgora, limparNovidades } = useSincronizacao();
+  const { sincronizando, online, ultimaSync, pendentes, pendentesDespesas, novidades, novidadesDesde, sincronizarAgora, limparNovidades } = useSincronizacao();
 
   let icone = "☁️";
   let texto = `Tudo sincronizado · ${quandoFoi(ultimaSync)}`;
@@ -47,7 +47,14 @@ export function StatusSincronizacao() {
       );
   } else if (pendentes > 0) {
     icone = "⏳";
-    texto = online === false ? `${pendentes} ${pendentes === 1 ? "lançamento aguardando" : "lançamentos aguardando"} internet` : `Enviando ${pendentes} ${pendentes === 1 ? "lançamento" : "lançamentos"}…`;
+    // conta despesas; se só houver outras alterações (cartão, conta fixa...), fala em "alterações"
+    const n = pendentesDespesas || pendentes;
+    const coisa = pendentesDespesas ? (n === 1 ? "despesa" : "despesas") : n === 1 ? "alteração" : "alterações";
+    texto = sincronizando
+      ? `Enviando ${n} ${coisa}…`
+      : online === false
+        ? `${n} ${coisa} aguardando internet · toque para tentar`
+        : `${n} ${coisa} aguardando envio · toque para enviar`;
     cor = colors.warning;
     fundo = colors.surface;
   } else if (online === false) {

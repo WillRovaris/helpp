@@ -7,7 +7,19 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = "https://tpsytskbvcousydgpnlp.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oxCkYng84OKEbxywHhw9Uw_sk0oLIzW";
 
+/**
+ * Toda chamada à nuvem desiste depois de 20 s. Sem isso, quando a internet cai
+ * e volta, uma requisição pode ficar esperando para sempre e travar a sincronização.
+ */
+const fetchComLimite: typeof fetch = (entrada, opcoes) => {
+  const controle = new AbortController();
+  const limite = setTimeout(() => controle.abort(), 20_000);
+  opcoes?.signal?.addEventListener("abort", () => controle.abort());
+  return fetch(entrada, { ...opcoes, signal: controle.signal }).finally(() => clearTimeout(limite));
+};
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  global: { fetch: fetchComLimite },
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,

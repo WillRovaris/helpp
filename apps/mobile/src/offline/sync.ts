@@ -170,26 +170,34 @@ async function trazerExclusoes(casaId: string): Promise<void> {
 
 let emAndamento: Promise<ResultadoSync> | null = null;
 
+const LIMITE_CICLO_MS = 90_000;
+
 export function sincronizar(casaId: string, meuId: string | null): Promise<ResultadoSync> {
   if (!emAndamento) {
-    emAndamento = (async () => {
-      try {
-        await enviarFila();
-        const novasDeOutros: Linha[] = [];
-        for (const t of TABELAS) {
-          const novas = await trazerMudancas(t, casaId);
-          if (t === "gastos") novasDeOutros.push(...novas.filter((g) => g.created_by && g.created_by !== meuId));
-        }
-        await trazerExclusoes(casaId);
-        gravarMeta(`ultima_sync:${casaId}`, new Date().toISOString());
-        return { online: true, novasDeOutros };
-      } catch (e) {
-        if (!(e instanceof SemInternet) && !ehErroDeRede(e)) console.warn("[sync] falhou:", e);
-        return { online: false, novasDeOutros: [] };
-      } finally {
-        emAndamento = null;
-      }
-    })();
+    const ciclo = rodarCiclo(casaId, meuId);
+    // Trava de segurança: se algo ficar preso, libera para tentar de novo (nunca gira para sempre).
+    const limite = new Promise<ResultadoSync>((resolver) => setTimeout(() => resolver({ online: false, novasDeOutros: [] }), LIMITE_CICLO_MS));
+    const esta: Promise<ResultadoSync> = Promise.race([ciclo, limite]).finally(() => {
+      if (emAndamento === esta) emAndamento = null;
+    });
+    emAndamento = esta;
   }
   return emAndamento;
+}
+
+async function rodarCiclo(casaId: string, meuId: string | null): Promise<ResultadoSync> {
+  try {
+    await enviarFila();
+    const novasDeOutros: Linha[] = [];
+    for (const t of TABELAS) {
+      const novas = await trazerMudancas(t, casaId);
+      if (t === "gastos") novasDeOutros.push(...novas.filter((g) => g.created_by && g.created_by !== meuId));
+    }
+    await trazerExclusoes(casaId);
+    gravarMeta(`ultima_sync:${casaId}`, new Date().toISOString());
+    return { online: true, novasDeOutros };
+  } catch (e) {
+    if (!(e instanceof SemInternet) && !ehErroDeRede(e)) console.warn("[sync] falhou:", e);
+    return { online: false, novasDeOutros: [] };
+  }
 }
