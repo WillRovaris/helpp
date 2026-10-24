@@ -4,6 +4,7 @@ import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, Chip, useEspacoRodape } from "../components/ui";
+import { useSugestoes } from "../data/hooks";
 import { type ConfigLembretes, lerConfigLembretes, salvarConfigLembretes } from "../lembretes/lembretes";
 import { formatarReais } from "../lib/format";
 import { tamanhoFila } from "../offline/banco";
@@ -24,6 +25,7 @@ export function ConfiguracoesScreen({ navigation }: Props) {
   const { session, signOut } = useAuth();
   const { casa, membros } = useCasa();
   const { preferencia, escolher } = useTema();
+  const { pendentes } = useSugestoes();
   const [lembretes, setLembretes] = useState<ConfigLembretes | null>(null);
 
   useEffect(() => {
@@ -86,6 +88,12 @@ export function ConfiguracoesScreen({ navigation }: Props) {
           titulo={membros.length > 1 ? "👥 Casa compartilhada" : "👥 Compartilhar com alguém"}
           detalhe={membros.length > 1 ? membros.map((m) => m.nome).join(" e ") : "Opcional"}
           onPress={() => navigation.navigate("Compartilhar")}
+          borda
+        />
+        <Item
+          titulo="💡 Sugestões e melhorias"
+          detalhe={pendentes.length ? `${pendentes.length} pendente${pendentes.length > 1 ? "s" : ""}` : undefined}
+          onPress={() => navigation.navigate("Sugestoes")}
           borda
         />
       </Cartao>

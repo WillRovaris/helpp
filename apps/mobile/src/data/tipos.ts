@@ -101,3 +101,12 @@ export interface FaturaPaga {
   valor: number | null;
   pago_em: string;
 }
+
+export interface Sugestao {
+  id: string;
+  texto: string;
+  feita: boolean;
+  feita_em: string | null;
+  created_by: string | null;
+  created_at: string;
+}

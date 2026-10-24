@@ -9,7 +9,7 @@ o que mudou para quem usa o app, sem jargão.
 - `apps/mobile` — o app (Expo SDK 57 / React Native, TypeScript). **É aqui que tudo acontece.**
 - `apps/api` — API antiga (Fastify/Prisma) do app de pesquisa de preços. **Não é usada pelo app atual**; fica só de referência.
 - `supabase/` — SQLs numerados. O dono roda cada um **à mão** no Supabase (SQL Editor → Run).
-  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id). `05` (faturas_pagas). `06` (categoria Empréstimo 💸, ícone `cash`), `07` (Igreja ⛪, ícone `church`), `08` (gastos.data_pagamento + correção dos lançamentos manuais no cartão), `09` (contas_fixas.inicio + meses), `10` (sincronização: updated_at em todas as tabelas + tabela `exclusoes`). Todos rodados até o 10.
+  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id). `05` (faturas_pagas). `06` (categoria Empréstimo 💸, ícone `cash`), `07` (Igreja ⛪, ícone `church`), `08` (gastos.data_pagamento + correção dos lançamentos manuais no cartão), `09` (contas_fixas.inicio + meses), `10` (sincronização: updated_at em todas as tabelas + tabela `exclusoes`). Todos rodados até o 10. `11` (sugestoes) — pedido em 24/10, conferir se rodou.
   SQL novo = novo arquivo `05-...sql`, idempotente (`if not exists`), e pedir para ele rodar.
 - O app deve **tolerar** o SQL ainda não ter rodado (ex.: `select("*")` em vez de colunas fixas; mensagem "Falta rodar o SQL 0X").
 
@@ -76,6 +76,7 @@ o que mudou para quem usa o app, sem jargão.
   Pix para o mesmo nome que mandou dinheiro para a conta no arquivo = transferência entre contas da pessoa (vem desmarcado).
 - Importação de extrato: Pix vira só "PIX - Nome de quem recebeu" (`nomeDoPix` em `src/importacao/preparar.ts`) — pedido do dono.
 - Itens da nota fiscal aparecem no Histórico ("🧾 N itens da nota", abre ali mesmo) — o dono quer usar esses dados no futuro. `nota_itens` NÃO tem `created_at` na nuvem (repo não manda). O sync tira coluna desconhecida e reenvia em vez de apagar o registro.
+- Sugestões e melhorias (Configurações → 💡): a Thamara (ou quem usa) escreve ideias, a casa toda vê; bolinha vermelha no ⚙️ quando há pendente de outra pessoa; "Enviar lista de pendentes" compartilha o texto para colar aqui no Claude; marcar "✅ Feita" quando publicar. Tabela `sugestoes` (SQL 11). O sync guarda na fila operações de tabela que ainda não existe na nuvem (não apaga).
 - NFC-e: leitura no próprio celular via WebView da SEFAZ-SC (`src/fiscal/nfce.ts`); outros estados podem não funcionar.
 
 ## Ideias combinadas para depois

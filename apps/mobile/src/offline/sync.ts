@@ -35,6 +35,12 @@ function ehErroDeRede(e: ErroSupabase | unknown): boolean {
 }
 
 class SemInternet extends Error {}
+/** A tabela ainda não existe na nuvem (SQL novo não rodou): guarda no celular e tenta depois. */
+class TabelaAusente extends Error {}
+
+function ehTabelaAusente(e: ErroSupabase): boolean {
+  return !!e && (e.code === "PGRST205" || e.code === "42P01" || /could not find the table|relation .* does not exist/i.test(e.message));
+}
 
 // ------------------------------------------------------------ envio
 
@@ -81,21 +87,30 @@ async function executar(op: Operacao): Promise<void> {
   }
   if (!erro) return;
   if (ehErroDeRede(erro)) throw new SemInternet(erro.message);
+  if (ehTabelaAusente(erro)) throw new TabelaAusente(erro.message);
   // Erro definitivo (permissão, coluna que não existe…): desfaz no celular para não ficar diferente da nuvem.
   console.warn(`[sync] ${op.op} ${op.tabela} recusado:`, erro.message);
   if (op.op === "inserir") apagarLocal(op.tabela, [idDe(op.tabela, op.dados)]);
 }
 
+let tabelasAusentes = new Set<Tabela>();
+
 async function enviarFila(): Promise<void> {
+  tabelasAusentes = new Set();
   // Repete enquanto houver fila: um envio pode gerar outra operação (ex.: desfazer despesa repetida).
   for (let passada = 0; passada < 5; passada++) {
-    const fila = lerFila();
+    // Operações de tabela que ainda não existe na nuvem ficam na fila para a próxima vez.
+    const fila = lerFila().filter((op) => !tabelasAusentes.has(op.tabela));
     if (!fila.length) return;
     for (const op of fila) {
       try {
         await executar(op);
       } catch (e) {
         if (e instanceof SemInternet || ehErroDeRede(e)) throw new SemInternet(String(e));
+        if (e instanceof TabelaAusente) {
+          tabelasAusentes.add(op.tabela);
+          continue;
+        }
         console.warn("[sync] operação descartada:", e);
       }
       tirarDaFila(op.seq!);
@@ -116,13 +131,14 @@ function daCasa(t: Tabela, casaId: string) {
   return (l: Linha) => (t === "casas" ? l.id === casaId : l.casa_id === casaId);
 }
 
-/** Traz tudo da tabela (primeira vez, ou se a nuvem ainda não tem updated_at). */
-async function trazerTudo(t: Tabela, casaId: string): Promise<Linha[]> {
+/** Traz tudo da tabela (primeira vez, ou se a nuvem ainda não tem updated_at). `null` = tabela ainda não existe na nuvem. */
+async function trazerTudo(t: Tabela, casaId: string): Promise<Linha[] | null> {
   const todas: Linha[] = [];
   for (let de = 0; ; de += POR_PAGINA) {
     const { data, error } = await consultaDaCasa(t, casaId).range(de, de + POR_PAGINA - 1);
     if (error) {
       if (ehErroDeRede(error)) throw new SemInternet(error.message);
+      if (ehTabelaAusente(error)) return null;
       throw error;
     }
     todas.push(...(data ?? []));
@@ -138,6 +154,7 @@ async function trazerMudancas(t: Tabela, casaId: string): Promise<Linha[]> {
 
   if (!cursor) {
     const todas = await trazerTudo(t, casaId);
+    if (!todas) return []; // SQL novo ainda não rodou: mantém o que está no celular
     substituirTabela(t, todas, daCasa(t, casaId));
     const maior = todas.reduce<string | null>((m, l) => (l.updated_at && (!m || l.updated_at > m) ? l.updated_at : m), null);
     // Tabela vazia na nuvem: marca o "começo dos tempos" para as próximas virem como novidade.
@@ -152,9 +169,11 @@ async function trazerMudancas(t: Tabela, casaId: string): Promise<Linha[]> {
       if (ehErroDeRede(error)) throw new SemInternet(error.message);
       if (error.code === "42703") {
         // nuvem sem updated_at (SQL 10 ainda não rodou): troca a tabela inteira
-        substituirTabela(t, await trazerTudo(t, casaId), daCasa(t, casaId));
+        const todas = await trazerTudo(t, casaId);
+        if (todas) substituirTabela(t, todas, daCasa(t, casaId));
         return [];
       }
+      if (ehTabelaAusente(error)) return [];
       throw error;
     }
     mudadas.push(...(data ?? []));

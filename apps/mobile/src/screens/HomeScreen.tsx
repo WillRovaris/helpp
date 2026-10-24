@@ -3,11 +3,12 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { StatusSincronizacao } from "../components/StatusSincronizacao";
 import { Botao, Cartao, useEspacoRodape } from "../components/ui";
-import { useCartoes, useCategorias, useContasFixas, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useUltimosGastos } from "../data/hooks";
+import { useCartoes, useCategorias, useContasFixas, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useSugestoes, useUltimosGastos } from "../data/hooks";
 import { reagendarLembretes } from "../lembretes/lembretes";
 import { competencia, contasComoDespesas, contasDoMes, textoSituacao } from "../lib/contas";
 import { corSituacao } from "./ContasScreen";
@@ -24,6 +25,10 @@ export function HomeScreen({ navigation }: Props) {
   const { mostrarValor } = usePrivacidade();
   const rodape = useEspacoRodape();
   const { casa, meuNome } = useCasa();
+  const { userId } = useAuth();
+  // Sugestão nova de outra pessoa da casa: bolinha no ⚙️ (fica em Configurações → Sugestões e melhorias).
+  const { pendentes: sugestoesPendentes } = useSugestoes();
+  const sugestoesDeOutros = sugestoesPendentes.filter((s) => s.created_by && s.created_by !== userId).length;
   const hoje = new Date();
   const { gastos, recarregar } = useGastosDoMes(hoje.getFullYear(), hoje.getMonth());
   const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
@@ -81,6 +86,11 @@ export function HomeScreen({ navigation }: Props) {
           <BotaoOlho />
           <TouchableOpacity onPress={() => navigation.navigate("Configuracoes")} style={{ padding: spacing.sm }} accessibilityLabel="Configurações">
             <Text style={{ fontSize: 24 }}>⚙️</Text>
+            {sugestoesDeOutros > 0 && (
+              <View style={{ position: "absolute", top: 2, right: 0, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.danger, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 }}>
+                <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{sugestoesDeOutros}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 

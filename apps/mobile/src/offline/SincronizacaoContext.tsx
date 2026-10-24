@@ -126,7 +126,7 @@ export function SincronizacaoProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (!casaId) return;
     const canal = supabase.channel(`sync-${casaId}`);
-    for (const t of ["gastos", "categorias", "cartoes", "contas_fixas", "contas_pagamentos", "faturas_pagas", "notas", "exclusoes"]) {
+    for (const t of ["gastos", "categorias", "cartoes", "contas_fixas", "contas_pagamentos", "faturas_pagas", "notas", "sugestoes", "exclusoes"]) {
       canal.on("postgres_changes", { event: "*", schema: "public", table: t, filter: `casa_id=eq.${casaId}` }, () => rodar());
     }
     canal.subscribe();

@@ -19,4 +19,5 @@ export type RootStackParamList = {
   Cartoes: undefined;
   CartaoDetalhe: { cartaoId: string };
   CartaoForm: { cartaoId?: string };
+  Sugestoes: undefined;
 };

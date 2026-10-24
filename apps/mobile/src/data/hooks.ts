@@ -4,7 +4,7 @@ import { mesPagamentoCartao, somarMeses } from "../lib/fatura";
 import { hojeISO, limitesDoMes } from "../lib/format";
 import { type Linha, linhas, ouvirMudancas, type Tabela } from "../offline/banco";
 import { useSincronizacao } from "../offline/SincronizacaoContext";
-import type { Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, PagamentoConta } from "./tipos";
+import type { Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, PagamentoConta, Sugestao } from "./tipos";
 
 /**
  * Lista de uma tabela da casa, lida da cópia no celular (funciona sem internet).
@@ -149,4 +149,10 @@ export function useFaturasPagas() {
   const { itens, ...resto } = useTabela<FaturaPaga>("faturas_pagas", (t) => t.sort(porTexto("vencimento", true)) as FaturaPaga[], []);
   const pagas = new Set(itens.map((p) => `${p.cartao_id}|${p.vencimento}`));
   return { faturasPagas: itens, faturaPaga: (cartaoId: string, vencimento: string) => pagas.has(`${cartaoId}|${vencimento}`), ...resto };
+}
+
+/** Sugestões e melhorias da casa: pendentes primeiro, mais novas no topo. */
+export function useSugestoes() {
+  const { itens, ...resto } = useTabela<Sugestao>("sugestoes", (t) => t.sort(porTexto("created_at", true)) as Sugestao[], []);
+  return { sugestoes: itens, pendentes: itens.filter((s) => !s.feita), feitas: itens.filter((s) => s.feita), ...resto };
 }
