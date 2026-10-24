@@ -5,7 +5,9 @@ import { gravarLocal, gravarMeta, type Linha, lerMeta, linhas, obter, ouvirMudan
 import { atualizar } from "../offline/repo";
 
 function paraCasa(l: Linha): Casa {
-  return { id: l.id, nome: l.nome, codigo_convite: l.codigo_convite, renda_mensal: l.renda_mensal != null ? Number(l.renda_mensal) : null };
+  const rendas: Record<string, number> = {};
+  if (l.rendas && typeof l.rendas === "object") for (const [k, v] of Object.entries(l.rendas)) rendas[k] = Number(v);
+  return { id: l.id, nome: l.nome, codigo_convite: l.codigo_convite, renda_mensal: l.renda_mensal != null ? Number(l.renda_mensal) : null, rendas };
 }
 
 export interface Casa {
@@ -14,6 +16,8 @@ export interface Casa {
   codigo_convite: string;
   /** Renda mensal informada (opcional) — usada no "quanto sobra" do resumo. */
   renda_mensal: number | null;
+  /** Renda de cada pessoa da casa (user_id → valor); `renda_mensal` é a soma. */
+  rendas: Record<string, number>;
 }
 
 export interface Membro {
@@ -32,7 +36,7 @@ interface CasaContextValue {
   criarCasa: (nomeCasa: string, meuNome: string) => Promise<Result>;
   entrarNaCasa: (codigo: string, meuNome: string) => Promise<Result>;
   novoConvite: () => Promise<Result>;
-  definirRenda: (valor: number | null) => Promise<Result>;
+  definirRenda: (valor: number | null, rendas?: Record<string, number>) => Promise<Result>;
   recarregar: () => Promise<void>;
 }
 
@@ -158,11 +162,11 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }
 
-  async function definirRenda(valor: number | null): Promise<Result> {
+  async function definirRenda(valor: number | null, rendas: Record<string, number> = {}): Promise<Result> {
     if (!casa) return { error: "Sem casa" };
     // grava no celular e sobe na próxima sincronização (funciona sem internet)
-    atualizar("casas", casa.id, { renda_mensal: valor });
-    setCasa({ ...casa, renda_mensal: valor });
+    atualizar("casas", casa.id, { renda_mensal: valor, rendas });
+    setCasa({ ...casa, renda_mensal: valor, rendas });
     return { error: null };
   }
 
