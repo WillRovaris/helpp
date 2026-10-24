@@ -1,6 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import { ScrollView, Text } from "react-native";
 import { ResumoCartaoCard } from "../components/ResumoCartaoCard";
 import { Botao, useEspacoRodape } from "../components/ui";
@@ -9,6 +9,7 @@ import { resumirCartao, somarMeses } from "../lib/fatura";
 import { hojeISO } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
+import { BotaoOlho } from "../privacidade/PrivacidadeContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Cartoes">;
 
@@ -18,6 +19,10 @@ export function CartoesScreen({ navigation }: Props) {
   const { cartoes, carregando } = useCartoes();
   const { gastosCredito, recarregar } = useGastosCredito(somarMeses(hoje, -3));
   const { faturaPaga, recarregar: recarregarFaturasPagas } = useFaturasPagas();
+
+  useEffect(() => {
+    navigation.setOptions({ headerRight: () => <BotaoOlho tamanho={24} /> });
+  }, [navigation]);
 
   useFocusEffect(
     useCallback(() => {

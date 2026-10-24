@@ -14,7 +14,7 @@ import { linhas, ouvirMudancas } from "../offline/banco";
 import { atualizar, excluir, inserir, inserirVarios } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
-import { usePrivacidade } from "../privacidade/PrivacidadeContext";
+import { BotaoOlho, usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "CartaoDetalhe">;
 
@@ -41,9 +41,12 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     if (cartao) navigation.setOptions({ title: cartao.nome, headerRight: () => (
-      <TouchableOpacity onPress={() => navigation.navigate("CartaoForm", { cartaoId })}>
-        <Text style={{ color: colors.accent, fontWeight: "600" }}>Editar</Text>
-      </TouchableOpacity>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+        <BotaoOlho tamanho={24} />
+        <TouchableOpacity onPress={() => navigation.navigate("CartaoForm", { cartaoId })}>
+          <Text style={{ color: colors.accent, fontWeight: "600" }}>Editar</Text>
+        </TouchableOpacity>
+      </View>
     ) });
   }, [cartao, cartaoId, navigation]);
 
