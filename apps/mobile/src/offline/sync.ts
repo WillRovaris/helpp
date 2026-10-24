@@ -38,10 +38,25 @@ class SemInternet extends Error {}
 
 // ------------------------------------------------------------ envio
 
+/** Nome da coluna que a nuvem não conhece (ex.: "Could not find the 'created_at' column of 'nota_itens'"). */
+function colunaDesconhecida(erro: ErroSupabase): string | null {
+  if (!erro) return null;
+  const m = erro.message.match(/could not find the '([^']+)' column/i) ?? erro.message.match(/column "?([a-z_]+)"? (of relation "[^"]+" )?does not exist/i);
+  return m ? m[1] : null;
+}
+
 async function executar(op: Operacao): Promise<void> {
   let erro: ErroSupabase = null;
   if (op.op === "inserir") {
-    ({ error: erro } = await supabase.from(op.tabela).insert(op.dados));
+    // Campo que a nuvem não tem: tira só ele e manda de novo (em vez de perder o lançamento).
+    let dados = { ...op.dados };
+    for (let tentativa = 0; tentativa < 5; tentativa++) {
+      ({ error: erro } = await supabase.from(op.tabela).insert(dados));
+      const coluna = colunaDesconhecida(erro);
+      if (!coluna || !(coluna in dados)) break;
+      const { [coluna]: _removida, ...semEla } = dados;
+      dados = semEla;
+    }
     // Já existe na nuvem (ex.: o outro celular registrou a mesma conta paga): fica a versão da nuvem.
     if (erro?.code === "23505") {
       apagarLocal(op.tabela, [idDe(op.tabela, op.dados)]);
@@ -53,7 +68,14 @@ async function executar(op: Operacao): Promise<void> {
       return;
     }
   } else if (op.op === "atualizar") {
-    ({ error: erro } = await supabase.from(op.tabela).update(op.dados.campos).eq(op.tabela === "membros" ? "user_id" : "id", op.dados.id));
+    let campos = { ...op.dados.campos };
+    for (let tentativa = 0; tentativa < 5; tentativa++) {
+      ({ error: erro } = await supabase.from(op.tabela).update(campos).eq(op.tabela === "membros" ? "user_id" : "id", op.dados.id));
+      const coluna = colunaDesconhecida(erro);
+      if (!coluna || !(coluna in campos)) break;
+      const { [coluna]: _removida, ...semEla } = campos;
+      campos = semEla;
+    }
   } else {
     ({ error: erro } = await supabase.from(op.tabela).delete().in(op.tabela === "membros" ? "user_id" : "id", op.dados.ids));
   }

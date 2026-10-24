@@ -18,7 +18,8 @@ export function inserirVarios(tabela: Tabela, lista: Linha[]): Linha[] {
   const agora = new Date().toISOString();
   // tira campos vazios (undefined) e dá um id criado no próprio celular
   const prontas = lista.map((d) => {
-    const linha: Linha = { id: gerarUuid(), created_at: agora, ...d };
+    // nota_itens não tem created_at na nuvem
+    const linha: Linha = tabela === "nota_itens" ? { id: gerarUuid(), ...d } : { id: gerarUuid(), created_at: agora, ...d };
     for (const k of Object.keys(linha)) if (linha[k] === undefined) delete linha[k];
     return linha;
   });

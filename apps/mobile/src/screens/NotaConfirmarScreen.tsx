@@ -70,7 +70,25 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
     }
 
     // Nota já lida antes (por este ou pelo outro celular)?
-    if (linhas("notas").some((n) => n.casa_id === casa.id && n.chave_acesso === chave)) {
+    const jaLida = linhas("notas").find((n) => n.casa_id === casa.id && n.chave_acesso === chave);
+    if (jaLida) {
+      // Ficou sem os itens (problema da versão 1.3.0): recoloca só os itens, sem duplicar a despesa.
+      if (!linhas("nota_itens").some((i) => i.nota_id === jaLida.id)) {
+        inserirVarios(
+          "nota_itens",
+          itensMantidos.map((i) => ({
+            nota_id: jaLida.id,
+            casa_id: casa.id,
+            nome: i.nome,
+            quantidade: i.quantidade,
+            valor_unitario: i.valorUnitario,
+            valor_total: i.valorTotal,
+          })),
+        );
+        return Alert.alert("Itens recuperados", `Essa nota já estava lançada, mas sem a lista do que foi comprado. Os ${itensMantidos.length} itens foram recolocados.`, [
+          { text: "OK", onPress: () => navigation.popToTop() },
+        ]);
+      }
       return Alert.alert("Nota já lançada", "Essa nota fiscal já foi registrada antes.", [{ text: "OK", onPress: () => navigation.popToTop() }]);
     }
 

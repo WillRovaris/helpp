@@ -13,6 +13,7 @@ import { hojeISO, MESES, rotuloDia } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 import { BotaoOlho, usePrivacidade } from "../privacidade/PrivacidadeContext";
+import { linhas as linhasLocais, ouvirMudancas } from "../offline/banco";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Historico">;
 
@@ -83,6 +84,27 @@ export function HistoricoScreen({ navigation, route }: Props) {
   }, [filtrados]);
 
   const categoriaPorId = new Map(categorias.map((c) => [c.id, c]));
+  // Itens das notas fiscais (lidos do celular), agrupados pela nota.
+  const [itensAbertos, setItensAbertos] = useState<Set<string>>(new Set());
+  const [versaoItens, setVersaoItens] = useState(0);
+  useEffect(() => ouvirMudancas((t) => t === "nota_itens" && setVersaoItens((v) => v + 1)), []);
+  const itensPorNota = useMemo(() => {
+    const mapa = new Map<string, { nome: string; quantidade: number; valorTotal: number }[]>();
+    for (const it of linhasLocais("nota_itens")) {
+      const lista = mapa.get(it.nota_id) ?? [];
+      lista.push({ nome: it.nome, quantidade: Number(it.quantidade), valorTotal: Number(it.valor_total) });
+      mapa.set(it.nota_id, lista);
+    }
+    return mapa;
+  }, [versaoItens]);
+  function alternarItens(id: string) {
+    setItensAbertos((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(id)) novo.delete(id);
+      else novo.add(id);
+      return novo;
+    });
+  }
   const cartaoPorId = new Map(cartoes.map((c) => [c.id, c]));
   const nomePessoa = new Map(membros.map((m) => [m.user_id, m.nome]));
   const ehMesAtual = ano === hoje.getFullYear() && mes === hoje.getMonth();
@@ -208,9 +230,11 @@ export function HistoricoScreen({ navigation, route }: Props) {
               const detalhes = g.contaFixa
                 ? "🧾 conta fixa · a pagar"
                 : [forma, membros.length > 1 && g.pago_por ? nomePessoa.get(g.pago_por) : null].filter(Boolean).join(" · ");
+              const itens = g.nota_id ? (itensPorNota.get(g.nota_id) ?? []) : [];
+              const aberto = itensAbertos.has(g.id);
               return (
+                <View key={g.id} style={{ borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}>
                 <TouchableOpacity
-                  key={g.id}
                   onPress={() =>
                     g.contaFixa
                       ? navigation.navigate("PagarConta", { contaId: g.contaFixa.contaId, competencia: g.contaFixa.competencia })
@@ -220,8 +244,6 @@ export function HistoricoScreen({ navigation, route }: Props) {
                     flexDirection: "row",
                     alignItems: "center",
                     paddingVertical: spacing.sm,
-                    borderTopWidth: i === 0 ? 0 : 1,
-                    borderTopColor: colors.border,
                   }}
                 >
                   <Text style={{ fontSize: 22, marginRight: spacing.sm }}>{emojiCategoria(cat?.icone)}</Text>
@@ -233,6 +255,26 @@ export function HistoricoScreen({ navigation, route }: Props) {
                   </View>
                   <Text style={[typography.body, { fontWeight: "600" }]}>{g.contaFixa?.valorVaria ? "valor varia" : mostrarValor(g.valor)}</Text>
                 </TouchableOpacity>
+                {/* Despesa de nota fiscal: o que foi comprado, abre e fecha aqui mesmo */}
+                {itens.length > 0 && (
+                  <TouchableOpacity onPress={() => alternarItens(g.id)} style={{ paddingBottom: spacing.sm, marginLeft: 30 }}>
+                    <Text style={[typography.label, { color: colors.accent }]}>
+                      🧾 {itens.length} {itens.length === 1 ? "item" : "itens"} da nota {aberto ? "▴" : "▾"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {aberto &&
+                  itens.map((it, k) => (
+                    <View key={k} style={{ flexDirection: "row", marginLeft: 30, paddingVertical: 3 }}>
+                      <Text style={[typography.label, { flex: 1, color: colors.textPrimary }]} numberOfLines={2}>
+                        {it.quantidade !== 1 ? `${String(it.quantidade).replace(".", ",")} × ` : ""}
+                        {it.nome}
+                      </Text>
+                      <Text style={[typography.label, { marginLeft: spacing.sm }]}>{mostrarValor(it.valorTotal)}</Text>
+                    </View>
+                  ))}
+                {aberto && <View style={{ height: spacing.sm }} />}
+                </View>
               );
             })}
           </CartaoUI>

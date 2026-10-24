@@ -75,6 +75,7 @@ o que mudou para quem usa o app, sem jargão.
   Confirmados com arquivo real: fatura Nubank (CSV), extrato Bradesco (CSV com colunas Crédito/Débito separadas), extrato Nubank PJ em PDF (data como título do dia + "Total de entradas/saídas").
   Pix para o mesmo nome que mandou dinheiro para a conta no arquivo = transferência entre contas da pessoa (vem desmarcado).
 - Importação de extrato: Pix vira só "PIX - Nome de quem recebeu" (`nomeDoPix` em `src/importacao/preparar.ts`) — pedido do dono.
+- Itens da nota fiscal aparecem no Histórico ("🧾 N itens da nota", abre ali mesmo) — o dono quer usar esses dados no futuro. `nota_itens` NÃO tem `created_at` na nuvem (repo não manda). O sync tira coluna desconhecida e reenvia em vez de apagar o registro.
 - NFC-e: leitura no próprio celular via WebView da SEFAZ-SC (`src/fiscal/nfce.ts`); outros estados podem não funcionar.
 
 ## Ideias combinadas para depois

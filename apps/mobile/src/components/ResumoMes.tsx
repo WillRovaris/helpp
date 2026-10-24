@@ -74,7 +74,7 @@ export function PorCategoria({
 
   return (
     <Cartao>
-      <Text style={[typography.label, { marginBottom: spacing.sm }]}>POR CATEGORIA</Text>
+      <Text style={[typography.label, { marginBottom: spacing.sm }]}>CATEGORIA</Text>
       {linhas.map(([id, soma]) => {
         const cat = id ? categoriaPorId.get(id) : undefined;
         return (
