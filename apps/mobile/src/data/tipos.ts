@@ -83,6 +83,7 @@ export interface ContaFixa {
   inicio?: string | null;
   /** Por quantos meses. Vazio = sem prazo. */
   meses?: number | null;
+  created_at?: string | null;
 }
 
 export interface PagamentoConta {

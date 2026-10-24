@@ -20,4 +20,5 @@ export type RootStackParamList = {
   CartaoDetalhe: { cartaoId: string };
   CartaoForm: { cartaoId?: string };
   Sugestoes: undefined;
+  SaldoAnterior: { mes: string };
 };

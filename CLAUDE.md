@@ -9,7 +9,7 @@ o que mudou para quem usa o app, sem jargão.
 - `apps/mobile` — o app (Expo SDK 57 / React Native, TypeScript). **É aqui que tudo acontece.**
 - `apps/api` — API antiga (Fastify/Prisma) do app de pesquisa de preços. **Não é usada pelo app atual**; fica só de referência.
 - `supabase/` — SQLs numerados. O dono roda cada um **à mão** no Supabase (SQL Editor → Run).
-  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id). `05` (faturas_pagas). `06` (categoria Empréstimo 💸, ícone `cash`), `07` (Igreja ⛪, ícone `church`), `08` (gastos.data_pagamento + correção dos lançamentos manuais no cartão), `09` (contas_fixas.inicio + meses), `10` (sincronização: updated_at em todas as tabelas + tabela `exclusoes`). `11` (sugestoes), `12` (casas.rendas — renda de cada pessoa). Todos rodados até o 12.
+  Já rodados: `01` (tabelas + RLS), `02` (renda), `03` (parcelas + categorias), `04` (importacao_id). `05` (faturas_pagas). `06` (categoria Empréstimo 💸, ícone `cash`), `07` (Igreja ⛪, ícone `church`), `08` (gastos.data_pagamento + correção dos lançamentos manuais no cartão), `09` (contas_fixas.inicio + meses), `10` (sincronização: updated_at em todas as tabelas + tabela `exclusoes`). `11` (sugestoes), `12` (casas.rendas — renda de cada pessoa). Todos rodados até o 12. `13` (casas.saldos_iniciais) pedido em 24/10 — conferir.
   SQL novo = novo arquivo `05-...sql`, idempotente (`if not exists`), e pedir para ele rodar.
 - O app deve **tolerar** o SQL ainda não ter rodado (ex.: `select("*")` em vez de colunas fixas; mensagem "Falta rodar o SQL 0X").
 
@@ -69,6 +69,7 @@ o que mudou para quem usa o app, sem jargão.
 - Fatura pode ser marcada como paga (`faturas_pagas`): some o aviso ⏰, libera o limite e para o lembrete.
 - **Compartilhar é opcional**: o app tem que funcionar 100% para quem mora sozinho; convite só na tela "Compartilhar".
 - Renda: um campo por pessoa da casa (nome de cada membro) + total embaixo; `casas.rendas` (jsonb user_id → valor, SQL 12) e `renda_mensal` = soma (é o que o resumo usa). Fica na casa e não em `membros` porque o RLS só deixa cada um editar o próprio membro.
+- Saldo do mês anterior (pedido do dono): o que sobra no mês (renda − despesas, com contas fixas não pagas) entra sozinho no mês seguinte; disponível = renda + saldo anterior. Cálculo em cadeia desde o primeiro mês com despesa (`lib/saldo.ts`, hook `useSaldoAnterior`), usando a renda atual para todos os meses. ✏️ na tela inicial corrige o saldo de um mês (`casas.saldos_iniciais`, SQL 13) e a conta segue dali; "Voltar ao cálculo automático" tira o ajuste.
 - Tema: escolha da pessoa em Configurações (igual ao celular / claro / escuro).
 - Modo privacidade (pedido do dono): valores em dinheiro começam ESCONDIDOS ("R$ •••••") toda vez que o app abre; olho (imagens `assets/olho-aberto.png` e `olho-fechado.png`, componente `BotaoOlho`, cor pelo tema via tintColor) na tela inicial e no Histórico. Telas de consulta usam `mostrarValor` de `usePrivacidade()` (nunca `formatarReais` direto); formulários e WhatsApp mostram o valor real. Percentuais, nomes e datas sempre visíveis.
 - Bancos dele: cartões Nubank, Digio, C6, Banco do Brasil; contas BB, Caixa, Bradesco, Nubank, C6, Digio.

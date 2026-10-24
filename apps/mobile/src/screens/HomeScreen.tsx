@@ -8,7 +8,7 @@ import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { StatusSincronizacao } from "../components/StatusSincronizacao";
 import { Botao, Cartao, useEspacoRodape } from "../components/ui";
-import { useCartoes, useCategorias, useContasFixas, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useSugestoes, useUltimosGastos } from "../data/hooks";
+import { useCartoes, useCategorias, useContasFixas, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useSaldoAnterior, useSugestoes, useUltimosGastos } from "../data/hooks";
 import { reagendarLembretes } from "../lembretes/lembretes";
 import { competencia, contasComoDespesas, contasDoMes, textoSituacao } from "../lib/contas";
 import { corSituacao } from "./ContasScreen";
@@ -33,6 +33,7 @@ export function HomeScreen({ navigation }: Props) {
   const { gastos, recarregar } = useGastosDoMes(hoje.getFullYear(), hoje.getMonth());
   const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
   const { gastos: gastosAnteriores } = useGastosDoMes(mesAnterior.getFullYear(), mesAnterior.getMonth());
+  const saldoMesAnterior = useSaldoAnterior(hoje.getFullYear(), hoje.getMonth());
   const { categorias } = useCategorias();
   const { ultimos, recarregar: recarregarUltimos } = useUltimosGastos(5);
   const { cartoes } = useCartoes();
@@ -104,7 +105,14 @@ export function HomeScreen({ navigation }: Props) {
             <Text style={[typography.label, { color: colors.accent, marginTop: spacing.xs }]}>Ver histórico ›</Text>
           </TouchableOpacity>
           <View style={{ marginTop: spacing.md }}>
-            <CartaoSobra total={total} renda={casa.renda_mensal} onDefinirRenda={() => navigation.navigate("Renda")} />
+            <CartaoSobra
+              total={total}
+              renda={casa.renda_mensal}
+              saldoAnterior={saldoMesAnterior.saldo}
+              nomeMesAnterior={MESES[mesAnterior.getMonth()]}
+              onDefinirRenda={() => navigation.navigate("Renda")}
+              onEditarSaldo={() => navigation.navigate("SaldoAnterior", { mes: saldoMesAnterior.mes })}
+            />
           </View>
         </Cartao>
 

@@ -16,7 +16,22 @@ export function Barra({ fracao, cor }: { fracao: number; cor: string }) {
 }
 
 /** Renda × gastos: quanto já foi e quanto sobra. */
-export function CartaoSobra({ total, renda, onDefinirRenda }: { total: number; renda: number | null; onDefinirRenda: () => void }) {
+/** O que sobrou no mês anterior entra no mês: disponível = renda + saldo anterior (✏️ corrige o saldo). */
+export function CartaoSobra({
+  total,
+  renda,
+  saldoAnterior = 0,
+  nomeMesAnterior,
+  onDefinirRenda,
+  onEditarSaldo,
+}: {
+  total: number;
+  renda: number | null;
+  saldoAnterior?: number;
+  nomeMesAnterior?: string;
+  onDefinirRenda: () => void;
+  onEditarSaldo?: () => void;
+}) {
   const { mostrarValor } = usePrivacidade();
   if (renda == null || renda <= 0) {
     return (
@@ -25,19 +40,33 @@ export function CartaoSobra({ total, renda, onDefinirRenda }: { total: number; r
       </TouchableOpacity>
     );
   }
-  const sobra = renda - total;
-  const fracao = total / renda;
+  const disponivel = renda + saldoAnterior;
+  const sobra = disponivel - total;
+  const fracao = disponivel > 0 ? total / disponivel : 1;
   const cor = fracao >= 1 ? colors.danger : fracao >= 0.8 ? colors.warning : colors.accent;
   return (
-    <TouchableOpacity onPress={onDefinirRenda} activeOpacity={0.8}>
-      <Barra fracao={fracao} cor={cor} />
-      <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: spacing.xs }}>
-        <Text style={typography.label}>{Math.round(fracao * 100)}% da renda ({mostrarValor(renda)})</Text>
-        <Text style={[typography.label, { color: sobra < 0 ? colors.danger : colors.accent, fontWeight: "700" }]}>
-          {sobra < 0 ? `Passou ${mostrarValor(-sobra)}` : `Sobra ${mostrarValor(sobra)}`}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    <View>
+      <TouchableOpacity onPress={onDefinirRenda} activeOpacity={0.8}>
+        <Barra fracao={fracao} cor={cor} />
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: spacing.xs }}>
+          <Text style={typography.label}>
+            {Math.round(fracao * 100)}% {saldoAnterior ? "do disponível" : "da renda"} ({mostrarValor(disponivel)})
+          </Text>
+          <Text style={[typography.label, { color: sobra < 0 ? colors.danger : colors.accent, fontWeight: "700" }]}>
+            {sobra < 0 ? `Passou ${mostrarValor(-sobra)}` : `Sobra ${mostrarValor(sobra)}`}
+          </Text>
+        </View>
+      </TouchableOpacity>
+      {onEditarSaldo && (
+        <TouchableOpacity onPress={onEditarSaldo} style={{ flexDirection: "row", alignItems: "center", marginTop: spacing.xs }} accessibilityLabel="Editar saldo do mês anterior">
+          <Text style={[typography.label, { flex: 1 }]}>
+            Renda {mostrarValor(renda)} {saldoAnterior < 0 ? "−" : "+"} saldo de {nomeMesAnterior?.toLowerCase() ?? "mês anterior"}{" "}
+            <Text style={{ color: saldoAnterior < 0 ? colors.danger : colors.textSecondary }}>{mostrarValor(Math.abs(saldoAnterior))}</Text>
+          </Text>
+          <Text style={{ fontSize: 16, paddingLeft: spacing.sm }}>✏️</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 

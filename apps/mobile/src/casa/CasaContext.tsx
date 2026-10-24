@@ -5,9 +5,19 @@ import { gravarLocal, gravarMeta, type Linha, lerMeta, linhas, obter, ouvirMudan
 import { atualizar } from "../offline/repo";
 
 function paraCasa(l: Linha): Casa {
-  const rendas: Record<string, number> = {};
-  if (l.rendas && typeof l.rendas === "object") for (const [k, v] of Object.entries(l.rendas)) rendas[k] = Number(v);
-  return { id: l.id, nome: l.nome, codigo_convite: l.codigo_convite, renda_mensal: l.renda_mensal != null ? Number(l.renda_mensal) : null, rendas };
+  const numeros = (o: unknown) => {
+    const r: Record<string, number> = {};
+    if (o && typeof o === "object") for (const [k, v] of Object.entries(o)) if (v != null) r[k] = Number(v);
+    return r;
+  };
+  return {
+    id: l.id,
+    nome: l.nome,
+    codigo_convite: l.codigo_convite,
+    renda_mensal: l.renda_mensal != null ? Number(l.renda_mensal) : null,
+    rendas: numeros(l.rendas),
+    saldos_iniciais: numeros(l.saldos_iniciais),
+  };
 }
 
 export interface Casa {
@@ -18,6 +28,8 @@ export interface Casa {
   renda_mensal: number | null;
   /** Renda de cada pessoa da casa (user_id → valor); `renda_mensal` é a soma. */
   rendas: Record<string, number>;
+  /** Saldo do mês anterior corrigido à mão (YYYY-MM → valor); sem ajuste, é calculado (lib/saldo.ts). */
+  saldos_iniciais: Record<string, number>;
 }
 
 export interface Membro {
@@ -37,6 +49,8 @@ interface CasaContextValue {
   entrarNaCasa: (codigo: string, meuNome: string) => Promise<Result>;
   novoConvite: () => Promise<Result>;
   definirRenda: (valor: number | null, rendas?: Record<string, number>) => Promise<Result>;
+  /** Corrige o saldo que veio do mês anterior (null = volta ao cálculo automático). */
+  definirSaldoInicial: (mes: string, valor: number | null) => void;
   recarregar: () => Promise<void>;
 }
 
@@ -170,10 +184,19 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }
 
+  function definirSaldoInicial(mes: string, valor: number | null) {
+    if (!casa) return;
+    const saldos_iniciais = { ...casa.saldos_iniciais };
+    if (valor == null) delete saldos_iniciais[mes];
+    else saldos_iniciais[mes] = valor;
+    atualizar("casas", casa.id, { saldos_iniciais });
+    setCasa({ ...casa, saldos_iniciais });
+  }
+
   const meuNome = membros.find((m) => m.user_id === userId)?.nome ?? null;
 
   return (
-    <CasaContext.Provider value={{ casa, membros, meuNome, loading, criarCasa, entrarNaCasa, novoConvite, definirRenda, recarregar }}>
+    <CasaContext.Provider value={{ casa, membros, meuNome, loading, criarCasa, entrarNaCasa, novoConvite, definirRenda, definirSaldoInicial, recarregar }}>
       {children}
     </CasaContext.Provider>
   );

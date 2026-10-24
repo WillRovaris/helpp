@@ -12,6 +12,7 @@ import { CasaSetupScreen } from "../screens/CasaSetupScreen";
 import { CompartilharScreen } from "../screens/CompartilharScreen";
 import { ConfiguracoesScreen } from "../screens/ConfiguracoesScreen";
 import { SugestoesScreen } from "../screens/SugestoesScreen";
+import { SaldoAnteriorScreen } from "../screens/SaldoAnteriorScreen";
 import { ContaFormScreen } from "../screens/ContaFormScreen";
 import { ContasScreen } from "../screens/ContasScreen";
 import { GastoFormScreen } from "../screens/GastoFormScreen";
@@ -75,6 +76,7 @@ export function RootNavigator() {
             <Stack.Screen name="Compartilhar" component={CompartilharScreen} options={{ headerShown: true, title: "Compartilhar a casa" }} />
             <Stack.Screen name="Configuracoes" component={ConfiguracoesScreen} options={{ headerShown: true, title: "Configurações" }} />
             <Stack.Screen name="Sugestoes" component={SugestoesScreen} options={{ headerShown: true, title: "Sugestões e melhorias" }} />
+            <Stack.Screen name="SaldoAnterior" component={SaldoAnteriorScreen} options={{ headerShown: true, title: "Saldo do mês anterior" }} />
             <Stack.Screen name="GastoForm" component={GastoFormScreen} options={{ headerShown: true, title: "Nova despesa" }} />
             <Stack.Screen name="Historico" component={HistoricoScreen} options={{ headerShown: true, title: "Histórico" }} />
             <Stack.Screen name="Cartoes" component={CartoesScreen} options={{ headerShown: true, title: "Cartões" }} />

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCasa } from "../casa/CasaContext";
 import { mesPagamentoCartao, somarMeses } from "../lib/fatura";
 import { hojeISO, limitesDoMes } from "../lib/format";
+import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
+import { saldoAnterior } from "../lib/saldo";
 import { type Linha, linhas, ouvirMudancas, type Tabela } from "../offline/banco";
 import { useSincronizacao } from "../offline/SincronizacaoContext";
 import type { Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, PagamentoConta, Sugestao } from "./tipos";
@@ -155,4 +157,38 @@ export function useFaturasPagas() {
 export function useSugestoes() {
   const { itens, ...resto } = useTabela<Sugestao>("sugestoes", (t) => t.sort(porTexto("created_at", true)) as Sugestao[], []);
   return { sugestoes: itens, pendentes: itens.filter((s) => !s.feita), feitas: itens.filter((s) => s.feita), ...resto };
+}
+
+/**
+ * Saldo que vem do mês anterior para o mês (mes = 0–11): o que sobrou (renda − despesas,
+ * incluindo contas fixas não pagas) passa sozinho para o mês seguinte. `ajustado` = corrigido à mão.
+ */
+export function useSaldoAnterior(ano: number, mes: number) {
+  const { casa } = useCasa();
+  const { cartoes } = useCartoes();
+  const { contas } = useContasFixas();
+  const { itens: gastos } = useTabela<Gasto>("gastos", (t) => t.map(comoGasto), []);
+  const { itens: pagamentos } = useTabela<PagamentoConta>("contas_pagamentos", (t) => t.map((p) => ({ ...p, valor: Number(p.valor) })) as PagamentoConta[], []);
+  const alvo = competencia(ano, mes).slice(0, 7);
+
+  return useMemo(() => {
+    const renda = casa?.renda_mensal ?? 0;
+    const ajustes = casa?.saldos_iniciais ?? {};
+    if (!casa || renda <= 0) return { saldo: 0, ajustado: false, mes: alvo };
+    const porMes = new Map<string, number>();
+    for (const g of gastos) {
+      const m = mesDeReferencia(g, cartoes);
+      porMes.set(m, (porMes.get(m) ?? 0) + g.valor);
+    }
+    // Começa no primeiro mês com despesa lançada (antes disso não há o que levar).
+    const primeiroMes = porMes.size ? [...porMes.keys()].sort()[0] : null;
+    const despesaDoMes = (m: string) => {
+      const comp = `${m}-01`;
+      // conta fixa só pesa a partir do mês em que foi cadastrada
+      const vigentes = contas.filter((c) => !c.created_at || c.created_at.slice(0, 7) <= m);
+      const abertas = contasComoDespesas(contasDoMes(vigentes, pagamentos.filter((p) => p.competencia === comp), comp, hojeISO()), comp);
+      return (porMes.get(m) ?? 0) + abertas.reduce((s, g) => s + g.valor, 0);
+    };
+    return { saldo: saldoAnterior(alvo, renda, despesaDoMes, ajustes, primeiroMes), ajustado: ajustes[alvo] != null, mes: alvo };
+  }, [casa, cartoes, contas, gastos, pagamentos, alvo]);
 }
