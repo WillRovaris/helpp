@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Alert, Share, Text, TextInput, TouchableOpacity, View } from "react-native";
+import * as Updates from "expo-updates";
+import { Alert, Platform, Share, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, estiloInput, TelaFormulario } from "../components/ui";
@@ -24,7 +25,7 @@ export function SugestoesScreen() {
   function enviar() {
     const t = texto.trim();
     if (!casa || !t) return;
-    inserir("sugestoes", { casa_id: casa.id, texto: t, feita: false, created_by: userId });
+    inserir("sugestoes", { casa_id: casa.id, texto: t, feita: false, created_by: userId, versao_app: versaoDoApp(), dispositivo: modeloDoCelular() });
     setTexto("");
   }
 
@@ -57,6 +58,9 @@ export function SugestoesScreen() {
           style={[estiloInput(), { minHeight: 90, textAlignVertical: "top" }]}
         />
         <Botao titulo="Enviar sugestão" onPress={enviar} style={{ marginTop: spacing.md }} />
+        <Text style={[typography.label, { marginTop: spacing.sm }]}>
+          🔒 A sugestão vai para a equipe do Helpp (helppsuporte@gmail.com) com seu nome e e-mail, para podermos responder. Nada dos seus gastos é enviado.
+        </Text>
       </Cartao>
 
       <Text style={typography.label}>PENDENTES ({pendentes.length})</Text>
@@ -94,6 +98,18 @@ export function SugestoesScreen() {
       )}
     </TelaFormulario>
   );
+}
+
+/** "1.3.0 · atualização de 24/10" — versão do APK + data da atualização automática que está rodando. */
+function versaoDoApp(): string {
+  const base = Updates.runtimeVersion ?? "?";
+  return Updates.createdAt ? `${base} · atualização de ${Updates.createdAt.toLocaleDateString("pt-BR")}` : base;
+}
+
+/** "samsung SM-G780G · Android 13". */
+function modeloDoCelular(): string {
+  const c = Platform.constants as { Brand?: string; Model?: string; Release?: string };
+  return [c.Brand, c.Model].filter(Boolean).join(" ") + (c.Release ? ` · Android ${c.Release}` : "");
 }
 
 function LinhaSugestao({ s, borda, autor, quando, feita, children }: { s: Sugestao; borda: boolean; autor: string; quando: string; feita?: boolean; children: React.ReactNode }) {
