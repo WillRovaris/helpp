@@ -1,6 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthContext";
@@ -8,8 +8,10 @@ import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { StatusSincronizacao } from "../components/StatusSincronizacao";
 import { Botao, Cartao, useEspacoRodape } from "../components/ui";
-import { useCartoes, useCategorias, useContasFixas, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useSaldoAnterior, useSugestoes, useUltimosGastos } from "../data/hooks";
+import { useCartoes, useCategorias, useContasFixas, useEntradasDoMes, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useSaldoAnterior, useSugestoes, useUltimosGastos } from "../data/hooks";
 import { reagendarLembretes } from "../lembretes/lembretes";
+import { migrarRendasParaEntradas } from "../data/migrarRendas";
+import { useSincronizacao } from "../offline/SincronizacaoContext";
 import { competencia, contasComoDespesas, contasDoMes, textoSituacao } from "../lib/contas";
 import { corSituacao } from "./ContasScreen";
 import { emojiCategoria, tituloGasto } from "../data/tipos";
@@ -34,6 +36,12 @@ export function HomeScreen({ navigation }: Props) {
   const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
   const { gastos: gastosAnteriores } = useGastosDoMes(mesAnterior.getFullYear(), mesAnterior.getMonth());
   const saldoMesAnterior = useSaldoAnterior(hoje.getFullYear(), hoje.getMonth());
+  const { total: entradasMes } = useEntradasDoMes(hoje.getFullYear(), hoje.getMonth());
+  const { ultimaSync } = useSincronizacao();
+  // Renda cadastrada antes vira "Salário" que repete todo mês (uma vez, depois de sincronizar).
+  useEffect(() => {
+    if (casa && ultimaSync) migrarRendasParaEntradas(casa);
+  }, [casa, ultimaSync]);
   const { categorias } = useCategorias();
   const { ultimos, recarregar: recarregarUltimos } = useUltimosGastos(5);
   const { cartoes } = useCartoes();
@@ -107,16 +115,18 @@ export function HomeScreen({ navigation }: Props) {
           <View style={{ marginTop: spacing.md }}>
             <CartaoSobra
               total={total}
-              renda={casa.renda_mensal}
+              entradas={entradasMes}
               saldoAnterior={saldoMesAnterior.saldo}
               nomeMesAnterior={MESES[mesAnterior.getMonth()]}
-              onDefinirRenda={() => navigation.navigate("Renda")}
-              onEditarSaldo={() => navigation.navigate("SaldoAnterior", { mes: saldoMesAnterior.mes })}
+              onPress={() => navigation.navigate("Entradas", {})}
             />
           </View>
         </Cartao>
 
-        <Botao titulo="+ Lançar despesa" onPress={() => navigation.navigate("GastoForm", {})} style={{ minHeight: 58 }} />
+        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+          <Botao titulo="+ Lançar despesa" onPress={() => navigation.navigate("GastoForm", {})} style={{ minHeight: 58, flex: 1, paddingHorizontal: spacing.sm }} />
+          <Botao titulo="+ Lançar entrada" variante="secundario" onPress={() => navigation.navigate("ReceitaForm", {})} style={{ minHeight: 58, flex: 1, paddingHorizontal: spacing.sm }} />
+        </View>
         <Botao
           titulo={`💳 Cartões de crédito${temFaturaAVencer ? "  ⏰" : ""}`}
           onPress={() => navigation.navigate("Cartoes")}

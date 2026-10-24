@@ -4,7 +4,7 @@ import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, Chip, useEspacoRodape } from "../components/ui";
-import { useSugestoes } from "../data/hooks";
+import { useEntradasDoMes, useSugestoes } from "../data/hooks";
 import { type ConfigLembretes, lerConfigLembretes, salvarConfigLembretes } from "../lembretes/lembretes";
 import { formatarReais } from "../lib/format";
 import { tamanhoFila } from "../offline/banco";
@@ -26,6 +26,8 @@ export function ConfiguracoesScreen({ navigation }: Props) {
   const { casa, membros } = useCasa();
   const { preferencia, escolher } = useTema();
   const { pendentes } = useSugestoes();
+  const hoje = new Date();
+  const { total: entradasMes } = useEntradasDoMes(hoje.getFullYear(), hoje.getMonth());
   const [lembretes, setLembretes] = useState<ConfigLembretes | null>(null);
 
   useEffect(() => {
@@ -80,7 +82,7 @@ export function ConfiguracoesScreen({ navigation }: Props) {
       )}
 
       <Cartao style={{ paddingVertical: spacing.xs }}>
-        <Item titulo="📥 Renda do mês" detalhe={casa?.renda_mensal ? formatarReais(casa.renda_mensal) : "Não informada"} onPress={() => navigation.navigate("Renda")} />
+        <Item titulo="📥 Entradas do mês" detalhe={entradasMes ? formatarReais(entradasMes) : "Nenhuma"} onPress={() => navigation.navigate("Entradas", {})} />
         <Item titulo="💳 Cartões" onPress={() => navigation.navigate("Cartoes")} borda />
         <Item titulo="🧾 Contas fixas" onPress={() => navigation.navigate("Contas")} borda />
         <Item titulo="📄 Importar extrato ou fatura" onPress={() => navigation.navigate("Importar")} borda />

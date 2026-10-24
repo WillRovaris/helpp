@@ -8,7 +8,8 @@ export type RootStackParamList = {
   Configuracoes: undefined;
   GastoForm: { gastoId?: string };
   Historico: { categoriaId?: string };
-  Renda: undefined;
+  Entradas: { mes?: string } | undefined;
+  ReceitaForm: { receitaId?: string; mes?: string };
   Importar: undefined;
   Contas: undefined;
   ContaForm: { contaId?: string };

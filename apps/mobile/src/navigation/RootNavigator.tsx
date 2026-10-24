@@ -24,7 +24,8 @@ import { PagarContaScreen } from "../screens/PagarContaScreen";
 import { NotaConfirmarScreen } from "../screens/NotaConfirmarScreen";
 import { NotaConsultaScreen } from "../screens/NotaConsultaScreen";
 import { NotaScannerScreen } from "../screens/NotaScannerScreen";
-import { RendaScreen } from "../screens/RendaScreen";
+import { EntradasScreen } from "../screens/EntradasScreen";
+import { ReceitaFormScreen } from "../screens/ReceitaFormScreen";
 import { useTema } from "../tema/TemaContext";
 import { colors } from "../theme";
 import type { RootStackParamList } from "./types";
@@ -82,7 +83,8 @@ export function RootNavigator() {
             <Stack.Screen name="Cartoes" component={CartoesScreen} options={{ headerShown: true, title: "Cartões" }} />
             <Stack.Screen name="CartaoDetalhe" component={CartaoDetalheScreen} options={{ headerShown: true, title: "Fatura" }} />
             <Stack.Screen name="CartaoForm" component={CartaoFormScreen} options={{ headerShown: true, title: "Cartão" }} />
-            <Stack.Screen name="Renda" component={RendaScreen} options={{ headerShown: true, title: "Renda do mês" }} />
+            <Stack.Screen name="Entradas" component={EntradasScreen} options={{ headerShown: true, title: "Entradas do mês" }} />
+            <Stack.Screen name="ReceitaForm" component={ReceitaFormScreen} options={{ headerShown: true, title: "Lançar entrada" }} />
             <Stack.Screen name="Importar" component={ImportarScreen} options={{ headerShown: true, title: "Importar extrato ou fatura" }} />
             <Stack.Screen name="Contas" component={ContasScreen} options={{ headerShown: true, title: "Contas fixas" }} />
             <Stack.Screen name="ContaForm" component={ContaFormScreen} options={{ headerShown: true, title: "Conta fixa" }} />

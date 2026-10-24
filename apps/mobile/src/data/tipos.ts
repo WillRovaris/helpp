@@ -111,3 +111,34 @@ export interface Sugestao {
   created_by: string | null;
   created_at: string;
 }
+
+/** Entrada de dinheiro (salário, extra...). Recorrente = repete todo mês desde o mês da data até `ate` (YYYY-MM). */
+export interface Receita {
+  id: string;
+  valor: number;
+  tipo: string;
+  descricao: string | null;
+  data: string;
+  recebido_por: string | null;
+  recorrente: boolean;
+  ate: string | null;
+  created_at: string;
+}
+
+/** Tipos de entrada (ícone escolhido na hora de lançar). */
+export const TIPOS_RECEITA: { valor: string; emoji: string; nome: string }[] = [
+  { valor: "salario", emoji: "💼", nome: "Salário" },
+  { valor: "extra", emoji: "🛠️", nome: "Atividade extra" },
+  { valor: "comissao", emoji: "🤝", nome: "Comissão" },
+  { valor: "bonus", emoji: "🎁", nome: "Bônus" },
+  { valor: "aposta", emoji: "🎲", nome: "Aposta" },
+  { valor: "venda", emoji: "🏷️", nome: "Venda" },
+  { valor: "rendimento", emoji: "📈", nome: "Rendimentos" },
+  { valor: "reembolso", emoji: "↩️", nome: "Reembolso" },
+  { valor: "presente", emoji: "💝", nome: "Presente / ajuda" },
+  { valor: "outro", emoji: "💰", nome: "Outra entrada" },
+];
+
+export function tipoReceita(valor: string | null | undefined) {
+  return TIPOS_RECEITA.find((t) => t.valor === valor) ?? TIPOS_RECEITA[TIPOS_RECEITA.length - 1];
+}

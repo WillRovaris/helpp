@@ -24,9 +24,9 @@ export interface Casa {
   id: string;
   nome: string;
   codigo_convite: string;
-  /** Renda mensal informada (opcional) — usada no "quanto sobra" do resumo. */
+  /** Renda antiga (um total). Hoje as entradas ficam na tabela `receitas`; isto só serve para migrar (data/migrarRendas.ts). */
   renda_mensal: number | null;
-  /** Renda de cada pessoa da casa (user_id → valor); `renda_mensal` é a soma. */
+  /** Renda antiga por pessoa (user_id → valor), migrada para `receitas`. */
   rendas: Record<string, number>;
   /** Saldo do mês anterior corrigido à mão (YYYY-MM → valor); sem ajuste, é calculado (lib/saldo.ts). */
   saldos_iniciais: Record<string, number>;
@@ -48,7 +48,6 @@ interface CasaContextValue {
   criarCasa: (nomeCasa: string, meuNome: string) => Promise<Result>;
   entrarNaCasa: (codigo: string, meuNome: string) => Promise<Result>;
   novoConvite: () => Promise<Result>;
-  definirRenda: (valor: number | null, rendas?: Record<string, number>) => Promise<Result>;
   /** Corrige o saldo que veio do mês anterior (null = volta ao cálculo automático). */
   definirSaldoInicial: (mes: string, valor: number | null) => void;
   recarregar: () => Promise<void>;
@@ -176,14 +175,6 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }
 
-  async function definirRenda(valor: number | null, rendas: Record<string, number> = {}): Promise<Result> {
-    if (!casa) return { error: "Sem casa" };
-    // grava no celular e sobe na próxima sincronização (funciona sem internet)
-    atualizar("casas", casa.id, { renda_mensal: valor, rendas });
-    setCasa({ ...casa, renda_mensal: valor, rendas });
-    return { error: null };
-  }
-
   function definirSaldoInicial(mes: string, valor: number | null) {
     if (!casa) return;
     const saldos_iniciais = { ...casa.saldos_iniciais };
@@ -196,7 +187,7 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
   const meuNome = membros.find((m) => m.user_id === userId)?.nome ?? null;
 
   return (
-    <CasaContext.Provider value={{ casa, membros, meuNome, loading, criarCasa, entrarNaCasa, novoConvite, definirRenda, definirSaldoInicial, recarregar }}>
+    <CasaContext.Provider value={{ casa, membros, meuNome, loading, criarCasa, entrarNaCasa, novoConvite, definirSaldoInicial, recarregar }}>
       {children}
     </CasaContext.Provider>
   );
