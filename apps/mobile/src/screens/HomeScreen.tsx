@@ -163,6 +163,7 @@ export function HomeScreen({ navigation }: Props) {
           gastos={despesasMes}
           categorias={categorias}
           onPressCategoria={(id) => navigation.navigate("Historico", id ? { categoriaId: id } : {})}
+          onDefinirLimites={() => navigation.navigate("Limites")}
         />
 
         {ultimos.length > 0 && (

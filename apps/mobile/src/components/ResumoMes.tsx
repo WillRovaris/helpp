@@ -5,6 +5,7 @@ import { emojiCategoria } from "../data/tipos";
 import { colors, radius, spacing, typography } from "../theme";
 import { Cartao } from "./ui";
 import { usePrivacidade } from "../privacidade/PrivacidadeContext";
+import { nivelLimite } from "../lib/limites";
 
 /** Barra horizontal simples (0–1), sem biblioteca de gráfico. */
 export function Barra({ fracao, cor }: { fracao: number; cor: string }) {
@@ -76,26 +77,40 @@ export function PorCategoria({
   gastos,
   categorias,
   onPressCategoria,
+  onDefinirLimites,
 }: {
   gastos: Gasto[];
   categorias: Categoria[];
   onPressCategoria: (categoriaId: string | null) => void;
+  onDefinirLimites?: () => void;
 }) {
   const { mostrarValor } = usePrivacidade();
   const total = gastos.reduce((s, g) => s + g.valor, 0);
-  if (total <= 0) return null;
-
   const somas = new Map<string | null, number>();
   for (const g of gastos) somas.set(g.categoria_id, (somas.get(g.categoria_id) ?? 0) + g.valor);
+  // Categoria com limite aparece mesmo sem despesa no mês (mostra quanto ainda pode gastar).
+  for (const c of categorias) if (c.limite && !somas.has(c.id)) somas.set(c.id, 0);
+  if (!somas.size) return null;
+
   const categoriaPorId = new Map(categorias.map((c) => [c.id, c]));
   const linhas = [...somas.entries()].sort((a, b) => b[1] - a[1]);
-  const maior = linhas[0][1];
+  const maior = Math.max(linhas[0][1], 1);
+  const corNivel = { ok: colors.accent, atencao: colors.warning, passou: colors.danger };
 
   return (
     <Cartao>
-      <Text style={[typography.label, { marginBottom: spacing.sm }]}>CATEGORIA</Text>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.sm }}>
+        <Text style={typography.label}>CATEGORIA</Text>
+        {onDefinirLimites && (
+          <TouchableOpacity onPress={onDefinirLimites} hitSlop={8}>
+            <Text style={[typography.label, { color: colors.accent }]}>🎯 Limites ›</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       {linhas.map(([id, soma]) => {
         const cat = id ? categoriaPorId.get(id) : undefined;
+        const limite = cat?.limite ?? null;
+        const nivel = limite ? nivelLimite(soma, limite) : null;
         return (
           <TouchableOpacity key={id ?? "sem"} onPress={() => onPressCategoria(id)} style={{ paddingVertical: spacing.xs + 2 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
@@ -104,10 +119,25 @@ export function PorCategoria({
               </Text>
               <Text style={typography.body}>
                 <Text style={{ fontWeight: "600" }}>{mostrarValor(soma)}</Text>
-                <Text style={typography.label}>  {Math.round((soma / total) * 100)}%</Text>
+                {limite ? (
+                  <Text style={typography.label}> de {mostrarValor(limite)}</Text>
+                ) : (
+                  <Text style={typography.label}>  {total > 0 ? Math.round((soma / total) * 100) : 0}%</Text>
+                )}
               </Text>
             </View>
-            <Barra fracao={soma / maior} cor={cat?.cor ?? colors.textSecondary} />
+            {limite && nivel ? (
+              <>
+                <Barra fracao={soma / limite} cor={corNivel[nivel]} />
+                <Text style={[typography.label, { marginTop: 2, color: nivel === "ok" ? colors.textSecondary : corNivel[nivel] }]}>
+                  {nivel === "passou"
+                    ? `🚨 Passou ${mostrarValor(soma - limite)} do limite`
+                    : `${nivel === "atencao" ? "⚠️ " : ""}${Math.round((soma / limite) * 100)}% do limite · restam ${mostrarValor(limite - soma)}`}
+                </Text>
+              </>
+            ) : (
+              <Barra fracao={soma / maior} cor={cat?.cor ?? colors.textSecondary} />
+            )}
           </TouchableOpacity>
         );
       })}

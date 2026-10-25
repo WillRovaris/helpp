@@ -16,6 +16,9 @@ import { SaldoAnteriorScreen } from "../screens/SaldoAnteriorScreen";
 import { PerfilScreen } from "../screens/PerfilScreen";
 import { NotificacoesScreen } from "../screens/NotificacoesScreen";
 import { TermosScreen } from "../screens/TermosScreen";
+import { LimitesScreen } from "../screens/LimitesScreen";
+import { ProdutosScreen } from "../screens/ProdutosScreen";
+import { ProdutoScreen } from "../screens/ProdutoScreen";
 import { ContaFormScreen } from "../screens/ContaFormScreen";
 import { ContasScreen } from "../screens/ContasScreen";
 import { GastoFormScreen } from "../screens/GastoFormScreen";
@@ -84,6 +87,9 @@ export function RootNavigator() {
             <Stack.Screen name="Perfil" component={PerfilScreen} options={{ headerShown: true, title: "Perfil" }} />
             <Stack.Screen name="Notificacoes" component={NotificacoesScreen} options={{ headerShown: true, title: "Notificações" }} />
             <Stack.Screen name="Termos" component={TermosScreen} options={{ headerShown: true, title: "Termos de Uso" }} />
+            <Stack.Screen name="Limites" component={LimitesScreen} options={{ headerShown: true, title: "Limites por categoria" }} />
+            <Stack.Screen name="Produtos" component={ProdutosScreen} options={{ headerShown: true, title: "Preço dos produtos" }} />
+            <Stack.Screen name="Produto" component={ProdutoScreen} options={{ headerShown: true, title: "Produto" }} />
             <Stack.Screen name="GastoForm" component={GastoFormScreen} options={{ headerShown: true, title: "Nova despesa" }} />
             <Stack.Screen name="Historico" component={HistoricoScreen} options={{ headerShown: true, title: "Histórico" }} />
             <Stack.Screen name="Cartoes" component={CartoesScreen} options={{ headerShown: true, title: "Cartões" }} />

@@ -39,6 +39,8 @@ export function ConfiguracoesScreen({ navigation }: Props) {
         <Item titulo="📥 Entradas do mês" onPress={() => navigation.navigate("Entradas", {})} />
         <Item titulo="💳 Cartões" onPress={() => navigation.navigate("Cartoes")} borda />
         <Item titulo="🧾 Contas fixas" onPress={() => navigation.navigate("Contas")} borda />
+        <Item titulo="🎯 Limites por categoria" onPress={() => navigation.navigate("Limites")} borda />
+        <Item titulo="🛒 Preço dos produtos" onPress={() => navigation.navigate("Produtos")} borda />
         <Item titulo="📄 Importar extrato ou fatura" onPress={() => navigation.navigate("Importar")} borda />
         <Item
           titulo={membros.length > 1 ? "👥 Casa compartilhada" : "👥 Compartilhar com alguém"}

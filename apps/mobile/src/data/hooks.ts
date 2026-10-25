@@ -4,6 +4,7 @@ import { mesPagamentoCartao, somarMeses } from "../lib/fatura";
 import { hojeISO, limitesDoMes } from "../lib/format";
 import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
 import { receitaNoMes, saldoAnterior } from "../lib/saldo";
+import { agruparProdutos, type ItemNota, type NotaResumo } from "../lib/produtos";
 import { type Linha, linhas, ouvirMudancas, type Tabela } from "../offline/banco";
 import { useSincronizacao } from "../offline/SincronizacaoContext";
 import type { Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, Importacao, PagamentoConta, Receita, Sugestao } from "./tipos";
@@ -48,7 +49,11 @@ function comoGasto(g: Linha): Gasto {
 export function useCategorias() {
   const { itens, ...resto } = useTabela<Categoria>(
     "categorias",
-    (t) => t.filter((c) => !c.arquivada).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)) as Categoria[],
+    (t) =>
+      t
+        .filter((c) => !c.arquivada)
+        .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+        .map((c) => ({ ...c, limite: c.limite == null ? null : Number(c.limite) })) as Categoria[],
     [],
   );
   return { categorias: itens, ...resto };
@@ -218,4 +223,12 @@ export function useImportacoes() {
     [],
   );
   return { importacoes: itens, ...resto };
+}
+
+/** Produtos comprados (itens das notas fiscais lidas), com preços por compra e por mercado. */
+export function useProdutos() {
+  const { itens: itensNota } = useTabela<ItemNota>("nota_itens", (t) => t as ItemNota[], []);
+  const { itens: notas } = useTabela<NotaResumo>("notas", (t) => t as NotaResumo[], []);
+  const produtos = useMemo(() => agruparProdutos(itensNota, notas), [itensNota, notas]);
+  return { produtos, notas: notas.length };
 }

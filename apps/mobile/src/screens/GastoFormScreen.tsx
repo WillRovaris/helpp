@@ -4,7 +4,9 @@ import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Chip, estiloInput, TelaFormulario } from "../components/ui";
-import { useCartoes, useCategorias } from "../data/hooks";
+import { mesDeReferencia, useCartoes, useCategorias } from "../data/hooks";
+import { totalDaCategoriaNoMes } from "../data/limites";
+import { avisoLimite } from "../lib/limites";
 import { emojiCategoria, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
 import { diaMes, faturaDaCompra, somarMeses } from "../lib/fatura";
 import { centavosDoTexto, formatarReais, gerarUuid, hojeISO, isoDeTextoBR, mascaraData, rotuloDia, somarDias } from "../lib/format";
@@ -151,6 +153,11 @@ export function GastoFormScreen({ navigation, route }: Props) {
         return;
       }
     }
+    // Limite da categoria: compara o total do mês antes e depois de gravar.
+    const categoria = categorias.find((c) => c.id === categoriaId);
+    const mesDaDespesa = mesDeReferencia({ data: dataFinal, cartao_id: forma === "credito" ? cartaoId : null, data_pagamento: pagamentoFinal }, cartoes);
+    const antes = categoria?.limite ? totalDaCategoriaNoMes(casa.id, categoria.id, mesDaDespesa) : 0;
+
     // Grava no celular (aparece na hora) e sobe para a nuvem na sincronização.
     if (gastoId) {
       atualizar("gastos", gastoId, { ...base, valor: centavos / 100, data: dataFinal, ...comPagamento(pagamentoFinal) });
@@ -171,6 +178,8 @@ export function GastoFormScreen({ navigation, route }: Props) {
       inserir("gastos", { ...base, valor: centavos / 100, data: dataFinal, ...comPagamento(pagamentoFinal) });
     }
     setSalvando(false);
+    const aviso = categoria?.limite ? avisoLimite(categoria.nome, antes, totalDaCategoriaNoMes(casa.id, categoria.id, mesDaDespesa), categoria.limite) : null;
+    if (aviso) return Alert.alert(aviso.titulo, aviso.texto, [{ text: "OK", onPress: () => navigation.goBack() }], { cancelable: false });
     navigation.goBack();
   }
 

@@ -25,4 +25,7 @@ export type RootStackParamList = {
   Perfil: undefined;
   Notificacoes: undefined;
   Termos: undefined;
+  Limites: undefined;
+  Produtos: undefined;
+  Produto: { chave: string };
 };
