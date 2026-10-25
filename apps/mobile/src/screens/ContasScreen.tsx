@@ -1,6 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Botao, Cartao, useEspacoRodape } from "../components/ui";
 import { useCategorias, useContasFixas, usePagamentosDoMes } from "../data/hooks";
@@ -10,7 +10,7 @@ import { diaMes } from "../lib/fatura";
 import { hojeISO, MESES } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
-import { usePrivacidade } from "../privacidade/PrivacidadeContext";
+import { BotaoOlho, usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Contas">;
 
@@ -26,6 +26,10 @@ export function ContasScreen({ navigation }: Props) {
   const [mes, setMes] = useState(hoje.getMonth());
   const comp = competencia(ano, mes);
   const [verTodas, setVerTodas] = useState(true);
+
+  useEffect(() => {
+    navigation.setOptions({ headerRight: () => <BotaoOlho tamanho={24} /> });
+  }, [navigation]);
 
   const { contas, carregando, recarregar } = useContasFixas();
   const { pagamentos, recarregar: recarregarPag } = usePagamentosDoMes(comp);

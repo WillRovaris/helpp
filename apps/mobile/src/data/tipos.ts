@@ -157,4 +157,6 @@ export interface Importacao {
   periodo_fim: string | null;
   created_by: string | null;
   created_at: string;
+  /** Nome dado pela pessoa (ex.: "Extrato Bradesco conta salário"); vazio = automático. */
+  nome?: string | null;
 }

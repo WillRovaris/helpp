@@ -25,19 +25,21 @@ export interface ImportacaoHistorico {
   cartao_id: string | null;
   created_by: string | null;
   created_at: string;
+  nome?: string | null;
 }
 
-/** "Extrato Bradesco Will" / "Fatura Nubank Thamara". */
+/** "Extrato Bradesco Will" / "Fatura Nubank Thamara". Nome dado pela pessoa vale por cima do automático. */
 export function rotuloImportacao(imp: ImportacaoHistorico, nomeCartao: string | undefined, pessoa: string | undefined): string {
+  if (imp.nome?.trim()) return imp.nome.trim();
   const origem = imp.tipo === "fatura" ? `Fatura ${nomeCartao ?? imp.banco ?? "do cartão"}` : `Extrato ${imp.banco ?? "(banco não informado)"}`;
   return pessoa ? `${origem} ${pessoa}` : origem;
 }
 
-/** Mais recente de cada origem (tipo + banco/cartão + pessoa), mais recentes primeiro. */
-export function ultimaDeCadaOrigem<T extends ImportacaoHistorico>(lista: T[]): T[] {
+/** Mais recente de cada origem (mesmo nome na tela: tipo + banco/cartão + pessoa, ou o nome dado), mais recentes primeiro. */
+export function ultimaDeCadaOrigem<T extends ImportacaoHistorico>(lista: T[], rotulo: (imp: T) => string): T[] {
   const porOrigem = new Map<string, T>();
   for (const imp of lista) {
-    const chave = `${imp.tipo}|${imp.tipo === "fatura" ? imp.cartao_id : imp.banco}|${imp.created_by}`;
+    const chave = rotulo(imp).toLowerCase();
     const atual = porOrigem.get(chave);
     if (!atual || imp.created_at > atual.created_at) porOrigem.set(chave, imp);
   }

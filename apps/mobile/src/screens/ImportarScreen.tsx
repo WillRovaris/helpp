@@ -2,7 +2,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Campo, Cartao, Chip, useEspacoRodape } from "../components/ui";
@@ -16,8 +16,8 @@ import { competencia, periodoNoMes } from "../lib/contas";
 import { diaMes, faturaDaCompra, faturaVizinha, somarMeses } from "../lib/fatura";
 import { dataDeISO, dataISO, formatarReais, gerarUuid, MESES } from "../lib/format";
 import { linhas as linhasLocais } from "../offline/banco";
-import { inserir, inserirVarios } from "../offline/repo";
-import { usePrivacidade } from "../privacidade/PrivacidadeContext";
+import { atualizar, inserir, inserirVarios } from "../offline/repo";
+import { BotaoOlho, usePrivacidade } from "../privacidade/PrivacidadeContext";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
@@ -86,6 +86,29 @@ export function ImportarScreen({ navigation }: Props) {
     const d = new Date(iso);
     return `${d.toLocaleDateString("pt-BR")} às ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
   };
+
+  // Renomear uma importação (ex.: "Extrato Bradesco conta salário"); pode valer para as iguais.
+  const [renomeando, setRenomeando] = useState<Importacao | null>(null);
+  const [novoNome, setNovoNome] = useState("");
+  const [renomearIguais, setRenomearIguais] = useState(true);
+  const iguais = renomeando ? importacoes.filter((i) => rotulo(i).toLowerCase() === rotulo(renomeando).toLowerCase()) : [];
+
+  useEffect(() => {
+    navigation.setOptions({ headerRight: () => <BotaoOlho tamanho={24} /> });
+  }, [navigation]);
+
+  function abrirRenomear(imp: Importacao) {
+    setRenomeando(imp);
+    setNovoNome(rotulo(imp));
+    setRenomearIguais(true);
+  }
+
+  function salvarNome(nome: string | null) {
+    if (!renomeando) return;
+    const alvo = renomearIguais ? iguais : [renomeando];
+    for (const i of alvo) atualizar("importacoes", i.id, { nome: nome?.trim() || null });
+    setRenomeando(null);
+  }
 
   // Fatura de destino: por padrão a da compra mais recente do arquivo; ‹ › muda.
   const fatura = useMemo(() => {
@@ -364,8 +387,12 @@ export function ImportarScreen({ navigation }: Props) {
             {/* Última vez que cada extrato/cartão subiu: saber quando refazer a importação. */}
             <Text style={[typography.label, { marginTop: spacing.md }]}>ÚLTIMA ATUALIZAÇÃO DE CADA CONTA</Text>
             <Cartao style={{ paddingVertical: spacing.xs }}>
-              {ultimaDeCadaOrigem(importacoes).map((imp, i) => (
-                <View key={imp.id} style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
+              {ultimaDeCadaOrigem(importacoes, rotulo).map((imp, i) => (
+                <TouchableOpacity
+                  key={imp.id}
+                  onPress={() => abrirRenomear(imp)}
+                  style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}
+                >
                   <Text style={{ fontSize: 22 }}>{imp.tipo === "fatura" ? "💳" : "🏦"}</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={[typography.body, { fontWeight: "600" }]} numberOfLines={1}>
@@ -375,7 +402,8 @@ export function ImportarScreen({ navigation }: Props) {
                       {quando(imp.created_at)} · {haQuanto(imp.created_at)}
                     </Text>
                   </View>
-                </View>
+                  <Text style={{ fontSize: 16 }}>✏️</Text>
+                </TouchableOpacity>
               ))}
             </Cartao>
 
@@ -389,10 +417,10 @@ export function ImportarScreen({ navigation }: Props) {
                 {importacoes.map((imp, i) => {
                   const periodo = imp.periodo_inicio && imp.periodo_fim ? ` · compras de ${diaMes(imp.periodo_inicio)} a ${diaMes(imp.periodo_fim)}` : "";
                   return (
-                    <View key={imp.id} style={{ paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
+                    <TouchableOpacity key={imp.id} onPress={() => abrirRenomear(imp)} style={{ paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
                       <View style={{ flexDirection: "row", alignItems: "center" }}>
                         <Text style={[typography.body, { flex: 1, fontWeight: "600" }]} numberOfLines={1}>
-                          {imp.tipo === "fatura" ? "💳" : "🏦"} {rotulo(imp)}
+                          {imp.tipo === "fatura" ? "💳" : "🏦"} {rotulo(imp)} ✏️
                         </Text>
                         {imp.total != null && <Text style={[typography.body, { fontWeight: "600" }]}>{mostrarValor(imp.total)}</Text>}
                       </View>
@@ -405,13 +433,31 @@ export function ImportarScreen({ navigation }: Props) {
                           📎 {imp.arquivo}
                         </Text>
                       )}
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </Cartao>
             )}
           </>
         )}
+
+        <Modal visible={!!renomeando} transparent animationType="fade" onRequestClose={() => setRenomeando(null)}>
+          <Pressable onPress={() => setRenomeando(null)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: spacing.lg }}>
+            <Pressable style={{ backgroundColor: colors.background, borderRadius: 16, padding: spacing.lg }}>
+              <Campo rotulo="NOME DESTA IMPORTAÇÃO" value={novoNome} onChangeText={setNovoNome} placeholder="Ex.: Extrato Bradesco conta salário Will" autoFocus />
+              <Text style={[typography.label, { marginTop: -spacing.sm, marginBottom: spacing.md }]}>Use um nome que lembre de onde o arquivo foi tirado.</Text>
+              {iguais.length > 1 && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.md }}>
+                  <Text style={[typography.body, { flex: 1, fontSize: 14 }]}>Usar também nas outras {iguais.length - 1} importações com o mesmo nome</Text>
+                  <Switch value={renomearIguais} onValueChange={setRenomearIguais} trackColor={{ true: colors.accent, false: colors.border }} />
+                </View>
+              )}
+              <Botao titulo="Salvar nome" onPress={() => salvarNome(novoNome)} />
+              {renomeando?.nome && <Botao titulo="Voltar ao nome automático" variante="link" onPress={() => salvarNome(null)} style={{ marginTop: spacing.xs }} />}
+              <Botao titulo="Cancelar" variante="link" onPress={() => setRenomeando(null)} />
+            </Pressable>
+          </Pressable>
+        </Modal>
       </ScrollView>
     );
   }
