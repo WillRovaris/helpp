@@ -6,7 +6,7 @@ import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } fr
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Campo, Cartao, Chip, useEspacoRodape } from "../components/ui";
-import { useCartoes, useCategorias } from "../data/hooks";
+import { useCartoes, useCategorias, useImportacoes } from "../data/hooks";
 import { emojiCategoria } from "../data/tipos";
 import { type ArquivoLido, ehPDF, lerArquivo, lerLinhasPDF } from "../importacao/leitor";
 import { PdfTexto, type ResultadoPdf } from "../importacao/PdfTexto";
@@ -15,7 +15,8 @@ import { competencia, periodoNoMes } from "../lib/contas";
 import { diaMes, faturaDaCompra, faturaVizinha, somarMeses } from "../lib/fatura";
 import { dataDeISO, dataISO, formatarReais, gerarUuid, MESES } from "../lib/format";
 import { linhas as linhasLocais } from "../offline/banco";
-import { inserirVarios } from "../offline/repo";
+import { inserir, inserirVarios } from "../offline/repo";
+import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
@@ -40,7 +41,9 @@ function somarDiasISO(iso: string, dias: number): string {
 export function ImportarScreen({ navigation }: Props) {
   const rodape = useEspacoRodape();
   const { userId } = useAuth();
-  const { casa } = useCasa();
+  const { casa, membros } = useCasa();
+  const { importacoes } = useImportacoes();
+  const { mostrarValor } = usePrivacidade();
   const { categorias } = useCategorias();
   const { cartoes } = useCartoes();
 
@@ -262,6 +265,22 @@ export function ImportarScreen({ navigation }: Props) {
         }));
       inserirVarios("contas_pagamentos", baixas);
 
+      // Histórico: qual arquivo subiu, quando e por quem.
+      const datas = selecionados.map((i) => i.data).sort();
+      inserir("importacoes", {
+        casa_id: casa.id,
+        arquivo: nomeArquivo || null,
+        formato: arquivo?.formato ?? null,
+        banco: arquivo?.banco ?? null,
+        tipo,
+        cartao_id: tipo === "fatura" ? cartaoId : null,
+        lancamentos: selecionados.length,
+        total: Math.round(totalSelecionado * 100) / 100,
+        periodo_inicio: datas[0] ?? null,
+        periodo_fim: datas[datas.length - 1] ?? null,
+        created_by: userId,
+      });
+
       Alert.alert(
         "Importado!",
         `${selecionados.length} lançamentos (${formatarReais(totalSelecionado)})` +
@@ -313,6 +332,41 @@ export function ImportarScreen({ navigation }: Props) {
               {"Se puder escolher, prefira OFX, CSV ou Excel: são mais precisos que o PDF. O PDF funciona na maioria dos extratos, mas precisa de internet para abrir."}
             </Text>
           </Cartao>
+        )}
+
+        {importacoes.length > 0 && (
+          <>
+            <Text style={[typography.label, { marginTop: spacing.md }]}>ARQUIVOS JÁ IMPORTADOS</Text>
+            <Cartao style={{ paddingVertical: spacing.xs }}>
+              {importacoes.map((imp, i) => {
+                const quando = new Date(imp.created_at);
+                const cartao = imp.cartao_id ? cartoes.find((c) => c.id === imp.cartao_id) : undefined;
+                const origem = imp.tipo === "fatura" ? `Fatura${cartao ? ` ${cartao.nome}` : ""}` : `Extrato${imp.banco ? ` ${imp.banco}` : ""}`;
+                const periodo = imp.periodo_inicio && imp.periodo_fim ? ` · ${diaMes(imp.periodo_inicio)} a ${diaMes(imp.periodo_fim)}` : "";
+                const quem = membros.length > 1 ? membros.find((m) => m.user_id === imp.created_by)?.nome : undefined;
+                return (
+                  <View key={imp.id} style={{ paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={[typography.body, { flex: 1, fontWeight: "600" }]} numberOfLines={1}>
+                        📄 {origem}
+                      </Text>
+                      {imp.total != null && <Text style={[typography.body, { fontWeight: "600" }]}>{mostrarValor(imp.total)}</Text>}
+                    </View>
+                    {imp.arquivo && (
+                      <Text style={typography.label} numberOfLines={1}>
+                        {imp.arquivo}
+                      </Text>
+                    )}
+                    <Text style={typography.label}>
+                      Subiu em {quando.toLocaleDateString("pt-BR")} às {quando.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      {quem ? ` por ${quem}` : ""} · {imp.lancamentos} {imp.lancamentos === 1 ? "lançamento" : "lançamentos"}
+                      {periodo}
+                    </Text>
+                  </View>
+                );
+              })}
+            </Cartao>
+          </>
         )}
       </ScrollView>
     );

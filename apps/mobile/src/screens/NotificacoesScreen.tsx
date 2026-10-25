@@ -1,0 +1,47 @@
+import React, { useEffect, useState } from "react";
+import { ScrollView, Text, View } from "react-native";
+import { useCasa } from "../casa/CasaContext";
+import { Cartao, Chip, useEspacoRodape } from "../components/ui";
+import { type ConfigLembretes, lerConfigLembretes, salvarConfigLembretes } from "../lembretes/lembretes";
+import { colors, spacing, typography } from "../theme";
+
+// Notificações: lembretes de contas fixas e faturas (ligar/desligar e horário).
+export function NotificacoesScreen() {
+  const rodape = useEspacoRodape();
+  const { casa } = useCasa();
+  const [lembretes, setLembretes] = useState<ConfigLembretes | null>(null);
+
+  useEffect(() => {
+    lerConfigLembretes().then(setLembretes);
+  }, []);
+
+  function mudar(c: ConfigLembretes) {
+    setLembretes(c);
+    salvarConfigLembretes(c, casa?.id);
+  }
+
+  return (
+    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }}>
+      {lembretes && (
+        <Cartao>
+          <Text style={[typography.label, { marginBottom: spacing.xs }]}>🔔 LEMBRETES DE CONTAS E FATURAS</Text>
+          <Text style={[typography.label, { marginBottom: spacing.md }]}>Avisa no dia anterior e no dia do vencimento das contas fixas e das faturas dos cartões.</Text>
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <Chip rotulo="Ligados" ativo={lembretes.ativo} onPress={() => mudar({ ...lembretes, ativo: true })} />
+            <Chip rotulo="Desligados" ativo={!lembretes.ativo} onPress={() => mudar({ ...lembretes, ativo: false })} />
+          </View>
+          {lembretes.ativo && (
+            <>
+              <Text style={[typography.label, { marginTop: spacing.md, marginBottom: spacing.sm }]}>HORÁRIO DO AVISO</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                {[7, 8, 9, 12, 18, 20].map((h) => (
+                  <Chip key={h} rotulo={`${h}h`} ativo={lembretes.hora === h} onPress={() => mudar({ ...lembretes, hora: h })} />
+                ))}
+              </View>
+            </>
+          )}
+        </Cartao>
+      )}
+    </ScrollView>
+  );
+}

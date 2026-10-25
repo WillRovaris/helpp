@@ -25,6 +25,7 @@ export function ContasScreen({ navigation }: Props) {
   const [ano, setAno] = useState(hoje.getFullYear());
   const [mes, setMes] = useState(hoje.getMonth());
   const comp = competencia(ano, mes);
+  const [verTodas, setVerTodas] = useState(true);
 
   const { contas, carregando, recarregar } = useContasFixas();
   const { pagamentos, recarregar: recarregarPag } = usePagamentosDoMes(comp);
@@ -126,6 +127,42 @@ export function ContasScreen({ navigation }: Props) {
       )}
 
       <Botao titulo="+ Nova conta fixa" variante="secundario" onPress={() => navigation.navigate("ContaForm", {})} />
+
+      {/* Todas as contas cadastradas (inclusive fora do período deste mês), para consultar e editar. */}
+      {contas.length > 0 && (
+        <>
+          <TouchableOpacity onPress={() => setVerTodas((v) => !v)} style={{ marginTop: spacing.md }}>
+            <Text style={[typography.label, { color: colors.accent }]}>
+              {verTodas ? "▾" : "▸"} TODAS AS CONTAS CADASTRADAS ({contas.length})
+            </Text>
+          </TouchableOpacity>
+          {verTodas && (
+            <Cartao style={{ paddingVertical: spacing.xs }}>
+              {contas.map((c, i) => {
+                const cat = c.categoria_id ? categoriaPorId.get(c.categoria_id) : undefined;
+                const periodo = c.inicio ? ` · desde ${MESES[Number(c.inicio.slice(5, 7)) - 1].slice(0, 3).toLowerCase()}/${c.inicio.slice(2, 4)}${c.meses ? ` por ${c.meses} meses` : ""}` : "";
+                return (
+                  <TouchableOpacity
+                    key={c.id}
+                    onPress={() => navigation.navigate("ContaForm", { contaId: c.id })}
+                    style={{ flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}
+                  >
+                    <Text style={{ fontSize: 20, marginRight: spacing.sm }}>{emojiCategoria(cat?.icone)}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={typography.body} numberOfLines={1}>{c.nome}</Text>
+                      <Text style={typography.label}>
+                        Todo dia {c.dia_vencimento} · {c.valor != null ? "valor fixo" : "valor variável"}
+                        {periodo}
+                      </Text>
+                    </View>
+                    <Text style={[typography.body, { fontWeight: "600" }]}>{c.valor != null ? mostrarValor(c.valor) : "—"}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </Cartao>
+          )}
+        </>
+      )}
     </ScrollView>
   );
 }

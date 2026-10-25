@@ -1,6 +1,6 @@
 import { HeaderHeightContext } from "@react-navigation/elements";
-import React, { useContext } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View, ViewStyle } from "react-native";
+import React, { useContext, useState } from "react";
+import { ActivityIndicator, Image, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View, ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography } from "../theme";
 
@@ -44,6 +44,38 @@ export function Campo({ rotulo, ...props }: TextInputProps & { rotulo: string })
     <View style={{ marginBottom: spacing.md }}>
       <Text style={[typography.label, { marginBottom: spacing.xs }]}>{rotulo}</Text>
       <TextInput placeholderTextColor={colors.textSecondary} style={estiloInput()} {...props} />
+    </View>
+  );
+}
+
+/** Campo de senha com olho para mostrar/esconder o que foi digitado. */
+export function CampoSenha({ rotulo, ...props }: Omit<TextInputProps, "secureTextEntry"> & { rotulo: string }) {
+  const [visivel, setVisivel] = useState(false);
+  return (
+    <View style={{ marginBottom: spacing.md }}>
+      <Text style={[typography.label, { marginBottom: spacing.xs }]}>{rotulo}</Text>
+      <View style={{ justifyContent: "center" }}>
+        <TextInput
+          placeholderTextColor={colors.textSecondary}
+          autoCapitalize="none"
+          autoCorrect={false}
+          {...props}
+          secureTextEntry={!visivel}
+          style={[estiloInput(), { paddingRight: 48 }]}
+        />
+        <TouchableOpacity
+          onPress={() => setVisivel((v) => !v)}
+          accessibilityLabel={visivel ? "Esconder senha" : "Mostrar senha"}
+          hitSlop={8}
+          style={{ position: "absolute", right: 10, padding: 4 }}
+        >
+          <Image
+            source={visivel ? require("../../assets/olho-aberto.png") : require("../../assets/olho-fechado.png")}
+            style={{ width: 24, height: 24, tintColor: colors.textSecondary }}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }

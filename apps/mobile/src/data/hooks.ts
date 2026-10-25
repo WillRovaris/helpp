@@ -6,7 +6,7 @@ import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
 import { receitaNoMes, saldoAnterior } from "../lib/saldo";
 import { type Linha, linhas, ouvirMudancas, type Tabela } from "../offline/banco";
 import { useSincronizacao } from "../offline/SincronizacaoContext";
-import type { Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, PagamentoConta, Receita, Sugestao } from "./tipos";
+import type { Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, Importacao, PagamentoConta, Receita, Sugestao } from "./tipos";
 
 /**
  * Lista de uma tabela da casa, lida da cópia no celular (funciona sem internet).
@@ -208,4 +208,14 @@ export function useSaldoAnterior(ano: number, mes: number) {
     };
     return { saldo: saldoAnterior(alvo, entradasDoMes, despesaDoMes, ajustes), ajustado: ajustes[alvo] != null, mes: alvo };
   }, [casa, cartoes, contas, receitas, gastos, pagamentos, alvo]);
+}
+
+/** Arquivos importados, mais recentes primeiro. */
+export function useImportacoes() {
+  const { itens, ...resto } = useTabela<Importacao>(
+    "importacoes",
+    (t) => t.sort(porTexto("created_at", true)).map((i) => ({ ...i, total: i.total == null ? null : Number(i.total) })) as Importacao[],
+    [],
+  );
+  return { importacoes: itens, ...resto };
 }

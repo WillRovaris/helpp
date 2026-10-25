@@ -142,3 +142,19 @@ export const TIPOS_RECEITA: { valor: string; emoji: string; nome: string }[] = [
 export function tipoReceita(valor: string | null | undefined) {
   return TIPOS_RECEITA.find((t) => t.valor === valor) ?? TIPOS_RECEITA[TIPOS_RECEITA.length - 1];
 }
+
+/** Arquivo de extrato/fatura que foi importado (histórico na tela de importar). */
+export interface Importacao {
+  id: string;
+  arquivo: string | null;
+  formato: string | null;
+  banco: string | null;
+  tipo: string | null;
+  cartao_id: string | null;
+  lancamentos: number;
+  total: number | null;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  created_by: string | null;
+  created_at: string;
+}

@@ -239,7 +239,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
         <View style={{ flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg }}>
           <Atalho emoji="📷" titulo="Ler nota" onPress={() => navigation.navigate("NotaScanner")} />
           <Atalho emoji="📄" titulo="Importar extrato ou fatura" onPress={() => navigation.navigate("Importar")} />
-          <Atalho emoji="🧾" titulo="Conta fixa" onPress={() => navigation.navigate("ContaForm", {})} />
+          <Atalho emoji="🧾" titulo="Contas fixas" onPress={() => navigation.navigate("Contas")} />
         </View>
       )}
 
