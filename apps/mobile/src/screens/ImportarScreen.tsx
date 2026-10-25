@@ -7,8 +7,9 @@ import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Campo, Cartao, Chip, useEspacoRodape } from "../components/ui";
 import { useCartoes, useCategorias, useImportacoes } from "../data/hooks";
-import { emojiCategoria } from "../data/tipos";
+import { emojiCategoria, type Importacao } from "../data/tipos";
 import { type ArquivoLido, ehPDF, lerArquivo, lerLinhasPDF } from "../importacao/leitor";
+import { BANCOS, bancoProvavel, haQuanto, reconstruirHistorico, rotuloImportacao, ultimaDeCadaOrigem } from "../importacao/historico";
 import { PdfTexto, type ResultadoPdf } from "../importacao/PdfTexto";
 import { descricaoSemParcela, type ItemImportacao, preparar, type TipoArquivo } from "../importacao/preparar";
 import { competencia, periodoNoMes } from "../lib/contas";
@@ -63,6 +64,28 @@ export function ImportarScreen({ navigation }: Props) {
   const [senhaDigitada, setSenhaDigitada] = useState("");
 
   const cartao = cartoes.find((c) => c.id === cartaoId);
+  /** Banco do extrato (para o histórico: "Extrato Bradesco Will"). */
+  const [banco, setBanco] = useState<string | null>(null);
+  const [verHistorico, setVerHistorico] = useState(false);
+
+  // Importações de antes do histórico existir: remonta pelos lançamentos importados (uma vez por grupo; id fixo evita repetir).
+  useEffect(() => {
+    if (!casa) return;
+    const reais = linhasLocais("importacoes").filter((i) => i.casa_id === casa.id);
+    const ids = new Set(reais.map((i) => i.id));
+    const coberto = (r: { cartao_id: string | null; created_at: string }) =>
+      reais.some((i) => (i.cartao_id ?? null) === (r.cartao_id ?? null) && Math.abs(new Date(i.created_at).getTime() - new Date(r.created_at).getTime()) < 3 * 60000);
+    const gastosCasa = linhasLocais("gastos").filter((g) => g.casa_id === casa.id).map((g) => ({ ...g, valor: Number(g.valor) }));
+    const faltando = reconstruirHistorico(gastosCasa as Parameters<typeof reconstruirHistorico>[0], casa.id).filter((r) => !ids.has(r.id) && !coberto(r));
+    if (faltando.length) inserirVarios("importacoes", faltando);
+  }, [casa]);
+
+  const nomeDe = (id: string | null) => membros.find((m) => m.user_id === id)?.nome;
+  const rotulo = (imp: Importacao) => rotuloImportacao(imp, cartoes.find((c) => c.id === imp.cartao_id)?.nome, nomeDe(imp.created_by));
+  const quando = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.toLocaleDateString("pt-BR")} às ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  };
 
   // Fatura de destino: por padrão a da compra mais recente do arquivo; ‹ › muda.
   const fatura = useMemo(() => {
@@ -82,6 +105,7 @@ export function ImportarScreen({ navigation }: Props) {
     setDeslocFatura(0);
     const ehFatura = lido.pareceFatura;
     setTipo(ehFatura ? "fatura" : "extrato");
+    setBanco(bancoProvavel(nome, lido.banco));
     if (ehFatura && !cartaoId && cartoes.length === 1) setCartaoId(cartoes[0].id);
   }
 
@@ -222,6 +246,7 @@ export function ImportarScreen({ navigation }: Props) {
   async function importar() {
     if (!casa || !preparo) return;
     if (tipo === "fatura" && !cartaoId) return Alert.alert("Cartão", "Escolha de qual cartão é essa fatura.");
+    if (tipo === "extrato" && !banco) return Alert.alert("Banco", "Escolha de qual banco é esse extrato (fica no histórico de importações).");
     if (!selecionados.length) return Alert.alert("Nada selecionado", "Marque os lançamentos que quer importar.");
 
     setImportando(true);
@@ -271,7 +296,7 @@ export function ImportarScreen({ navigation }: Props) {
         casa_id: casa.id,
         arquivo: nomeArquivo || null,
         formato: arquivo?.formato ?? null,
-        banco: arquivo?.banco ?? null,
+        banco: tipo === "fatura" ? (cartao?.nome ?? null) : banco,
         tipo,
         cartao_id: tipo === "fatura" ? cartaoId : null,
         lancamentos: selecionados.length,
@@ -336,36 +361,55 @@ export function ImportarScreen({ navigation }: Props) {
 
         {importacoes.length > 0 && (
           <>
-            <Text style={[typography.label, { marginTop: spacing.md }]}>ARQUIVOS JÁ IMPORTADOS</Text>
+            {/* Última vez que cada extrato/cartão subiu: saber quando refazer a importação. */}
+            <Text style={[typography.label, { marginTop: spacing.md }]}>ÚLTIMA ATUALIZAÇÃO DE CADA CONTA</Text>
             <Cartao style={{ paddingVertical: spacing.xs }}>
-              {importacoes.map((imp, i) => {
-                const quando = new Date(imp.created_at);
-                const cartao = imp.cartao_id ? cartoes.find((c) => c.id === imp.cartao_id) : undefined;
-                const origem = imp.tipo === "fatura" ? `Fatura${cartao ? ` ${cartao.nome}` : ""}` : `Extrato${imp.banco ? ` ${imp.banco}` : ""}`;
-                const periodo = imp.periodo_inicio && imp.periodo_fim ? ` · ${diaMes(imp.periodo_inicio)} a ${diaMes(imp.periodo_fim)}` : "";
-                const quem = membros.length > 1 ? membros.find((m) => m.user_id === imp.created_by)?.nome : undefined;
-                return (
-                  <View key={imp.id} style={{ paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Text style={[typography.body, { flex: 1, fontWeight: "600" }]} numberOfLines={1}>
-                        📄 {origem}
-                      </Text>
-                      {imp.total != null && <Text style={[typography.body, { fontWeight: "600" }]}>{mostrarValor(imp.total)}</Text>}
-                    </View>
-                    {imp.arquivo && (
-                      <Text style={typography.label} numberOfLines={1}>
-                        {imp.arquivo}
-                      </Text>
-                    )}
+              {ultimaDeCadaOrigem(importacoes).map((imp, i) => (
+                <View key={imp.id} style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
+                  <Text style={{ fontSize: 22 }}>{imp.tipo === "fatura" ? "💳" : "🏦"}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[typography.body, { fontWeight: "600" }]} numberOfLines={1}>
+                      {rotulo(imp)}
+                    </Text>
                     <Text style={typography.label}>
-                      Subiu em {quando.toLocaleDateString("pt-BR")} às {quando.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                      {quem ? ` por ${quem}` : ""} · {imp.lancamentos} {imp.lancamentos === 1 ? "lançamento" : "lançamentos"}
-                      {periodo}
+                      {quando(imp.created_at)} · {haQuanto(imp.created_at)}
                     </Text>
                   </View>
-                );
-              })}
+                </View>
+              ))}
             </Cartao>
+
+            <TouchableOpacity onPress={() => setVerHistorico((v) => !v)} style={{ marginTop: spacing.sm }}>
+              <Text style={[typography.label, { color: colors.accent }]}>
+                {verHistorico ? "▾" : "▸"} HISTÓRICO COMPLETO ({importacoes.length})
+              </Text>
+            </TouchableOpacity>
+            {verHistorico && (
+              <Cartao style={{ paddingVertical: spacing.xs }}>
+                {importacoes.map((imp, i) => {
+                  const periodo = imp.periodo_inicio && imp.periodo_fim ? ` · compras de ${diaMes(imp.periodo_inicio)} a ${diaMes(imp.periodo_fim)}` : "";
+                  return (
+                    <View key={imp.id} style={{ paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Text style={[typography.body, { flex: 1, fontWeight: "600" }]} numberOfLines={1}>
+                          {imp.tipo === "fatura" ? "💳" : "🏦"} {rotulo(imp)}
+                        </Text>
+                        {imp.total != null && <Text style={[typography.body, { fontWeight: "600" }]}>{mostrarValor(imp.total)}</Text>}
+                      </View>
+                      <Text style={typography.label}>
+                        Subiu {quando(imp.created_at)} · {imp.lancamentos} {imp.lancamentos === 1 ? "lançamento" : "lançamentos"}
+                        {periodo}
+                      </Text>
+                      {imp.arquivo && (
+                        <Text style={typography.label} numberOfLines={1}>
+                          📎 {imp.arquivo}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </Cartao>
+            )}
           </>
         )}
       </ScrollView>
@@ -408,6 +452,17 @@ export function ImportarScreen({ navigation }: Props) {
           <Chip rotulo="💳 Fatura do cartão" ativo={tipo === "fatura"} onPress={() => setTipo("fatura")} />
         </View>
       </View>
+
+      {tipo === "extrato" && (
+        <View>
+          <Text style={[typography.label, { marginBottom: spacing.sm }]}>DE QUAL BANCO</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            {BANCOS.map((b) => (
+              <Chip key={b} rotulo={`🏦 ${b}`} ativo={banco === b} onPress={() => setBanco(b)} />
+            ))}
+          </View>
+        </View>
+      )}
 
       {tipo === "fatura" && (
         <View>
