@@ -5,7 +5,7 @@ import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } 
 import { KeyboardAvoidingView, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { ResultadosBusca } from "../components/BuscaDespesas";
-import { Cartao as CartaoUI, Chip, estiloInput, useEspacoRodape } from "../components/ui";
+import { Cartao as CartaoUI, Chip, estiloInput, useEspacoRodape, IconeCategoria } from "../components/ui";
 import { useCartoes, useCategorias, useContasFixas, useGastosDoMes, usePagamentosDoMes } from "../data/hooks";
 import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
 import { emojiCategoria, FORMAS_PAGAMENTO, type Gasto, tituloGasto } from "../data/tipos";
@@ -246,7 +246,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
                     paddingVertical: spacing.sm,
                   }}
                 >
-                  <Text style={{ fontSize: 22, marginRight: spacing.sm }}>{emojiCategoria(cat?.icone)}</Text>
+                  <IconeCategoria categoria={cat} style={{ marginRight: spacing.sm }} />
                   <View style={{ flex: 1 }}>
                     <Text style={typography.body} numberOfLines={1}>
                       {tituloGasto(g, cat?.nome)}

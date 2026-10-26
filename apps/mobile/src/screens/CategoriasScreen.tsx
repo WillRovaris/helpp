@@ -1,9 +1,8 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { Botao, Cartao, useEspacoRodape } from "../components/ui";
+import { Botao, Cartao, IconeCategoria, useEspacoRodape } from "../components/ui";
 import { useCategorias } from "../data/hooks";
-import { emojiCategoria } from "../data/tipos";
 import type { RootStackParamList } from "../navigation/types";
 import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 import { colors, spacing, typography } from "../theme";
@@ -26,9 +25,7 @@ export function CategoriasScreen({ navigation }: Props) {
             onPress={() => navigation.navigate("CategoriaForm", { categoriaId: c.id })}
             style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}
           >
-            <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: c.cor, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontSize: 20 }}>{emojiCategoria(c.icone)}</Text>
-            </View>
+            <IconeCategoria categoria={c} tamanho={38} />
             <View style={{ flex: 1 }}>
               <Text style={typography.body}>{c.nome}</Text>
               {c.limite ? <Text style={typography.label}>🎯 limite {mostrarValor(c.limite)} por mês</Text> : null}

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
-import { type Categoria, emojiCategoria, type Gasto, tituloGasto } from "../data/tipos";
+import { type Categoria, type Gasto, tituloGasto } from "../data/tipos";
 import { MESES } from "../lib/format";
 import { linhas } from "../offline/banco";
 import { colors, spacing, typography } from "../theme";
-import { Cartao } from "./ui";
+import { Cartao, IconeCategoria } from "./ui";
 import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 
 /** Minúsculas e sem acento, para "agua" achar "Água". */
@@ -89,7 +89,7 @@ export function ResultadosBusca({
               onPress={() => onAbrir(g.id)}
               style={{ flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}
             >
-              <Text style={{ fontSize: 20, marginRight: spacing.sm }}>{emojiCategoria(cat?.icone)}</Text>
+              <IconeCategoria categoria={cat} style={{ marginRight: spacing.sm }} />
               <View style={{ flex: 1 }}>
                 <Text style={typography.body} numberOfLines={1}>
                   {tituloGasto(g, cat?.nome)}

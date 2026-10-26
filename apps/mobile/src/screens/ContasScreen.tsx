@@ -3,9 +3,8 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Cartao, useEspacoRodape } from "../components/ui";
+import { Botao, Cartao, useEspacoRodape, IconeCategoria } from "../components/ui";
 import { useCategorias, useContasFixas, usePagamentosDoMes } from "../data/hooks";
-import { emojiCategoria } from "../data/tipos";
 import { type ContaDoMes, competencia, contasDoMes, textoSituacao } from "../lib/contas";
 import { diaMes } from "../lib/fatura";
 import { hojeISO, MESES } from "../lib/format";
@@ -108,7 +107,7 @@ export function ContasScreen({ navigation }: Props) {
             return (
               <View key={c.conta.id} style={{ flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}>
                 <TouchableOpacity style={{ flex: 1, flexDirection: "row", alignItems: "center" }} onPress={() => navigation.navigate("ContaForm", { contaId: c.conta.id })}>
-                  <Text style={{ fontSize: 20, marginRight: spacing.sm }}>{c.pagamento ? "✅" : emojiCategoria(cat?.icone)}</Text>
+                  <IconeCategoria categoria={cat} emoji={c.pagamento ? "✅" : undefined} style={{ marginRight: spacing.sm }} />
                   <View style={{ flex: 1 }}>
                     <Text style={typography.body} numberOfLines={1}>{c.conta.nome}</Text>
                     <Text style={[typography.label, { color: corSituacao(c) }]}>
@@ -159,7 +158,7 @@ export function ContasScreen({ navigation }: Props) {
                     onPress={() => navigation.navigate("ContaForm", { contaId: c.id })}
                     style={{ flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}
                   >
-                    <Text style={{ fontSize: 20, marginRight: spacing.sm }}>{emojiCategoria(cat?.icone)}</Text>
+                    <IconeCategoria categoria={cat} style={{ marginRight: spacing.sm }} />
                     <View style={{ flex: 1 }}>
                       <Text style={typography.body} numberOfLines={1}>{c.nome}</Text>
                       <Text style={typography.label}>

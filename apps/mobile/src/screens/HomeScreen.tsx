@@ -7,7 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { StatusSincronizacao } from "../components/StatusSincronizacao";
-import { Botao, Cartao, useEspacoRodape } from "../components/ui";
+import { Botao, Cartao, useEspacoRodape, IconeCategoria } from "../components/ui";
 import { useCartoes, useCategorias, useContasFixas, useEntradasDoMes, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useResumoDoMes, useSaldoAnterior, useSugestoes, useUltimosGastos } from "../data/hooks";
 import { reagendarLembretes } from "../lembretes/lembretes";
 import { migrarRendasParaEntradas } from "../data/migrarRendas";
@@ -15,7 +15,7 @@ import { useSincronizacao } from "../offline/SincronizacaoContext";
 import { gravarMeta, lerMeta } from "../offline/banco";
 import { competencia, contasComoDespesas, contasDoMes, textoSituacao } from "../lib/contas";
 import { corSituacao } from "./ContasScreen";
-import { emojiCategoria, tituloGasto } from "../data/tipos";
+import { tituloGasto } from "../data/tipos";
 import { resumirCartao, somarMeses } from "../lib/fatura";
 import { hojeISO, MESES, rotuloDia } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
@@ -205,7 +205,7 @@ export function HomeScreen({ navigation }: Props) {
                   onPress={() => navigation.navigate("GastoForm", { gastoId: g.id })}
                   style={{ flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border }}
                 >
-                  <Text style={{ fontSize: 20, marginRight: spacing.sm }}>{emojiCategoria(cat?.icone)}</Text>
+                  <IconeCategoria categoria={cat} style={{ marginRight: spacing.sm }} />
                   <View style={{ flex: 1 }}>
                     <Text style={typography.body} numberOfLines={1}>{tituloGasto(g, cat?.nome)}</Text>
                     <Text style={typography.label}>{rotuloDia(g.data)}</Text>

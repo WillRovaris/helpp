@@ -3,9 +3,9 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Cartao, useEspacoRodape } from "../components/ui";
+import { Botao, Cartao, useEspacoRodape, IconeCategoria } from "../components/ui";
 import { useCartoes, useCategorias, useFaturasPagas } from "../data/hooks";
-import { emojiCategoria, type Gasto, tituloGasto } from "../data/tipos";
+import { type Gasto, tituloGasto } from "../data/tipos";
 import { detectarParcela } from "../importacao/leitor";
 import { descricaoSemParcela } from "../importacao/preparar";
 import { diaMes, faturaDaCompra, faturaVizinha, mesPagamentoCartao, somarMeses } from "../lib/fatura";
@@ -211,7 +211,7 @@ export function CartaoDetalheScreen({ navigation, route }: Props) {
                 onPress={() => navigation.navigate("GastoForm", { gastoId: g.id })}
                 style={{ flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}
               >
-                <Text style={{ fontSize: 20, marginRight: spacing.sm }}>{emojiCategoria(cat?.icone)}</Text>
+                <IconeCategoria categoria={cat} style={{ marginRight: spacing.sm }} />
                 <View style={{ flex: 1 }}>
                   <Text style={typography.body} numberOfLines={1}>{tituloGasto(g, cat?.nome)}</Text>
                   <Text style={typography.label}>

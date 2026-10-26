@@ -3,9 +3,9 @@ import React, { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { Barra } from "../components/ResumoMes";
-import { Botao, Cartao, useEspacoRodape } from "../components/ui";
+import { Botao, Cartao, useEspacoRodape, IconeCategoria } from "../components/ui";
 import { useCategorias, useResumoDoMes } from "../data/hooks";
-import { emojiCategoria, tituloGasto } from "../data/tipos";
+import { tituloGasto } from "../data/tipos";
 import { hojeISO, MESES } from "../lib/format";
 import { nivelLimite } from "../lib/limites";
 import { enviarWhatsApp, textoResumoMes } from "../lib/relatorio";
@@ -132,9 +132,12 @@ export function FechamentoScreen({ navigation, route }: Props) {
                 key={id}
                 style={{ flexDirection: "row", alignItems: "center", paddingVertical: 6, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}
               >
-                <Text style={[typography.body, { flex: 1, fontSize: 14 }]} numberOfLines={1}>
-                  {emojiCategoria(c.icone)} {c.nome}
-                </Text>
+                <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <IconeCategoria categoria={c} tamanho={24} />
+                  <Text style={[typography.body, { flexShrink: 1, fontSize: 14 }]} numberOfLines={1}>
+                    {c.nome}
+                  </Text>
+                </View>
                 <Text style={[typography.body, estiloColuna, { fontSize: 13 }]}>{valorCurto(soma)}</Text>
                 <Text style={[typography.body, estiloColuna, { fontSize: 13, color: colors.textSecondary }]}>{valorCurto(c.limite!)}</Text>
                 <Text style={[typography.body, estiloColuna, { fontSize: 13, fontWeight: "700", color: colors.danger }]}>+{valorCurto(soma - c.limite!)}</Text>
@@ -151,10 +154,13 @@ export function FechamentoScreen({ navigation, route }: Props) {
             const c = id ? categoriaPorId.get(id) : undefined;
             return (
               <View key={id ?? "sem"} style={{ paddingVertical: spacing.xs }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                  <Text style={typography.body}>
-                    {emojiCategoria(c?.icone)} {c?.nome ?? "Sem categoria"}
-                  </Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, flexShrink: 1 }}>
+                    <IconeCategoria categoria={c} tamanho={28} />
+                    <Text style={typography.body} numberOfLines={1}>
+                      {c?.nome ?? "Sem categoria"}
+                    </Text>
+                  </View>
                   <Text style={typography.body}>
                     <Text style={{ fontWeight: "600" }}>{mostrarValor(soma)}</Text>
                     <Text style={typography.label}>  {Math.round((soma / r.totalDespesas) * 100)}%</Text>
@@ -174,7 +180,7 @@ export function FechamentoScreen({ navigation, route }: Props) {
             const c = g.categoria_id ? categoriaPorId.get(g.categoria_id) : undefined;
             return (
               <View key={g.id} style={{ flexDirection: "row", alignItems: "center", paddingVertical: spacing.xs }}>
-                <Text style={{ fontSize: 18, marginRight: spacing.sm }}>{emojiCategoria(c?.icone)}</Text>
+                <IconeCategoria categoria={c} style={{ marginRight: spacing.sm }} />
                 <Text style={[typography.body, { flex: 1 }]} numberOfLines={1}>
                   {tituloGasto(g, c?.nome)}
                 </Text>

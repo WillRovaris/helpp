@@ -1,9 +1,8 @@
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import type { Categoria, Gasto } from "../data/tipos";
-import { emojiCategoria } from "../data/tipos";
 import { colors, radius, spacing, typography } from "../theme";
-import { Cartao } from "./ui";
+import { Cartao, IconeCategoria } from "./ui";
 import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 import { nivelLimite } from "../lib/limites";
 
@@ -113,10 +112,13 @@ export function PorCategoria({
         const nivel = limite ? nivelLimite(soma, limite) : null;
         return (
           <TouchableOpacity key={id ?? "sem"} onPress={() => onPressCategoria(id)} style={{ paddingVertical: spacing.xs + 2 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-              <Text style={typography.body}>
-                {emojiCategoria(cat?.icone)} {cat?.nome ?? "Sem categoria"}
-              </Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, flexShrink: 1 }}>
+                <IconeCategoria categoria={cat} tamanho={28} />
+                <Text style={typography.body} numberOfLines={1}>
+                  {cat?.nome ?? "Sem categoria"}
+                </Text>
+              </View>
               <Text style={typography.body}>
                 <Text style={{ fontWeight: "600" }}>{mostrarValor(soma)}</Text>
                 {limite ? (

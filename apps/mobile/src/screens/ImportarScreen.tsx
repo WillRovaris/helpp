@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
-import { Botao, Campo, Cartao, Chip, useEspacoRodape } from "../components/ui";
+import { Botao, Campo, Cartao, Chip, useEspacoRodape, IconeCategoria } from "../components/ui";
 import { useCartoes, useCategorias, useImportacoes } from "../data/hooks";
 import { emojiCategoria, type Importacao } from "../data/tipos";
 import { type ArquivoLido, ehPDF, lerArquivo, lerLinhasPDF } from "../importacao/leitor";
@@ -564,7 +564,7 @@ export function ImportarScreen({ navigation }: Props) {
                       {e.incluir && <Text style={{ color: colors.accentContrast, fontWeight: "700" }}>✓</Text>}
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setAbertoCategoria(abertoCategoria === item.id ? null : item.id)} style={{ marginRight: spacing.sm }}>
-                      <Text style={{ fontSize: 22 }}>{emojiCategoria(cat?.icone)}</Text>
+                      <IconeCategoria categoria={cat} />
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
                       <Text style={typography.body} numberOfLines={2}>{item.descricao}</Text>

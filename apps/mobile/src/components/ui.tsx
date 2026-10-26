@@ -3,6 +3,7 @@ import React, { useContext, useState } from "react";
 import { ActivityIndicator, Image, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View, ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography } from "../theme";
+import { emojiCategoria } from "../data/tipos";
 
 /**
  * Espaço no fim das telas com rolagem: a altura dos botões de navegação do
@@ -44,6 +45,31 @@ export function Campo({ rotulo, ...props }: TextInputProps & { rotulo: string })
     <View style={{ marginBottom: spacing.md }}>
       <Text style={[typography.label, { marginBottom: spacing.xs }]}>{rotulo}</Text>
       <TextInput placeholderTextColor={colors.textSecondary} style={estiloInput()} {...props} />
+    </View>
+  );
+}
+
+/** Ícone da categoria: emoji num círculo com a cor dela (igual à tela de categorias). */
+export function IconeCategoria({
+  categoria,
+  tamanho = 34,
+  emoji,
+  style,
+}: {
+  categoria?: { icone?: string; cor?: string } | null;
+  tamanho?: number;
+  /** Troca o emoji (ex.: ✅ conta paga), mantendo a cor da categoria. */
+  emoji?: string;
+  style?: ViewStyle;
+}) {
+  return (
+    <View
+      style={[
+        { width: tamanho, height: tamanho, borderRadius: tamanho / 2, alignItems: "center", justifyContent: "center", backgroundColor: categoria?.cor ?? colors.border },
+        style,
+      ]}
+    >
+      <Text style={{ fontSize: Math.round(tamanho * 0.52) }}>{emoji ?? emojiCategoria(categoria?.icone)}</Text>
     </View>
   );
 }
