@@ -13,7 +13,8 @@ function paraCasa(l: Linha): Casa {
   return {
     id: l.id,
     nome: l.nome,
-    codigo_convite: l.codigo_convite,
+    codigo_convite: l.codigo_convite ?? null,
+    convite_expira_em: l.convite_expira_em ?? null,
     renda_mensal: l.renda_mensal != null ? Number(l.renda_mensal) : null,
     rendas: numeros(l.rendas),
     saldos_iniciais: numeros(l.saldos_iniciais),
@@ -23,7 +24,9 @@ function paraCasa(l: Linha): Casa {
 export interface Casa {
   id: string;
   nome: string;
-  codigo_convite: string;
+  /** Código de convite (só existe depois de gerado em Compartilhar; vence em 48 h e vale uma vez). */
+  codigo_convite: string | null;
+  convite_expira_em: string | null;
   /** Renda antiga (um total). Hoje as entradas ficam na tabela `receitas`; isto só serve para migrar (data/migrarRendas.ts). */
   renda_mensal: number | null;
   /** Renda antiga por pessoa (user_id → valor), migrada para `receitas`. */
@@ -161,8 +164,10 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function entrarNaCasa(codigo: string, meuNome: string): Promise<Result> {
-    const { error } = await supabase.rpc("entrar_na_casa", { p_codigo: codigo, p_meu_nome: meuNome });
+    const { data, error } = await supabase.rpc("entrar_na_casa", { p_codigo: codigo, p_meu_nome: meuNome });
     if (error) return { error: traduzirErro(error.message) };
+    // Código errado ou vencido: o banco devolve vazio (a tentativa fica contada, máximo 5 por hora).
+    if (!data) return { error: "Código de convite inválido ou vencido. Peça um código novo para quem te convidou." };
     await recarregar();
     return { error: null };
   }
@@ -171,7 +176,7 @@ export function CasaProvider({ children }: { children: React.ReactNode }) {
     if (!casa) return { error: "Sem casa" };
     const { data, error } = await supabase.rpc("novo_convite", { p_casa: casa.id });
     if (error) return { error: traduzirErro(error.message) };
-    setCasa({ ...casa, codigo_convite: data as string });
+    setCasa({ ...casa, codigo_convite: data as string, convite_expira_em: new Date(Date.now() + 48 * 3600 * 1000).toISOString() });
     return { error: null };
   }
 

@@ -17,7 +17,7 @@ window.lerPdf = async function (b64, senha) {
     var bin = atob(b64);
     var bytes = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    var pdf = await pdfjsLib.getDocument({ data: bytes, password: senha || undefined }).promise;
+    var pdf = await pdfjsLib.getDocument({ data: bytes, password: senha || undefined, isEvalSupported: false }).promise;
     var linhas = [];
     for (var p = 1; p <= pdf.numPages; p++) {
       var pagina = await pdf.getPage(p);
@@ -54,6 +54,10 @@ export function PdfTexto({ base64, senha, onResultado }: { base64: string; senha
         ref={webview}
         originWhitelist={["*"]}
         source={{ html: HTML, baseUrl: "https://localhost/" }}
+        // Segurança: só a página interna do leitor (o PDF nunca abre links nem outras páginas).
+        onShouldStartLoadWithRequest={(req) => req.url === "about:blank" || req.url.startsWith("https://localhost/")}
+        setSupportMultipleWindows={false}
+        allowFileAccess={false}
         onMessage={(e) => {
           let msg: { tipo: string; temPdfjs?: boolean; ok?: boolean; linhas?: string[]; precisaSenha?: boolean; erro?: string };
           try {

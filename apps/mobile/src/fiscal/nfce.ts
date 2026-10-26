@@ -23,6 +23,20 @@ export function urlConsulta(qr: string): string {
   return `http://sat.sef.sc.gov.br/nfce/consulta?p=${t}`;
 }
 
+/** Endereço "http(s)://site.gov.br/..." é de órgão público (SEFAZ)? Segurança: QR falso não abre página qualquer dentro do app. */
+export function ehEnderecoDoGoverno(url: string): boolean {
+  const m = url.trim().match(/^https?:\/\/([^/?#:@\s]+)(:\d+)?([/?#]|$)/i);
+  if (!m) return false;
+  const host = m[1].toLowerCase();
+  return host === "gov.br" || host.endsWith(".gov.br");
+}
+
+/** Endereço da consulta, ou null se o QR não for de nota fiscal (não aponta para site do governo). */
+export function urlConsultaSegura(qr: string): string | null {
+  const url = urlConsulta(qr);
+  return ehEnderecoDoGoverno(url) ? url : null;
+}
+
 /** Chave de acesso (44 dígitos) embutida no QR, ou null se não for QR de nota. */
 export function chaveDoQr(qr: string): string | null {
   const m = qr.match(/\d{44}/);

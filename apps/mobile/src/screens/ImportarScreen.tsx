@@ -33,6 +33,8 @@ interface Contexto {
   parcelasLancadas: { cartao_id: string | null; valor: number; parcela: number; parcelas: number }[];
 }
 
+const LIMITE_ARQUIVO = 10 * 1024 * 1024;
+
 function somarDiasISO(iso: string, dias: number): string {
   const d = dataDeISO(iso);
   d.setDate(d.getDate() + dias);
@@ -167,6 +169,10 @@ export function ImportarScreen({ navigation }: Props) {
   async function escolherArquivo() {
     const r = await DocumentPicker.getDocumentAsync({ type: "*/*", copyToCacheDirectory: true });
     if (r.canceled || !r.assets[0]) return;
+    // Segurança: extrato/fatura de verdade tem poucos KB; arquivo enorme pode travar o celular.
+    if ((r.assets[0].size ?? 0) > LIMITE_ARQUIVO) {
+      return Alert.alert("Arquivo grande demais", "O arquivo tem mais de 10 MB. Extratos e faturas costumam ter bem menos: confira se escolheu o arquivo certo.");
+    }
     setLendo(true);
     try {
       const file = new File(r.assets[0].uri);

@@ -29,8 +29,8 @@ export function CasaSetupScreen() {
         const { error } = await criarCasa(nomeCasa.trim() || "Minhas finanças", nome);
         if (error) Alert.alert("Não foi possível criar", error);
       } else {
-        if (codigo.trim().length < 6) {
-          Alert.alert("Código", "Digite o código de 6 caracteres que a outra pessoa te passou.");
+        if (codigo.replace(/[^A-Za-z0-9]/g, "").length < 6) {
+          Alert.alert("Código", "Digite o código de convite que a outra pessoa te passou (ex.: ABCD-EFGH).");
           return;
         }
         const { error } = await entrarNaCasa(codigo, nome);
@@ -67,9 +67,10 @@ export function CasaSetupScreen() {
                 rotulo="CÓDIGO DO CONVITE"
                 value={codigo}
                 onChangeText={(t) => setCodigo(t.toUpperCase())}
-                placeholder="Ex.: A1B2C3"
+                placeholder="Ex.: ABCD-EFGH"
                 autoCapitalize="characters"
-                maxLength={6}
+                autoCorrect={false}
+                maxLength={12}
               />
             )}
           </Cartao>
