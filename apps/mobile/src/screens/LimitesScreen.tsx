@@ -4,7 +4,8 @@ import { Alert, Text, TextInput, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, estiloInput, TelaFormulario, IconeCategoria } from "../components/ui";
 import { totalDaCategoriaNoMes } from "../data/limites";
-import { useCategorias } from "../data/hooks";
+import { useCategorias, useEntradasDoMes } from "../data/hooks";
+import { Barra } from "../components/ResumoMes";
 import { centavosDoTexto, formatarReais, hojeISO } from "../lib/format";
 import { atualizar } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
@@ -20,6 +21,14 @@ export function LimitesScreen({ navigation }: Props) {
   const [centavos, setCentavos] = useState<Record<string, number>>(() =>
     Object.fromEntries(categorias.map((c) => [c.id, Math.round((c.limite ?? 0) * 100)])),
   );
+
+  const hoje = new Date();
+  const { total: entradasMes } = useEntradasDoMes(hoje.getFullYear(), hoje.getMonth());
+  const comLimite = categorias.filter((c) => (centavos[c.id] ?? 0) > 0);
+  const totalLimites = comLimite.reduce((s, c) => s + (centavos[c.id] ?? 0), 0) / 100;
+  const gastoComLimite = casa ? comLimite.reduce((s, c) => s + totalDaCategoriaNoMes(casa.id, c.id, mes), 0) : 0;
+  const fracao = totalLimites > 0 ? gastoComLimite / totalLimites : 0;
+  const nivelCor = fracao > 1 ? colors.danger : fracao >= 0.8 ? colors.warning : colors.accent;
 
   function salvar() {
     let mudou = 0;
@@ -41,6 +50,27 @@ export function LimitesScreen({ navigation }: Props) {
       <Text style={[typography.body, { color: colors.textSecondary }]}>
         Quanto vocês querem gastar no máximo, por mês, em cada categoria. Deixe em R$ 0,00 para não ter limite.
       </Text>
+
+      {/* Soma de todos os limites (muda enquanto digita) e como ela se compara com o mês. */}
+      <Cartao>
+        <Text style={typography.label}>TOTAL DOS LIMITES ({comLimite.length} {comLimite.length === 1 ? "CATEGORIA" : "CATEGORIAS"})</Text>
+        <Text style={{ fontSize: 30, fontWeight: "700", color: colors.textPrimary }}>{formatarReais(totalLimites)}</Text>
+        {totalLimites > 0 && (
+          <>
+            <Barra fracao={gastoComLimite / totalLimites} cor={nivelCor} />
+            <Text style={[typography.label, { marginTop: spacing.xs }]}>
+              Já foram {formatarReais(gastoComLimite)} este mês nessas categorias ({Math.round((gastoComLimite / totalLimites) * 100)}%)
+            </Text>
+          </>
+        )}
+        {entradasMes > 0 && totalLimites > 0 && (
+          <Text style={[typography.label, { marginTop: spacing.xs, color: totalLimites > entradasMes ? colors.danger : colors.textSecondary }]}>
+            {totalLimites > entradasMes
+              ? `⚠️ Os limites somam ${formatarReais(totalLimites - entradasMes)} a mais que as entradas do mês (${formatarReais(entradasMes)})`
+              : `Entradas do mês: ${formatarReais(entradasMes)} · ficam ${formatarReais(entradasMes - totalLimites)} fora dos limites`}
+          </Text>
+        )}
+      </Cartao>
       <Cartao style={{ paddingVertical: spacing.xs }}>
         {categorias.map((c, i) => {
           const gasto = casa ? totalDaCategoriaNoMes(casa.id, c.id, mes) : 0;

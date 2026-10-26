@@ -95,6 +95,10 @@ export function PorCategoria({
   const linhas = [...somas.entries()].sort((a, b) => b[1] - a[1]);
   const maior = Math.max(linhas[0][1], 1);
   const corNivel = { ok: colors.accent, atencao: colors.warning, passou: colors.danger };
+  // Soma de todas as categorias com limite: quanto já foi de quanto foi planejado.
+  const comLimite = categorias.filter((c) => c.limite);
+  const totalLimites = comLimite.reduce((s, c) => s + (c.limite ?? 0), 0);
+  const gastoComLimite = comLimite.reduce((s, c) => s + (somas.get(c.id) ?? 0), 0);
 
   return (
     <Cartao>
@@ -106,6 +110,21 @@ export function PorCategoria({
           </TouchableOpacity>
         )}
       </View>
+      {totalLimites > 0 && (
+        <View style={{ marginBottom: spacing.sm, paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+            <Text style={[typography.body, { fontWeight: "600" }]}>🎯 Total dos limites</Text>
+            <Text style={typography.body}>
+              <Text style={{ fontWeight: "600" }}>{mostrarValor(gastoComLimite)}</Text>
+              <Text style={typography.label}> de {mostrarValor(totalLimites)}</Text>
+            </Text>
+          </View>
+          <Barra fracao={gastoComLimite / totalLimites} cor={corNivel[nivelLimite(gastoComLimite, totalLimites)]} />
+          <Text style={[typography.label, { marginTop: 2 }]}>
+            {Math.round((gastoComLimite / totalLimites) * 100)}% somando as {comLimite.length} categorias com limite
+          </Text>
+        </View>
+      )}
       {linhas.map(([id, soma]) => {
         const cat = id ? categoriaPorId.get(id) : undefined;
         const limite = cat?.limite ?? null;
