@@ -41,6 +41,7 @@ export function PagarContaScreen({ navigation, route }: Props) {
       const contaLida = { ...c, valor: c.valor == null ? null : Number(c.valor) } as ContaFixa;
       setConta(contaLida);
       setCentavos(contaLida.valor ? Math.round(contaLida.valor * 100) : 0);
+      if (c.pago_por) setPagoPor(c.pago_por);
       navigation.setOptions({ title: c.nome });
     }
     const p = linhas("contas_pagamentos").find((x) => x.conta_id === contaId && x.competencia === competencia);

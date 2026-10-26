@@ -2,6 +2,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, useEspacoRodape } from "../components/ui";
 import { useCategorias, useContasFixas, usePagamentosDoMes } from "../data/hooks";
 import { emojiCategoria } from "../data/tipos";
@@ -20,6 +21,12 @@ export function corSituacao(c: ContaDoMes): string {
 
 export function ContasScreen({ navigation }: Props) {
   const { mostrarValor } = usePrivacidade();
+  const { membros } = useCasa();
+  // Casal: mostra de quem é cada conta (" · 👤 Will").
+  const quemPaga = (id?: string | null) => {
+    const nome = membros.length > 1 && id ? membros.find((m) => m.user_id === id)?.nome : undefined;
+    return nome ? ` · 👤 ${nome}` : "";
+  };
   const rodape = useEspacoRodape();
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());
@@ -107,6 +114,7 @@ export function ContasScreen({ navigation }: Props) {
                     <Text style={[typography.label, { color: corSituacao(c) }]}>
                       {textoSituacao(c)} · {c.pagamento ? `em ${diaMes(c.pagamento.pago_em)}` : `dia ${diaMes(c.vencimento)}`}
                       {c.parcela ? ` · ${c.parcela.atual}/${c.parcela.total}` : ""}
+                      {quemPaga(c.conta.pago_por)}
                     </Text>
                   </View>
                   <Text style={[typography.body, { fontWeight: "600", marginRight: spacing.sm }]}>{valor != null ? mostrarValor(valor) : "—"}</Text>
@@ -156,6 +164,7 @@ export function ContasScreen({ navigation }: Props) {
                       <Text style={typography.body} numberOfLines={1}>{c.nome}</Text>
                       <Text style={typography.label}>
                         Todo dia {c.dia_vencimento} · {c.valor != null ? "valor fixo" : "valor variável"}
+                        {quemPaga(c.pago_por)}
                         {periodo}
                       </Text>
                     </View>

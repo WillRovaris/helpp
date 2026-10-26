@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { SeletorMes } from "../components/SeletorMes";
 import { Botao, Campo, Chip, estiloInput, TelaFormulario } from "../components/ui";
@@ -44,8 +45,11 @@ function nomeMes(comp: string, curto = false): string {
 
 export function ContaFormScreen({ navigation, route }: Props) {
   const contaId = route.params?.contaId;
-  const { casa } = useCasa();
+  const { casa, membros } = useCasa();
+  const { userId } = useAuth();
   const { categorias } = useCategorias();
+  /** Quem da casa paga esta conta (vem marcado no "Paguei" e conta no fechamento do mês). */
+  const [pagoPor, setPagoPor] = useState<string | null>(contaId ? null : userId);
   const hoje = new Date();
   const [nome, setNome] = useState("");
   const [varia, setVaria] = useState(false);
@@ -80,6 +84,7 @@ export function ContaFormScreen({ navigation, route }: Props) {
         setCentavos(data.valor == null ? 0 : Math.round(Number(data.valor) * 100));
         setDia(String(data.dia_vencimento));
         setCategoriaId(data.categoria_id);
+        setPagoPor(data.pago_por ?? null);
         if (data.inicio || data.meses) setPeriodoCarregado(true);
         setInicio(data.inicio ?? null);
         setMeses(data.meses ?? null);
@@ -112,6 +117,7 @@ export function ContaFormScreen({ navigation, route }: Props) {
       valor: varia ? null : centavos / 100,
       dia_vencimento: d,
       categoria_id: categoriaId,
+      pago_por: pagoPor ?? (membros.length <= 1 ? userId : null),
       ...(usaPeriodo ? { inicio: meses != null ? inicioEfetivo : inicio, meses } : {}),
     };
     if (contaId) atualizar("contas_fixas", contaId, registro);
@@ -229,6 +235,17 @@ export function ContaFormScreen({ navigation, route }: Props) {
           <Chip key={c.id} rotulo={`${emojiCategoria(c.icone)} ${c.nome}`} cor={c.cor} ativo={categoriaId === c.id} onPress={() => setCategoriaId(c.id)} />
         ))}
       </View>
+
+      {membros.length > 1 && (
+        <>
+          <Text style={[typography.label, { marginTop: spacing.lg, marginBottom: spacing.sm }]}>QUEM PAGA ESTA CONTA</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            {membros.map((m) => (
+              <Chip key={m.user_id} rotulo={`👤 ${m.user_id === userId ? `${m.nome} (eu)` : m.nome}`} ativo={pagoPor === m.user_id} onPress={() => setPagoPor(m.user_id)} />
+            ))}
+          </View>
+        </>
+      )}
 
       <Botao titulo="Salvar" onPress={salvar} carregando={salvando} style={{ marginTop: spacing.xl }} />
       {contaId && <Botao titulo="Remover conta" variante="link" onPress={remover} style={{ marginTop: spacing.sm }} />}

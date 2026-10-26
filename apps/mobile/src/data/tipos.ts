@@ -86,6 +86,8 @@ export interface ContaFixa {
   /** Por quantos meses. Vazio = sem prazo. */
   meses?: number | null;
   created_at?: string | null;
+  /** Quem da casa paga esta conta (user_id). */
+  pago_por?: string | null;
 }
 
 export interface PagamentoConta {

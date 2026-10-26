@@ -86,7 +86,7 @@ export function contasComoDespesas(lista: ContaDoMes[], comp: string): Gasto[] {
       categoria_id: c.conta.categoria_id,
       forma_pagamento: "debito" as const,
       cartao_id: null,
-      pago_por: null,
+      pago_por: c.conta.pago_por ?? null, // quem é o responsável pela conta
       nota_id: null,
       parcela: c.parcela?.atual ?? null,
       parcelas: c.parcela?.total ?? null,
