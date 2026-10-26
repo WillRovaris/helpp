@@ -28,4 +28,5 @@ export type RootStackParamList = {
   Limites: undefined;
   Produtos: undefined;
   Produto: { chave: string };
+  Fechamento: { mes?: string } | undefined;
 };

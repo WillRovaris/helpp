@@ -7,7 +7,21 @@ export interface Lembrete {
   quando: Date;
   titulo: string;
   corpo: string;
-  tela: "Contas" | "Cartoes";
+  tela: "Contas" | "Cartoes" | "Fechamento";
+}
+
+const MESES_NOME = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+/** Dia 1 do mês seguinte, no horário escolhido: "📅 Outubro fechou!" (abre o fechamento do mês). */
+export function lembreteFechamento(agora: Date, hora: number): Lembrete {
+  const quando = new Date(agora.getFullYear(), agora.getMonth() + 1, 1, hora, 0, 0, 0);
+  const nome = MESES_NOME[agora.getMonth()];
+  return {
+    quando,
+    titulo: `📅 ${nome[0].toUpperCase()}${nome.slice(1)} fechou!`,
+    corpo: `Veja quanto entrou, quanto saiu e quanto sobrou em ${nome}.`,
+    tela: "Fechamento",
+  };
 }
 
 /**

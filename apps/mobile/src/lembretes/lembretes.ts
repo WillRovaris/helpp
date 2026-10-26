@@ -3,7 +3,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { competencia } from "../lib/contas";
 import { linhas } from "../offline/banco";
-import { planejarLembretes } from "./planejar";
+import { lembreteFechamento, planejarLembretes } from "./planejar";
 
 const CHAVE = "@helpp/lembretes";
 const CANAL = "lembretes";
@@ -79,8 +79,11 @@ export async function reagendarLembretes(casaId: string, forcar = false): Promis
       faturasPagas: new Set((faturasPagas ?? []).map((p) => `${p.cartao_id}|${p.vencimento}`)),
     });
 
+    // Fechamento do mês: aviso no dia 1 do mês seguinte (fica na frente da lista para nunca ser cortado).
+    const todos = [lembreteFechamento(agora, config.hora), ...lembretes];
+
     // Android limita a quantidade de alarmes por app; 60 sobra para 2 meses.
-    for (const l of lembretes.slice(0, 60)) {
+    for (const l of todos.slice(0, 60)) {
       await Notifications.scheduleNotificationAsync({
         content: { title: l.titulo, body: l.corpo, data: { tela: l.tela } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: l.quando, channelId: CANAL },

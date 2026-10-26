@@ -37,6 +37,7 @@ export function ConfiguracoesScreen({ navigation }: Props) {
 
       <Cartao style={{ paddingVertical: spacing.xs }}>
         <Item titulo="📥 Entradas do mês" onPress={() => navigation.navigate("Entradas", {})} />
+        <Item titulo="📅 Fechamento do mês" onPress={() => navigation.navigate("Fechamento", {})} borda />
         <Item titulo="💳 Cartões" onPress={() => navigation.navigate("Cartoes")} borda />
         <Item titulo="🧾 Contas fixas" onPress={() => navigation.navigate("Contas")} borda />
         <Item titulo="🎯 Limites por categoria" onPress={() => navigation.navigate("Limites")} borda />

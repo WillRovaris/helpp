@@ -11,16 +11,22 @@ export function textoResumoMes(opts: {
   gastos: Gasto[];
   categorias: Categoria[];
   membros: Membro[];
-  renda: number | null;
+  /** Entradas do mês e sobra que veio do mês anterior. */
+  entradas: number;
+  saldoAnterior: number;
 }): string {
-  const { gastos, categorias, membros, renda } = opts;
+  const { gastos, categorias, membros, entradas, saldoAnterior } = opts;
   const total = gastos.reduce((s, g) => s + g.valor, 0);
-  const linhas: string[] = [`*Helpp — ${MESES[opts.mes]} ${opts.ano}*`, opts.nomeCasa, "", `💰 *Total de despesas:* ${formatarReais(total)}`];
+  const linhas: string[] = [`*Helpp — ${MESES[opts.mes]} ${opts.ano}*`, opts.nomeCasa, ""];
 
-  if (renda && renda > 0) {
-    const sobra = renda - total;
-    linhas.push(`📥 Renda: ${formatarReais(renda)}`);
-    linhas.push(sobra >= 0 ? `✅ *Sobra:* ${formatarReais(sobra)}` : `⚠️ *Passou:* ${formatarReais(-sobra)}`);
+  if (entradas > 0 || saldoAnterior !== 0) {
+    linhas.push(`📥 Entradas: ${formatarReais(entradas)}`);
+    if (saldoAnterior !== 0) linhas.push(`↪️ Sobra do mês anterior: ${saldoAnterior < 0 ? "−" : ""}${formatarReais(Math.abs(saldoAnterior))}`);
+  }
+  linhas.push(`💰 *Despesas:* ${formatarReais(total)}`);
+  if (entradas > 0 || saldoAnterior !== 0) {
+    const sobra = entradas + saldoAnterior - total;
+    linhas.push(sobra >= 0 ? `✅ *Sobrou:* ${formatarReais(sobra)}` : `⚠️ *Faltou:* ${formatarReais(-sobra)}`);
   }
 
   if (total > 0) {
@@ -42,7 +48,7 @@ export function textoResumoMes(opts: {
     }
   }
 
-  linhas.push("", `${gastos.length} ${gastos.length === 1 ? "lançamento" : "lançamentos"}`);
+  linhas.push("", `${gastos.length} ${gastos.length === 1 ? "despesa" : "despesas"}`);
   return linhas.join("\n");
 }
 

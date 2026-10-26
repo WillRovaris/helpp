@@ -1,6 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthContext";
@@ -8,10 +8,11 @@ import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { StatusSincronizacao } from "../components/StatusSincronizacao";
 import { Botao, Cartao, useEspacoRodape } from "../components/ui";
-import { useCartoes, useCategorias, useContasFixas, useEntradasDoMes, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useSaldoAnterior, useSugestoes, useUltimosGastos } from "../data/hooks";
+import { useCartoes, useCategorias, useContasFixas, useEntradasDoMes, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useResumoDoMes, useSaldoAnterior, useSugestoes, useUltimosGastos } from "../data/hooks";
 import { reagendarLembretes } from "../lembretes/lembretes";
 import { migrarRendasParaEntradas } from "../data/migrarRendas";
 import { useSincronizacao } from "../offline/SincronizacaoContext";
+import { gravarMeta, lerMeta } from "../offline/banco";
 import { competencia, contasComoDespesas, contasDoMes, textoSituacao } from "../lib/contas";
 import { corSituacao } from "./ContasScreen";
 import { emojiCategoria, tituloGasto } from "../data/tipos";
@@ -34,6 +35,13 @@ export function HomeScreen({ navigation }: Props) {
   const hoje = new Date();
   const { gastos, recarregar } = useGastosDoMes(hoje.getFullYear(), hoje.getMonth());
   const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+  const resumoAnterior = useResumoDoMes(mesAnterior.getFullYear(), mesAnterior.getMonth());
+  const chaveFechamento = `fechamento_visto:${casa?.id}:${mesAnterior.getFullYear()}-${mesAnterior.getMonth()}`;
+  const [fechamentoVisto, setFechamentoVisto] = useState(() => !!lerMeta(chaveFechamento));
+  function esconderFechamento() {
+    gravarMeta(chaveFechamento, "1");
+    setFechamentoVisto(true);
+  }
   const { gastos: gastosAnteriores } = useGastosDoMes(mesAnterior.getFullYear(), mesAnterior.getMonth());
   const saldoMesAnterior = useSaldoAnterior(hoje.getFullYear(), hoje.getMonth());
   const { total: entradasMes } = useEntradasDoMes(hoje.getFullYear(), hoje.getMonth());
@@ -104,6 +112,26 @@ export function HomeScreen({ navigation }: Props) {
         </View>
 
         <StatusSincronizacao />
+
+        {/* Primeiros dias do mês: aviso do fechamento do mês que acabou (✕ esconde). */}
+        {hoje.getDate() <= 7 && !fechamentoVisto && (
+          <TouchableOpacity onPress={() => navigation.navigate("Fechamento", {})} activeOpacity={0.8}>
+            <Cartao style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, borderColor: colors.accent }}>
+              <Text style={{ fontSize: 26 }}>📅</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[typography.body, { fontWeight: "700" }]}>{MESES[mesAnterior.getMonth()]} fechou!</Text>
+                <Text style={typography.label}>
+                  {resumoAnterior.totalEntradas > 0 || resumoAnterior.saldoAnterior !== 0
+                    ? `${resumoAnterior.sobra >= 0 ? "Sobrou" : "Faltou"} ${mostrarValor(Math.abs(resumoAnterior.sobra))} · ver o resumo ›`
+                    : `Despesas ${mostrarValor(resumoAnterior.totalDespesas)} · ver o resumo ›`}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={esconderFechamento} hitSlop={10} accessibilityLabel="Esconder aviso">
+                <Text style={{ fontSize: 18, color: colors.textSecondary }}>✕</Text>
+              </TouchableOpacity>
+            </Cartao>
+          </TouchableOpacity>
+        )}
 
         <Cartao>
           <TouchableOpacity onPress={() => navigation.navigate("Historico", {})} activeOpacity={0.8}>

@@ -225,6 +225,28 @@ export function useImportacoes() {
   return { importacoes: itens, ...resto };
 }
 
+/**
+ * Resumo de um mês (mes = 0–11) igual à tela inicial: despesas (com contas fixas não pagas),
+ * entradas, sobra do mês anterior e quanto sobrou. Usado no fechamento do mês.
+ */
+export function useResumoDoMes(ano: number, mes: number) {
+  const { gastos } = useGastosDoMes(ano, mes);
+  const { contas } = useContasFixas();
+  const comp = competencia(ano, mes);
+  const { pagamentos } = usePagamentosDoMes(comp);
+  const { entradas, total: totalEntradas } = useEntradasDoMes(ano, mes);
+  const { saldo: saldoAnterior } = useSaldoAnterior(ano, mes);
+  return useMemo(() => {
+    const m = comp.slice(0, 7);
+    // conta fixa só pesa a partir do mês em que foi cadastrada (igual à sobra do mês)
+    const vigentes = contas.filter((c) => !c.created_at || c.created_at.slice(0, 7) <= m);
+    const despesas = [...gastos, ...contasComoDespesas(contasDoMes(vigentes, pagamentos, comp, hojeISO()), comp)];
+    const totalDespesas = Math.round(despesas.reduce((s, g) => s + g.valor, 0) * 100) / 100;
+    const sobra = Math.round((totalEntradas + saldoAnterior - totalDespesas) * 100) / 100;
+    return { despesas, totalDespesas, entradas, totalEntradas, saldoAnterior, sobra };
+  }, [gastos, contas, pagamentos, comp, entradas, totalEntradas, saldoAnterior]);
+}
+
 /** Produtos comprados (itens das notas fiscais lidas), com preços por compra e por mercado. */
 export function useProdutos() {
   const { itens: itensNota } = useTabela<ItemNota>("nota_itens", (t) => t as ItemNota[], []);
