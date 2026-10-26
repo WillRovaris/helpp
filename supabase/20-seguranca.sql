@@ -260,8 +260,18 @@ begin
                             'contas_pagamentos', 'faturas_pagas', 'exclusoes', 'sugestoes', 'receitas', 'importacoes',
                             'contatos', 'convite_tentativas')
   loop
-    execute format('alter table public.%I enable row level security', t.tablename);
-    execute format('revoke all on public.%I from anon, authenticated', t.tablename);
+    -- Tabela que pertence a outro usuário do banco (ex.: _prisma_migrations): tenta tirar o acesso
+    -- do app; se nem isso for permitido, pula sem interromper o resto.
+    begin
+      execute format('alter table public.%I enable row level security', t.tablename);
+    exception when insufficient_privilege then
+      raise notice 'Sem permissão para ligar RLS em %, pulando', t.tablename;
+    end;
+    begin
+      execute format('revoke all on public.%I from anon, authenticated', t.tablename);
+    exception when insufficient_privilege then
+      raise notice 'Sem permissão para revogar acesso em %, pulando', t.tablename;
+    end;
   end loop;
 end $$;
 
