@@ -49,8 +49,15 @@ export function FechamentoScreen({ navigation, route }: Props) {
     const lim = id ? categoriaPorId.get(id)?.limite : null;
     return lim ? nivelLimite(soma, lim) === "passou" : false;
   });
-  const diff = rAnt.totalDespesas > 0 ? (r.totalDespesas - rAnt.totalDespesas) / rAnt.totalDespesas : null;
+  const totalPassou = estourados.reduce((s, [id, soma]) => s + soma - (categoriaPorId.get(id!)?.limite ?? 0), 0);
+  // Tabela estreita: valor sem centavos ("R$ 1.913"), respeitando o olho.
+  const valorCurto = (v: number) => mostrarValor(Math.round(v)).replace(/,00$/, "");
+  const estiloColuna = { width: 74, textAlign: "right" as const };
+  // Comparação só faz sentido se o mês anterior tinha lançamentos de verdade (não um mês quase vazio).
+  const diffBruto = rAnt.totalDespesas > 0 ? (r.totalDespesas - rAnt.totalDespesas) / rAnt.totalDespesas : null;
+  const diff = diffBruto != null && Math.abs(diffBruto) <= 2 ? diffBruto : null;
   const mesAtual = hojeISO().slice(0, 7);
+  const semPessoa = r.despesas.filter((g) => !g.pago_por || !membros.some((p) => p.user_id === g.pago_por)).reduce((s, g) => s + g.valor, 0);
 
   function compartilhar() {
     if (!casa) return;
@@ -107,13 +114,31 @@ export function FechamentoScreen({ navigation, route }: Props) {
 
       {estourados.length > 0 && (
         <Cartao>
-          <Text style={[typography.label, { color: colors.danger, marginBottom: spacing.xs }]}>🚨 PASSARAM DO LIMITE</Text>
-          {estourados.map(([id, soma]) => {
+          <Text style={[typography.label, { color: colors.danger }]}>
+            🚨 {estourados.length} {estourados.length === 1 ? "CATEGORIA PASSOU" : "CATEGORIAS PASSARAM"} DO LIMITE
+          </Text>
+          <Text style={[typography.label, { marginBottom: spacing.sm }]}>Juntas passaram {mostrarValor(totalPassou)}</Text>
+          {/* Tabela: categoria | gastou | limite | passou */}
+          <View style={{ flexDirection: "row", paddingBottom: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+            <Text style={[typography.label, { flex: 1 }]}>CATEGORIA</Text>
+            <Text style={[typography.label, estiloColuna]}>GASTOU</Text>
+            <Text style={[typography.label, estiloColuna]}>LIMITE</Text>
+            <Text style={[typography.label, estiloColuna]}>PASSOU</Text>
+          </View>
+          {estourados.map(([id, soma], i) => {
             const c = categoriaPorId.get(id!)!;
             return (
-              <Text key={id} style={typography.body}>
-                {emojiCategoria(c.icone)} {c.nome}: {mostrarValor(soma)} de {mostrarValor(c.limite!)}
-              </Text>
+              <View
+                key={id}
+                style={{ flexDirection: "row", alignItems: "center", paddingVertical: 6, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}
+              >
+                <Text style={[typography.body, { flex: 1, fontSize: 14 }]} numberOfLines={1}>
+                  {emojiCategoria(c.icone)} {c.nome}
+                </Text>
+                <Text style={[typography.body, estiloColuna, { fontSize: 13 }]}>{valorCurto(soma)}</Text>
+                <Text style={[typography.body, estiloColuna, { fontSize: 13, color: colors.textSecondary }]}>{valorCurto(c.limite!)}</Text>
+                <Text style={[typography.body, estiloColuna, { fontSize: 13, fontWeight: "700", color: colors.danger }]}>+{valorCurto(soma - c.limite!)}</Text>
+              </View>
             );
           })}
         </Cartao>
@@ -162,11 +187,15 @@ export function FechamentoScreen({ navigation, route }: Props) {
 
       {membros.length > 1 && r.totalDespesas > 0 && (
         <Cartao>
-          <Text style={[typography.label, { marginBottom: spacing.sm }]}>QUEM PAGOU</Text>
+          <Text style={typography.label}>QUEM PAGOU AS DESPESAS</Text>
+          <Text style={[typography.label, { marginBottom: spacing.sm }]}>Quanto das despesas do mês saiu do bolso de cada um (campo &quot;Quem pagou&quot; ao lançar).</Text>
           {membros.map((p) => {
             const soma = r.despesas.filter((g) => g.pago_por === p.user_id).reduce((s, g) => s + g.valor, 0);
             return <Linha key={p.user_id} rotulo={`👤 ${p.nome}`} valor={`${mostrarValor(soma)}  ${Math.round((soma / r.totalDespesas) * 100)}%`} />;
           })}
+          {semPessoa > 0 && (
+            <Linha rotulo="❔ Sem quem pagou (contas fixas em aberto)" valor={`${mostrarValor(semPessoa)}  ${Math.round((semPessoa / r.totalDespesas) * 100)}%`} />
+          )}
         </Cartao>
       )}
 
