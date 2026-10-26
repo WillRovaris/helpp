@@ -279,6 +279,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
             onPress={() => setCategoriaId(categoriaId === c.id ? null : c.id)}
           />
         ))}
+        <Chip rotulo="+ Nova" ativo={false} onPress={() => navigation.navigate("CategoriaForm", {})} />
       </Secao>
 
       <Secao titulo="COMO PAGOU">

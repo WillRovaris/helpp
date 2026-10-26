@@ -71,8 +71,20 @@ export function tituloGasto(g: Gasto, nomeCategoria: string | undefined): string
 }
 
 export function emojiCategoria(icone: string | undefined): string {
-  return (icone && EMOJI[icone]) ?? "🏷️";
+  if (!icone) return "🏷️";
+  // Categorias padrão guardam um nome ("cart"); as criadas no app guardam o próprio emoji.
+  return EMOJI[icone] ?? (/^[a-z-]+$/.test(icone) ? "🏷️" : icone);
 }
+
+/** Emojis para escolher ao criar/editar categoria. */
+export const EMOJIS_CATEGORIA = [
+  "🛒", "🏠", "🧾", "🚗", "⛽", "🚌", "💊", "🏥", "🦷", "🎮", "🍽️", "🍔", "☕", "🍺", "🐾", "🎓",
+  "📚", "👕", "👟", "💄", "💇", "🎁", "✈️", "🏖️", "💸", "⛪", "💡", "💧", "📱", "🌐", "📺", "🎬",
+  "🏋️", "⚽", "👶", "🧸", "🧹", "🔧", "🛠️", "🪴", "💼", "🏦", "💳", "📈", "🎂", "🎉", "🍰", "📦",
+];
+
+/** Cores para escolher ao criar/editar categoria. */
+export const CORES_CATEGORIA = ["#16A34A", "#0EA5E9", "#6366F1", "#F59E0B", "#EF4444", "#A855F7", "#F97316", "#A16207", "#2563EB", "#DB2777", "#0891B2", "#0F766E", "#7C3AED", "#64748B"];
 
 export interface ContaFixa {
   id: string;

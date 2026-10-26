@@ -29,4 +29,6 @@ export type RootStackParamList = {
   Produtos: undefined;
   Produto: { chave: string };
   Fechamento: { mes?: string } | undefined;
+  Categorias: undefined;
+  CategoriaForm: { categoriaId?: string } | undefined;
 };
