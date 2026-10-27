@@ -3,11 +3,13 @@ import React, { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { Barra } from "../components/ResumoMes";
-import { Botao, Cartao, useEspacoRodape, IconeCategoria } from "../components/ui";
+import { Botao, Cartao, Chip, useEspacoRodape, IconeCategoria } from "../components/ui";
 import { useCategorias, useResumoDoMes } from "../data/hooks";
 import { tituloGasto } from "../data/tipos";
-import { hojeISO, MESES } from "../lib/format";
+import { formatarReais, hojeISO, MESES } from "../lib/format";
+import { calcularAcerto } from "../lib/acerto";
 import { nivelLimite } from "../lib/limites";
+import { gravarMeta, lerMeta } from "../offline/banco";
 import { enviarWhatsApp, textoResumoMes } from "../lib/relatorio";
 import { mesAnterior } from "../lib/saldo";
 import type { RootStackParamList } from "../navigation/types";
@@ -59,11 +61,37 @@ export function FechamentoScreen({ navigation, route }: Props) {
   const mesAtual = hojeISO().slice(0, 7);
   const semPessoa = r.despesas.filter((g) => !g.pago_por || !membros.some((p) => p.user_id === g.pago_por)).reduce((s, g) => s + g.valor, 0);
 
+  // Acerto do casal: divisão escolhida fica guardada neste celular.
+  const chaveDivisao = `divisao_acerto:${casa?.id}`;
+  const [divisao, setDivisao] = useState<"metade" | "proporcional">(() => (lerMeta(chaveDivisao) === "proporcional" ? "proporcional" : "metade"));
+  function escolherDivisao(d: "metade" | "proporcional") {
+    gravarMeta(chaveDivisao, d);
+    setDivisao(d);
+  }
+  const entradaDe = (id: string) => r.entradas.filter((e) => e.recebido_por === id).reduce((s, e) => s + e.valor, 0);
+  const temEntradasPorPessoa = membros.length === 2 && membros.every((p) => entradaDe(p.user_id) > 0);
+  const acerto =
+    membros.length === 2 && r.totalDespesas - semPessoa > 0
+      ? calcularAcerto(
+          membros.map((p) => ({
+            id: p.user_id,
+            nome: p.nome,
+            pagou: r.despesas.filter((g) => g.pago_por === p.user_id).reduce((s, g) => s + g.valor, 0),
+            peso: divisao === "proporcional" && temEntradasPorPessoa ? entradaDe(p.user_id) : 1,
+          })),
+        )
+      : null;
+  const colunaAcerto = { width: 84, textAlign: "right" as const };
+
   function compartilhar() {
     if (!casa) return;
-    enviarWhatsApp(
-      textoResumoMes({ nomeCasa: casa.nome, ano, mes: m, gastos: r.despesas, categorias, membros, entradas: r.totalEntradas, saldoAnterior: r.saldoAnterior }),
-    );
+    const texto = textoResumoMes({ nomeCasa: casa.nome, ano, mes: m, gastos: r.despesas, categorias, membros, entradas: r.totalEntradas, saldoAnterior: r.saldoAnterior });
+    const linhaAcerto = acerto
+      ? acerto.transferencia
+        ? `\n\n👫 *Acerto:* ${acerto.transferencia.de} deve ${formatarReais(acerto.transferencia.valor)} para ${acerto.transferencia.para}`
+        : "\n\n👫 *Acerto:* contas acertadas"
+      : "";
+    enviarWhatsApp(texto + linhaAcerto);
   }
 
   return (
@@ -191,16 +219,47 @@ export function FechamentoScreen({ navigation, route }: Props) {
         </Cartao>
       )}
 
-      {membros.length > 1 && r.totalDespesas > 0 && (
+      {acerto && (
         <Cartao>
-          <Text style={typography.label}>QUEM PAGOU AS DESPESAS</Text>
-          <Text style={[typography.label, { marginBottom: spacing.sm }]}>Quanto das despesas do mês saiu do bolso de cada um (campo &quot;Quem pagou&quot; ao lançar).</Text>
-          {membros.map((p) => {
-            const soma = r.despesas.filter((g) => g.pago_por === p.user_id).reduce((s, g) => s + g.valor, 0);
-            return <Linha key={p.user_id} rotulo={`👤 ${p.nome}`} valor={`${mostrarValor(soma)}  ${Math.round((soma / r.totalDespesas) * 100)}%`} />;
-          })}
+          <Text style={typography.label}>👫 ACERTO DO CASAL</Text>
+          <Text style={[typography.label, { marginBottom: spacing.sm }]}>Quanto cada um pagou das despesas e quanto seria a parte de cada um.</Text>
+          <View style={{ flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md }}>
+            <Chip rotulo="½ Meio a meio" ativo={divisao === "metade"} onPress={() => escolherDivisao("metade")} />
+            <Chip rotulo="⚖️ Pelas entradas" ativo={divisao === "proporcional"} onPress={() => escolherDivisao("proporcional")} />
+          </View>
+          {divisao === "proporcional" && !temEntradasPorPessoa && (
+            <Text style={[typography.label, { marginBottom: spacing.sm, color: colors.warning }]}>
+              Lance as entradas com &quot;quem recebeu&quot; para dividir pela renda de cada um. Por enquanto fica meio a meio.
+            </Text>
+          )}
+          {/* Tabela: pessoa | pagou | parte | diferença */}
+          <View style={{ flexDirection: "row", paddingBottom: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+            <Text style={[typography.label, { flex: 1 }]}>PESSOA</Text>
+            <Text style={[typography.label, colunaAcerto]}>PAGOU</Text>
+            <Text style={[typography.label, colunaAcerto]}>PARTE</Text>
+          </View>
+          {acerto.pessoas.map((p) => (
+            <View key={p.id} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 6 }}>
+              <Text style={[typography.body, { flex: 1 }]} numberOfLines={1}>
+                👤 {p.nome} <Text style={typography.label}>({Math.round(p.percentual * 100)}%)</Text>
+              </Text>
+              <Text style={[typography.body, colunaAcerto, { fontSize: 14 }]}>{valorCurto(p.pagou)}</Text>
+              <Text style={[typography.body, colunaAcerto, { fontSize: 14, color: colors.textSecondary }]}>{valorCurto(p.parte)}</Text>
+            </View>
+          ))}
+          <View style={{ marginTop: spacing.sm, padding: spacing.md, borderRadius: 12, backgroundColor: colors.background }}>
+            {acerto.transferencia ? (
+              <Text style={[typography.body, { fontWeight: "700", textAlign: "center" }]}>
+                💸 {acerto.transferencia.de} deve {mostrarValor(acerto.transferencia.valor)} para {acerto.transferencia.para}
+              </Text>
+            ) : (
+              <Text style={[typography.body, { fontWeight: "700", textAlign: "center", color: colors.accent }]}>✅ Contas acertadas: cada um pagou a sua parte</Text>
+            )}
+          </View>
           {semPessoa > 0 && (
-            <Linha rotulo="❔ Sem quem pagou (contas fixas em aberto)" valor={`${mostrarValor(semPessoa)}  ${Math.round((semPessoa / r.totalDespesas) * 100)}%`} />
+            <Text style={[typography.label, { marginTop: spacing.sm }]}>
+              Fora da conta: {mostrarValor(semPessoa)} sem &quot;quem pagou&quot; (contas fixas em aberto sem responsável).
+            </Text>
           )}
         </Cartao>
       )}
