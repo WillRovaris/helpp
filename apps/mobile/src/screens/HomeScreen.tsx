@@ -1,7 +1,7 @@
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback, useEffect, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
@@ -35,6 +35,7 @@ export function HomeScreen({ navigation }: Props) {
   const hoje = new Date();
   const { gastos, recarregar } = useGastosDoMes(hoje.getFullYear(), hoje.getMonth());
   const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+  const [escolhendoLancamento, setEscolhendoLancamento] = useState(false);
   const resumoAnterior = useResumoDoMes(mesAnterior.getFullYear(), mesAnterior.getMonth());
   const chaveFechamento = `fechamento_visto:${casa?.id}:${mesAnterior.getFullYear()}-${mesAnterior.getMonth()}`;
   const [fechamentoVisto, setFechamentoVisto] = useState(() => !!lerMeta(chaveFechamento));
@@ -122,8 +123,8 @@ export function HomeScreen({ navigation }: Props) {
                 <Text style={[typography.body, { fontWeight: "700" }]}>{MESES[mesAnterior.getMonth()]} fechou!</Text>
                 <Text style={typography.label}>
                   {resumoAnterior.totalEntradas > 0 || resumoAnterior.saldoAnterior !== 0
-                    ? `${resumoAnterior.sobra >= 0 ? "Sobrou" : "Faltou"} ${mostrarValor(Math.abs(resumoAnterior.sobra))} · ver o resumo ›`
-                    : `Despesas ${mostrarValor(resumoAnterior.totalDespesas)} · ver o resumo ›`}
+                    ? `${resumoAnterior.sobra >= 0 ? "Sobrou" : "Faltou"} ${mostrarValor(Math.abs(resumoAnterior.sobra))} · ver o balanço ›`
+                    : `Despesas ${mostrarValor(resumoAnterior.totalDespesas)} · ver o balanço ›`}
                 </Text>
               </View>
               <TouchableOpacity onPress={esconderFechamento} hitSlop={10} accessibilityLabel="Esconder aviso">
@@ -151,15 +152,42 @@ export function HomeScreen({ navigation }: Props) {
           </View>
         </Cartao>
 
-        <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <Botao titulo="+ Lançar despesa" onPress={() => navigation.navigate("GastoForm", {})} style={{ minHeight: 58, flex: 1, paddingHorizontal: spacing.sm }} />
-          <Botao titulo="+ Lançar entrada" variante="secundario" onPress={() => navigation.navigate("ReceitaForm", {})} style={{ minHeight: 58, flex: 1, paddingHorizontal: spacing.sm }} />
-        </View>
+        <Botao titulo="+ Lançamento" onPress={() => setEscolhendoLancamento(true)} style={{ minHeight: 58 }} />
         <Botao
-          titulo={`💳 Cartões de crédito${temFaturaAVencer ? "  ⏰" : ""}`}
-          onPress={() => navigation.navigate("Cartoes")}
+          titulo={`📊 Relatórios${temFaturaAVencer ? "  ⏰" : ""}`}
+          variante="secundario"
+          onPress={() => navigation.navigate("Relatorios")}
           style={{ minHeight: 58 }}
         />
+
+        {/* "+ Lançamento": escolhe entre despesa e receita. */}
+        <Modal visible={escolhendoLancamento} transparent animationType="fade" onRequestClose={() => setEscolhendoLancamento(false)}>
+          <Pressable onPress={() => setEscolhendoLancamento(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+            <Pressable style={{ backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg, paddingBottom: rodape, gap: spacing.md }}>
+              <Text style={[typography.label, { textAlign: "center" }]}>O QUE VOCÊ QUER LANÇAR?</Text>
+              <OpcaoLancamento
+                emoji="💸"
+                titulo="Lançar despesa"
+                detalhe="Compra, conta, Pix, cartão, nota fiscal"
+                cor={colors.danger}
+                onPress={() => {
+                  setEscolhendoLancamento(false);
+                  navigation.navigate("GastoForm", {});
+                }}
+              />
+              <OpcaoLancamento
+                emoji="💰"
+                titulo="Lançar receita"
+                detalhe="Salário, atividade extra, comissão, bônus"
+                cor={colors.accent}
+                onPress={() => {
+                  setEscolhendoLancamento(false);
+                  navigation.navigate("ReceitaForm", {});
+                }}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {contasMes.length > 0 && (
           <TouchableOpacity onPress={() => navigation.navigate("Contas")} activeOpacity={0.8}>
@@ -218,5 +246,25 @@ export function HomeScreen({ navigation }: Props) {
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/** Opção grande do "+ Lançamento" (despesa ou receita). */
+function OpcaoLancamento({ emoji, titulo, detalhe, cor, onPress }: { emoji: string; titulo: string; detalhe: string; cor: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md, borderRadius: 14, borderWidth: 1, borderColor: cor, backgroundColor: colors.surface }}
+    >
+      <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: cor, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ fontSize: 24 }}>{emoji}</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[typography.body, { fontWeight: "700", fontSize: 17 }]}>{titulo}</Text>
+        <Text style={typography.label}>{detalhe}</Text>
+      </View>
+      <Text style={{ color: colors.textSecondary, fontSize: 20 }}>›</Text>
+    </TouchableOpacity>
   );
 }

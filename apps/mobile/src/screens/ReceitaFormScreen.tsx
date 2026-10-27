@@ -36,7 +36,7 @@ export function ReceitaFormScreen({ navigation, route }: Props) {
   const [escolhendoTipo, setEscolhendoTipo] = useState(false);
 
   useEffect(() => {
-    navigation.setOptions({ title: receitaId ? "Editar entrada" : "Lançar entrada" });
+    navigation.setOptions({ title: receitaId ? "Editar receita" : "Lançar receita" });
   }, [navigation, receitaId]);
 
   const t = tipoReceita(tipo);

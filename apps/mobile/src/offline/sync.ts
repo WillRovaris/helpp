@@ -65,6 +65,14 @@ async function executar(op: Operacao): Promise<void> {
     }
     // Já existe na nuvem (ex.: o outro celular registrou a mesma conta paga): fica a versão da nuvem.
     if (erro?.code === "23505") {
+      // Mesmo id já está lá (os dois celulares criaram o mesmo registro): traz a versão da nuvem
+      // em vez de só apagar — senão ele some deste celular para sempre (o cursor já passou dele).
+      const chave = op.tabela === "membros" ? "user_id" : "id";
+      const { data: daNuvem } = await supabase.from(op.tabela).select("*").eq(chave, idDe(op.tabela, op.dados)).maybeSingle();
+      if (daNuvem) {
+        gravarLocal(op.tabela, [daNuvem]);
+        return;
+      }
       apagarLocal(op.tabela, [idDe(op.tabela, op.dados)]);
       // Conta fixa paga nos dois celulares: a despesa deste pagamento repetido também sai.
       if (op.tabela === "contas_pagamentos" && op.dados.gasto_id) {
@@ -226,8 +234,17 @@ export function sincronizar(casaId: string, meuId: string | null): Promise<Resul
   return emAndamento;
 }
 
+/** Muda quando for preciso que todos os celulares baixem tudo de novo uma vez (conserta cópias diferentes da nuvem). */
+const VERSAO_RECARGA = "2026-10-27";
+
 async function rodarCiclo(casaId: string, meuId: string | null): Promise<ResultadoSync> {
   try {
+    const chaveRecarga = `recarga:${casaId}`;
+    if (lerMeta(chaveRecarga) !== VERSAO_RECARGA) {
+      // Sem cursor, cada tabela é trazida inteira e trocada (depois de enviar a fila, logo abaixo).
+      for (const t of TABELAS) gravarMeta(`cursor:${casaId}:${t}`, null);
+      gravarMeta(chaveRecarga, VERSAO_RECARGA);
+    }
     await enviarFila();
     const novasDeOutros: Linha[] = [];
     for (const t of TABELAS) {

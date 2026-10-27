@@ -19,7 +19,7 @@ export function lembreteFechamento(agora: Date, hora: number): Lembrete {
   return {
     quando,
     titulo: `📅 ${nome[0].toUpperCase()}${nome.slice(1)} fechou!`,
-    corpo: `Veja quanto entrou, quanto saiu e quanto sobrou em ${nome}.`,
+    corpo: `Veja o balanço: quanto entrou, quanto saiu e quanto sobrou em ${nome}.`,
     tela: "Fechamento",
   };
 }

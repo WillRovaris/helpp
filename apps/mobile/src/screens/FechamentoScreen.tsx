@@ -59,6 +59,9 @@ export function FechamentoScreen({ navigation, route }: Props) {
   const diffBruto = rAnt.totalDespesas > 0 ? (r.totalDespesas - rAnt.totalDespesas) / rAnt.totalDespesas : null;
   const diff = diffBruto != null && Math.abs(diffBruto) <= 2 ? diffBruto : null;
   const mesAtual = hojeISO().slice(0, 7);
+  // Mês que ainda vai vir: mostra o que já está previsto (parcelas, contas fixas, entradas que repetem).
+  const futuro = mes > mesAtual;
+  const previstos = futuro ? [...r.despesas].sort((x, y) => (x.data < y.data ? -1 : x.data > y.data ? 1 : 0)) : [];
   const semPessoa = r.despesas.filter((g) => !g.pago_por || !membros.some((p) => p.user_id === g.pago_por)).reduce((s, g) => s + g.valor, 0);
 
   // Acerto do casal: divisão escolhida fica guardada neste celular.
@@ -102,11 +105,11 @@ export function FechamentoScreen({ navigation, route }: Props) {
         </TouchableOpacity>
         <Text style={[typography.body, { fontWeight: "700", fontSize: 18 }]}>
           {MESES[m]} {ano}
-          {mes === mesAtual ? " (até hoje)" : ""}
+          {mes === mesAtual ? " (até hoje)" : futuro ? " (previsão)" : ""}
         </Text>
         <TouchableOpacity
-          onPress={() => mes < mesAtual && setMes(proximoMes(mes))}
-          style={{ padding: spacing.sm, opacity: mes < mesAtual ? 1 : 0.3 }}
+          onPress={() => setMes(proximoMes(mes))}
+          style={{ padding: spacing.sm }}
           accessibilityLabel="Próximo mês"
         >
           <Text style={{ fontSize: 22, color: colors.accent }}>›</Text>
@@ -116,7 +119,7 @@ export function FechamentoScreen({ navigation, route }: Props) {
       <Cartao>
         {temEntradas ? (
           <>
-            <Text style={typography.label}>{r.sobra >= 0 ? "✅ SOBROU" : "⚠️ FALTOU"}</Text>
+            <Text style={typography.label}>{futuro ? (r.sobra >= 0 ? "🔮 VAI SOBRAR" : "⚠️ VAI FALTAR") : r.sobra >= 0 ? "✅ SOBROU" : "⚠️ FALTOU"}</Text>
             <Text style={{ fontSize: 36, fontWeight: "700", color: r.sobra >= 0 ? colors.accent : colors.danger }}>{mostrarValor(Math.abs(r.sobra))}</Text>
           </>
         ) : (
@@ -139,6 +142,35 @@ export function FechamentoScreen({ navigation, route }: Props) {
         )}
         {!temEntradas && <Text style={[typography.label, { marginTop: spacing.sm }]}>Lance as entradas do mês para ver quanto sobrou.</Text>}
       </Cartao>
+
+      {futuro && (
+        <Cartao>
+          <Text style={typography.label}>📋 LANÇAMENTOS PREVISTOS ({previstos.length})</Text>
+          <Text style={[typography.label, { marginBottom: spacing.sm }]}>Parcelas, contas fixas e compras no cartão que caem neste mês.</Text>
+          {previstos.length === 0 ? (
+            <Text style={[typography.body, { color: colors.textSecondary }]}>Nada previsto ainda para este mês.</Text>
+          ) : (
+            previstos.map((g, i) => {
+              const c = g.categoria_id ? categoriaPorId.get(g.categoria_id) : undefined;
+              return (
+                <View key={g.id} style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: 6, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
+                  <IconeCategoria categoria={c} tamanho={28} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={typography.body} numberOfLines={1}>
+                      {tituloGasto(g, c?.nome)}
+                    </Text>
+                    <Text style={typography.label}>
+                      {g.data.split("-").reverse().slice(0, 2).join("/")}
+                      {g.contaFixa ? " · conta fixa" : g.cartao_id ? " · cartão" : ""}
+                    </Text>
+                  </View>
+                  <Text style={[typography.body, { fontWeight: "600" }]}>{mostrarValor(g.valor)}</Text>
+                </View>
+              );
+            })
+          )}
+        </Cartao>
+      )}
 
       {estourados.length > 0 && (
         <Cartao>

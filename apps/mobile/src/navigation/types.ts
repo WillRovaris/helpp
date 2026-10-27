@@ -31,4 +31,5 @@ export type RootStackParamList = {
   Fechamento: { mes?: string } | undefined;
   Categorias: undefined;
   CategoriaForm: { categoriaId?: string } | undefined;
+  Relatorios: undefined;
 };
