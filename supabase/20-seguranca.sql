@@ -258,7 +258,7 @@ begin
     where schemaname = 'public'
       and tablename not in ('casas', 'membros', 'categorias', 'cartoes', 'notas', 'nota_itens', 'gastos', 'contas_fixas',
                             'contas_pagamentos', 'faturas_pagas', 'exclusoes', 'sugestoes', 'receitas', 'importacoes',
-                            'contatos', 'convite_tentativas')
+                            'contatos', 'convite_tentativas', 'caixinhas', 'caixinha_movimentos')
   loop
     -- Tabela que pertence a outro usuário do banco (ex.: _prisma_migrations): tenta tirar o acesso
     -- do app; se nem isso for permitido, pula sem interromper o resto.

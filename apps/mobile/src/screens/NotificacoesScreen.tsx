@@ -42,6 +42,29 @@ export function NotificacoesScreen() {
           )}
         </Cartao>
       )}
+
+      {lembretes && (
+        <Cartao>
+          <Text style={[typography.label, { marginBottom: spacing.xs }]}>🌙 LEMBRETE PARA LANÇAR AS DESPESAS</Text>
+          <Text style={[typography.label, { marginBottom: spacing.md }]}>
+            Toda noite: &quot;Lançou as despesas de hoje?&quot;. Não avisa nos dias em que alguém da casa já lançou alguma despesa.
+          </Text>
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <Chip rotulo="Ligado" ativo={lembretes.noturno} onPress={() => mudar({ ...lembretes, noturno: true })} />
+            <Chip rotulo="Desligado" ativo={!lembretes.noturno} onPress={() => mudar({ ...lembretes, noturno: false })} />
+          </View>
+          {lembretes.noturno && (
+            <>
+              <Text style={[typography.label, { marginTop: spacing.md, marginBottom: spacing.sm }]}>HORÁRIO</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                {[19, 20, 21, 22, 23].map((h) => (
+                  <Chip key={h} rotulo={`${h}h`} ativo={lembretes.horaNoturno === h} onPress={() => mudar({ ...lembretes, horaNoturno: h })} />
+                ))}
+              </View>
+            </>
+          )}
+        </Cartao>
+      )}
     </ScrollView>
   );
 }

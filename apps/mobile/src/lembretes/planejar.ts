@@ -7,7 +7,22 @@ export interface Lembrete {
   quando: Date;
   titulo: string;
   corpo: string;
-  tela: "Contas" | "Cartoes" | "Fechamento";
+  tela: "Contas" | "Cartoes" | "Fechamento" | "Lancar";
+}
+
+/**
+ * Lembrete à noite para lançar as despesas do dia (próximos 7 dias, no horário escolhido).
+ * Hoje fica de fora se já lançaram alguma despesa hoje.
+ */
+export function lembretesNoturnos(agora: Date, hora: number, lancouHoje: boolean): Lembrete[] {
+  const lista: Lembrete[] = [];
+  for (let d = 0; d < 7; d++) {
+    if (d === 0 && lancouHoje) continue;
+    const quando = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + d, hora, 0, 0, 0);
+    if (quando <= agora) continue;
+    lista.push({ quando, titulo: "📝 Lançou as despesas de hoje?", corpo: "Leva um minuto e o mês fica certinho. Toque para lançar.", tela: "Lancar" });
+  }
+  return lista;
 }
 
 const MESES_NOME = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];

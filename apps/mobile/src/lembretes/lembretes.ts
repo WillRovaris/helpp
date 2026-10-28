@@ -3,7 +3,8 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { competencia } from "../lib/contas";
 import { linhas } from "../offline/banco";
-import { lembreteFechamento, planejarLembretes } from "./planejar";
+import { hojeISO } from "../lib/format";
+import { lembreteFechamento, lembretesNoturnos, planejarLembretes } from "./planejar";
 
 const CHAVE = "@helpp/lembretes";
 const CANAL = "lembretes";
@@ -11,9 +12,12 @@ const CANAL = "lembretes";
 export interface ConfigLembretes {
   ativo: boolean;
   hora: number;
+  /** Lembrete à noite para lançar as despesas do dia. */
+  noturno: boolean;
+  horaNoturno: number;
 }
 
-const PADRAO: ConfigLembretes = { ativo: true, hora: 9 };
+const PADRAO: ConfigLembretes = { ativo: true, hora: 9, noturno: false, horaNoturno: 21 };
 
 // Notificação que chega com o app aberto também aparece.
 Notifications.setNotificationHandler({
@@ -35,18 +39,28 @@ export async function salvarConfigLembretes(c: ConfigLembretes, casaId: string |
 }
 
 let ultimo = 0;
+let ultimoLancou: boolean | null = null;
+
+/** Alguém da casa já lançou despesa hoje (data de hoje ou registrada hoje)? */
+function lancouHoje(casaId: string): boolean {
+  const hoje = hojeISO();
+  return linhas("gastos").some((g) => g.casa_id === casaId && (g.data === hoje || (g.created_at && new Date(g.created_at).toDateString() === new Date().toDateString())));
+}
 
 /**
  * Refaz todos os lembretes a partir dos dados atuais (contas abertas e cartões).
  * Chamado ao abrir a tela inicial; no máximo uma vez por minuto, a não ser que `forcar`.
  */
 export async function reagendarLembretes(casaId: string, forcar = false): Promise<void> {
-  if (!forcar && Date.now() - ultimo < 60_000) return;
+  // Lançou a primeira despesa do dia: refaz na hora (o lembrete da noite de hoje sai).
+  const lancou = lancouHoje(casaId);
+  if (!forcar && Date.now() - ultimo < 60_000 && lancou === ultimoLancou) return;
   ultimo = Date.now();
+  ultimoLancou = lancou;
   try {
     const config = await lerConfigLembretes();
     await Notifications.cancelAllScheduledNotificationsAsync();
-    if (!config.ativo) return;
+    if (!config.ativo && !config.noturno) return;
 
     const perm = await Notifications.getPermissionsAsync();
     if (!perm.granted) {
@@ -69,7 +83,7 @@ export async function reagendarLembretes(casaId: string, forcar = false): Promis
       .map((c) => ({ id: c.id, nome: c.nome, dia_fechamento: c.dia_fechamento, dia_vencimento: c.dia_vencimento }));
     const faturasPagas = daCasa("faturas_pagas");
 
-    const lembretes = planejarLembretes({
+    const lembretes = !config.ativo ? [] : planejarLembretes({
       agora,
       hora: config.hora,
       competencias: comps,
@@ -80,7 +94,11 @@ export async function reagendarLembretes(casaId: string, forcar = false): Promis
     });
 
     // Fechamento do mês: aviso no dia 1 do mês seguinte (fica na frente da lista para nunca ser cortado).
-    const todos = [lembreteFechamento(agora, config.hora), ...lembretes];
+    const todos = [
+      ...(config.ativo ? [lembreteFechamento(agora, config.hora)] : []),
+      ...(config.noturno ? lembretesNoturnos(agora, config.horaNoturno, lancou) : []),
+      ...lembretes,
+    ];
 
     // Android limita a quantidade de alarmes por app; 60 sobra para 2 meses.
     for (const l of todos.slice(0, 60)) {

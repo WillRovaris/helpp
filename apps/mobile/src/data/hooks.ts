@@ -7,7 +7,7 @@ import { receitaNoMes, saldoAnterior } from "../lib/saldo";
 import { agruparProdutos, type ItemNota, type NotaResumo } from "../lib/produtos";
 import { type Linha, linhas, ouvirMudancas, type Tabela } from "../offline/banco";
 import { useSincronizacao } from "../offline/SincronizacaoContext";
-import type { Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, Importacao, PagamentoConta, Receita, Sugestao } from "./tipos";
+import type { Caixinha, Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, Importacao, MovimentoCaixinha, PagamentoConta, Receita, Sugestao } from "./tipos";
 
 /**
  * Lista de uma tabela da casa, lida da cópia no celular (funciona sem internet).
@@ -189,12 +189,25 @@ export function useEntradasDoMes(ano: number, mes: number) {
  */
 export function useSaldoAnterior(ano: number, mes: number) {
   const { casa } = useCasa();
+  const calc = useCalculoMensal();
+  const alvo = competencia(ano, mes).slice(0, 7);
+  return useMemo(() => {
+    const ajustes = casa?.saldos_iniciais ?? {};
+    return { saldo: calc.saldoAnterior(alvo), ajustado: ajustes[alvo] != null, mes: alvo };
+  }, [casa, calc, alvo]);
+}
+
+/**
+ * Contas de qualquer mês (YYYY-MM), do mesmo jeito da tela inicial: entradas, despesas
+ * (com contas fixas não pagas) e sobra que veio do mês anterior. Base do Balanço e do gráfico.
+ */
+export function useCalculoMensal() {
+  const { casa } = useCasa();
   const { cartoes } = useCartoes();
   const { contas } = useContasFixas();
   const { receitas } = useReceitas();
   const { itens: gastos } = useTabela<Gasto>("gastos", (t) => t.map(comoGasto), []);
   const { itens: pagamentos } = useTabela<PagamentoConta>("contas_pagamentos", (t) => t.map((p) => ({ ...p, valor: Number(p.valor) })) as PagamentoConta[], []);
-  const alvo = competencia(ano, mes).slice(0, 7);
 
   return useMemo(() => {
     const ajustes = casa?.saldos_iniciais ?? {};
@@ -211,8 +224,12 @@ export function useSaldoAnterior(ano: number, mes: number) {
       const abertas = contasComoDespesas(contasDoMes(vigentes, pagamentos.filter((p) => p.competencia === comp), comp, hojeISO()), comp);
       return (porMes.get(m) ?? 0) + abertas.reduce((s, g) => s + g.valor, 0);
     };
-    return { saldo: saldoAnterior(alvo, entradasDoMes, despesaDoMes, ajustes), ajustado: ajustes[alvo] != null, mes: alvo };
-  }, [casa, cartoes, contas, receitas, gastos, pagamentos, alvo]);
+    return {
+      entradasDoMes,
+      despesaDoMes,
+      saldoAnterior: (m: string) => saldoAnterior(m, entradasDoMes, despesaDoMes, ajustes),
+    };
+  }, [casa, cartoes, contas, receitas, gastos, pagamentos]);
 }
 
 /** Arquivos importados, mais recentes primeiro. */
@@ -253,4 +270,27 @@ export function useProdutos() {
   const { itens: notas } = useTabela<NotaResumo>("notas", (t) => t as NotaResumo[], []);
   const produtos = useMemo(() => agruparProdutos(itensNota, notas), [itensNota, notas]);
   return { produtos, notas: notas.length };
+}
+
+/** Caixinhas ativas com quanto já tem guardado em cada uma, e os movimentos. */
+export function useCaixinhas() {
+  const { itens: caixinhas } = useTabela<Caixinha>(
+    "caixinhas",
+    (t) =>
+      t
+        .filter((c) => !c.arquivada)
+        .sort(porTexto("created_at"))
+        .map((c) => ({ ...c, meta: c.meta == null ? null : Number(c.meta) })) as Caixinha[],
+    [],
+  );
+  const { itens: movimentos } = useTabela<MovimentoCaixinha>(
+    "caixinha_movimentos",
+    (t) => t.map((m) => ({ ...m, valor: Number(m.valor) })).sort((a, b) => porTexto("data", true)(a, b) || porTexto("created_at", true)(a, b)) as MovimentoCaixinha[],
+    [],
+  );
+  const lista = useMemo(
+    () => caixinhas.map((c) => ({ ...c, saldo: Math.round(movimentos.filter((m) => m.caixinha_id === c.id).reduce((s, m) => s + m.valor, 0) * 100) / 100 })),
+    [caixinhas, movimentos],
+  );
+  return { caixinhas: lista, movimentos, totalGuardado: lista.reduce((s, c) => s + c.saldo, 0) };
 }

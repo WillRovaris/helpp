@@ -23,6 +23,10 @@ import { FechamentoScreen } from "../screens/FechamentoScreen";
 import { CategoriasScreen } from "../screens/CategoriasScreen";
 import { CategoriaFormScreen } from "../screens/CategoriaFormScreen";
 import { RelatoriosScreen } from "../screens/RelatoriosScreen";
+import { EvolucaoScreen } from "../screens/EvolucaoScreen";
+import { CaixinhasScreen } from "../screens/CaixinhasScreen";
+import { CaixinhaScreen } from "../screens/CaixinhaScreen";
+import { CaixinhaFormScreen } from "../screens/CaixinhaFormScreen";
 import { ContaFormScreen } from "../screens/ContaFormScreen";
 import { ContasScreen } from "../screens/ContasScreen";
 import { GastoFormScreen } from "../screens/GastoFormScreen";
@@ -60,6 +64,7 @@ export function RootNavigator() {
     const tela = resposta.notification.request.content.data?.tela;
     if (tela === "Contas" || tela === "Cartoes") navegacao.navigate(tela);
     else if (tela === "Fechamento") navegacao.navigate("Fechamento", {});
+    else if (tela === "Lancar") navegacao.navigate("GastoForm", {});
   }, [resposta, temCasa]);
   const base = escuro ? DarkTheme : DefaultTheme;
   const temaNavegacao = {
@@ -99,6 +104,10 @@ export function RootNavigator() {
             <Stack.Screen name="Categorias" component={CategoriasScreen} options={{ headerShown: true, title: "Categorias" }} />
             <Stack.Screen name="CategoriaForm" component={CategoriaFormScreen} options={{ headerShown: true, title: "Categoria" }} />
             <Stack.Screen name="Relatorios" component={RelatoriosScreen} options={{ headerShown: true, title: "Relatórios" }} />
+            <Stack.Screen name="Evolucao" component={EvolucaoScreen} options={{ headerShown: true, title: "Evolução dos meses" }} />
+            <Stack.Screen name="Caixinhas" component={CaixinhasScreen} options={{ headerShown: true, title: "Caixinhas" }} />
+            <Stack.Screen name="Caixinha" component={CaixinhaScreen} options={{ headerShown: true, title: "Caixinha" }} />
+            <Stack.Screen name="CaixinhaForm" component={CaixinhaFormScreen} options={{ headerShown: true, title: "Caixinha" }} />
             <Stack.Screen name="GastoForm" component={GastoFormScreen} options={{ headerShown: true, title: "Nova despesa" }} />
             <Stack.Screen name="Historico" component={HistoricoScreen} options={{ headerShown: true, title: "Histórico" }} />
             <Stack.Screen name="Cartoes" component={CartoesScreen} options={{ headerShown: true, title: "Cartões" }} />

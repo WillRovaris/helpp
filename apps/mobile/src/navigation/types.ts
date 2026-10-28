@@ -32,4 +32,8 @@ export type RootStackParamList = {
   Categorias: undefined;
   CategoriaForm: { categoriaId?: string } | undefined;
   Relatorios: undefined;
+  Evolucao: undefined;
+  Caixinhas: undefined;
+  Caixinha: { caixinhaId: string };
+  CaixinhaForm: { caixinhaId?: string } | undefined;
 };

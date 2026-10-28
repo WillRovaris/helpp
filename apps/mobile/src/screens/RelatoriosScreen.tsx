@@ -24,6 +24,8 @@ export function RelatoriosScreen({ navigation }: Props) {
   const itens: { emoji: string; titulo: string; detalhe: string; cor: string; abrir: () => void }[] = [
     { emoji: "📥", titulo: "Entradas do mês", detalhe: "Salários, extras e a sobra do mês anterior", cor: colors.accent, abrir: () => navigation.navigate("Entradas", {}) },
     { emoji: "📅", titulo: "Balanço", detalhe: "Quanto entrou, saiu e sobrou · meses passados e previsão", cor: "#6366F1", abrir: () => navigation.navigate("Fechamento", {}) },
+    { emoji: "📊", titulo: "Evolução dos meses", detalhe: "Gráfico de entradas × despesas mês a mês", cor: "#0F766E", abrir: () => navigation.navigate("Evolucao") },
+    { emoji: "🐷", titulo: "Caixinhas", detalhe: "Dinheiro guardado para seus objetivos", cor: "#E11D48", abrir: () => navigation.navigate("Caixinhas") },
     {
       emoji: "💳",
       titulo: `Cartões${temFaturaAVencer ? "  ⏰" : ""}`,

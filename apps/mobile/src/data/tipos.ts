@@ -176,3 +176,26 @@ export interface Importacao {
   /** Nome dado pela pessoa (ex.: "Extrato Bradesco conta salário"); vazio = automático. */
   nome?: string | null;
 }
+
+/** Caixinha: dinheiro guardado para um objetivo (viagem, reserva...). */
+export interface Caixinha {
+  id: string;
+  nome: string;
+  emoji: string;
+  cor: string;
+  meta: number | null;
+  data_alvo: string | null;
+  arquivada: boolean;
+  created_at: string;
+}
+
+/** Guardou (+) ou tirou (−) dinheiro de uma caixinha. */
+export interface MovimentoCaixinha {
+  id: string;
+  caixinha_id: string;
+  valor: number;
+  data: string;
+  descricao: string | null;
+  created_by: string | null;
+  created_at: string;
+}
