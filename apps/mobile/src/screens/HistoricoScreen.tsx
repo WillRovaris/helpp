@@ -249,6 +249,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
                   <IconeCategoria categoria={cat} style={{ marginRight: spacing.sm }} />
                   <View style={{ flex: 1 }}>
                     <Text style={typography.body} numberOfLines={1}>
+                      {g.pessoal ? "👤 " : ""}
                       {tituloGasto(g, cat?.nome)}
                     </Text>
                     <Text style={typography.label}>{detalhes}</Text>

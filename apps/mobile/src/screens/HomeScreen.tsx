@@ -7,8 +7,9 @@ import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { CartaoSobra, PorCategoria, textoComparacao } from "../components/ResumoMes";
 import { StatusSincronizacao } from "../components/StatusSincronizacao";
+import { CartaoAlertas } from "../components/Alertas";
 import { Botao, Cartao, useEspacoRodape, IconeCategoria } from "../components/ui";
-import { useCartoes, useCategorias, useContasFixas, useEntradasDoMes, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useResumoDoMes, useSaldoAnterior, useSugestoes, useUltimosGastos } from "../data/hooks";
+import { useAlertas, useCartoes, useCategorias, useContasFixas, useEntradasDoMes, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useResumoDoMes, useSaldoAnterior, useSugestoes, useUltimosGastos } from "../data/hooks";
 import { reagendarLembretes } from "../lembretes/lembretes";
 import { migrarRendasParaEntradas } from "../data/migrarRendas";
 import { useSincronizacao } from "../offline/SincronizacaoContext";
@@ -26,6 +27,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export function HomeScreen({ navigation }: Props) {
   const { mostrarValor } = usePrivacidade();
+  const { alertas, dispensar: dispensarAlerta } = useAlertas(mostrarValor);
   const rodape = useEspacoRodape();
   const { casa, meuNome } = useCasa();
   const { userId } = useAuth();
@@ -158,6 +160,14 @@ export function HomeScreen({ navigation }: Props) {
           variante="secundario"
           onPress={() => navigation.navigate("Relatorios")}
           style={{ minHeight: 58 }}
+        />
+
+        <CartaoAlertas
+          alertas={alertas}
+          max={2}
+          onDispensar={dispensarAlerta}
+          onVerTodos={() => navigation.navigate("Alertas")}
+          onAbrir={(a) => (a.categoriaId ? navigation.navigate("Historico", { categoriaId: a.categoriaId }) : a.gastoId ? navigation.navigate("GastoForm", { gastoId: a.gastoId }) : undefined)}
         />
 
         {/* "+ Lançamento": escolhe entre despesa e receita. */}

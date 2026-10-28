@@ -27,6 +27,11 @@ import { EvolucaoScreen } from "../screens/EvolucaoScreen";
 import { CaixinhasScreen } from "../screens/CaixinhasScreen";
 import { CaixinhaScreen } from "../screens/CaixinhaScreen";
 import { CaixinhaFormScreen } from "../screens/CaixinhaFormScreen";
+import { AlertasScreen } from "../screens/AlertasScreen";
+import { CalendarioScreen } from "../screens/CalendarioScreen";
+import { ListaComprasScreen } from "../screens/ListaComprasScreen";
+import { AssinaturasScreen } from "../screens/AssinaturasScreen";
+import { DividasScreen } from "../screens/DividasScreen";
 import { ContaFormScreen } from "../screens/ContaFormScreen";
 import { ContasScreen } from "../screens/ContasScreen";
 import { GastoFormScreen } from "../screens/GastoFormScreen";
@@ -108,6 +113,11 @@ export function RootNavigator() {
             <Stack.Screen name="Caixinhas" component={CaixinhasScreen} options={{ headerShown: true, title: "Caixinhas" }} />
             <Stack.Screen name="Caixinha" component={CaixinhaScreen} options={{ headerShown: true, title: "Caixinha" }} />
             <Stack.Screen name="CaixinhaForm" component={CaixinhaFormScreen} options={{ headerShown: true, title: "Caixinha" }} />
+            <Stack.Screen name="Alertas" component={AlertasScreen} options={{ headerShown: true, title: "Alertas" }} />
+            <Stack.Screen name="Calendario" component={CalendarioScreen} options={{ headerShown: true, title: "Calendário" }} />
+            <Stack.Screen name="ListaCompras" component={ListaComprasScreen} options={{ headerShown: true, title: "Lista de compras" }} />
+            <Stack.Screen name="Assinaturas" component={AssinaturasScreen} options={{ headerShown: true, title: "Assinaturas" }} />
+            <Stack.Screen name="Dividas" component={DividasScreen} options={{ headerShown: true, title: "Dívidas e parcelamentos" }} />
             <Stack.Screen name="GastoForm" component={GastoFormScreen} options={{ headerShown: true, title: "Nova despesa" }} />
             <Stack.Screen name="Historico" component={HistoricoScreen} options={{ headerShown: true, title: "Histórico" }} />
             <Stack.Screen name="Cartoes" component={CartoesScreen} options={{ headerShown: true, title: "Cartões" }} />

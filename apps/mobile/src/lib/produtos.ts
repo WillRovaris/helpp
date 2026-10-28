@@ -123,3 +123,27 @@ export function maisGastos(produtos: Produto[], desde: string, qtd = 20): { prod
     .sort((a, b) => b.gasto - a.gasto)
     .slice(0, qtd);
 }
+
+/** Produto das notas que corresponde ao item da lista (mesmo nome, ou o mais comprado que contém as palavras). */
+export function produtoDoItem(produtos: Produto[], nome: string): Produto | undefined {
+  const chave = semAcento(nome);
+  return produtos.find((p) => p.chave === chave) ?? buscarProdutos(produtos, nome).sort((a, b) => b.vezes - a.vezes)[0];
+}
+
+/** Estimativa da lista: total pelos últimos preços e o mercado mais barato para a maior parte dos itens. */
+export function resumoLista(itens: { nome: string; quantidade: number; comprado: boolean }[], produtos: Produto[]) {
+  let total = 0;
+  let comPreco = 0;
+  const votos = new Map<string, number>();
+  for (const i of itens) {
+    if (i.comprado) continue;
+    const p = produtoDoItem(produtos, i.nome);
+    if (!p) continue;
+    comPreco++;
+    total += p.ultimoPreco * (i.quantidade || 1);
+    const mercado = p.maisBarato?.mercado ?? p.compras[0]?.mercado;
+    if (mercado) votos.set(mercado, (votos.get(mercado) ?? 0) + 1);
+  }
+  const melhor = [...votos.entries()].sort((a, b) => b[1] - a[1])[0];
+  return { total: arred(total), comPreco, melhorMercado: melhor ? { mercado: melhor[0], itens: melhor[1] } : null };
+}

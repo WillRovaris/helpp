@@ -12,7 +12,7 @@ export type RootStackParamList = {
   ReceitaForm: { receitaId?: string; mes?: string };
   Importar: undefined;
   Contas: undefined;
-  ContaForm: { contaId?: string };
+  ContaForm: { contaId?: string; preencher?: { nome?: string; valor?: number; dia?: number; categoriaId?: string | null; meses?: number } };
   PagarConta: { contaId: string; competencia: string };
   NotaScanner: undefined;
   NotaConsulta: { qr: string };
@@ -36,4 +36,9 @@ export type RootStackParamList = {
   Caixinhas: undefined;
   Caixinha: { caixinhaId: string };
   CaixinhaForm: { caixinhaId?: string } | undefined;
+  Alertas: undefined;
+  Calendario: undefined;
+  ListaCompras: undefined;
+  Assinaturas: undefined;
+  Dividas: undefined;
 };

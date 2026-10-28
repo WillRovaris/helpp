@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCasa } from "../casa/CasaContext";
 import { mesPagamentoCartao, somarMeses } from "../lib/fatura";
-import { hojeISO, limitesDoMes } from "../lib/format";
+import { hojeISO, limitesDoMes, somarDias as somarDiasISO } from "../lib/format";
 import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
-import { receitaNoMes, saldoAnterior } from "../lib/saldo";
+import { mesAnterior as mesAnteriorISO, receitaNoMes, saldoAnterior } from "../lib/saldo";
+import { alertasDeCategoria, alertasRepetidos } from "../lib/alertas";
+import { detectarAssinaturas } from "../lib/assinaturas";
+import { dividasDeContas, parcelamentosEmAberto } from "../lib/dividas";
 import { agruparProdutos, type ItemNota, type NotaResumo } from "../lib/produtos";
-import { type Linha, linhas, ouvirMudancas, type Tabela } from "../offline/banco";
+import { gravarMeta, lerMeta, type Linha, linhas, ouvirMudancas, type Tabela } from "../offline/banco";
 import { useSincronizacao } from "../offline/SincronizacaoContext";
-import type { Caixinha, Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, Importacao, MovimentoCaixinha, PagamentoConta, Receita, Sugestao } from "./tipos";
+import type { Caixinha, Cartao, Categoria, ContaFixa, FaturaPaga, Gasto, Importacao, ItemLista, MovimentoCaixinha, PagamentoConta, Receita, Sugestao } from "./tipos";
+import { emojiCategoria } from "./tipos";
 
 /**
  * Lista de uma tabela da casa, lida da cópia no celular (funciona sem internet).
@@ -293,4 +297,109 @@ export function useCaixinhas() {
     [caixinhas, movimentos],
   );
   return { caixinhas: lista, movimentos, totalGuardado: lista.reduce((s, c) => s + c.saldo, 0) };
+}
+
+/**
+ * Alertas espertos do mês (categoria acima da média, cobrança repetida, assinaturas novas).
+ * `fmt` formata valores (passe o `mostrarValor` do modo privacidade). O ✕ esconde cada um neste celular.
+ */
+export function useAlertas(fmt: (v: number) => string) {
+  const { casa } = useCasa();
+  const { cartoes } = useCartoes();
+  const { categorias } = useCategorias();
+  const { itens: gastos } = useTabela<Gasto>("gastos", (t) => t.map(comoGasto), []);
+  const [versao, setVersao] = useState(0);
+
+  const alertas = useMemo(() => {
+    if (!casa) return [];
+    const hoje = new Date();
+    const mes = hojeISO().slice(0, 7);
+    const porMes = new Map<string, Map<string, number>>();
+    for (const g of gastos) {
+      if (!g.categoria_id) continue;
+      const m = mesDeReferencia(g, cartoes);
+      const mapa = porMes.get(m) ?? new Map<string, number>();
+      mapa.set(g.categoria_id, (mapa.get(g.categoria_id) ?? 0) + g.valor);
+      porMes.set(m, mapa);
+    }
+    const anteriores: Map<string, number>[] = [];
+    let m = mes;
+    for (let i = 0; i < 3; i++) {
+      m = mesAnteriorISO(m);
+      const mapa = porMes.get(m);
+      if (mapa && mapa.size) anteriores.push(mapa);
+    }
+    const nomes = new Map(categorias.map((c) => [c.id, { nome: c.nome, emoji: emojiCategoria(c.icone) }]));
+    const diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+    const lista = [
+      ...alertasDeCategoria(mes, porMes.get(mes) ?? new Map(), anteriores, nomes, hoje.getDate(), diasNoMes, fmt),
+      ...alertasRepetidos(gastos, somarDiasISO(hojeISO(), -30), fmt),
+    ];
+    return lista.filter((a) => !lerMeta(`alerta_visto:${casa.id}:${a.id}`));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [casa, cartoes, categorias, gastos, fmt, versao]);
+
+  const dispensar = useCallback(
+    (id: string) => {
+      if (!casa) return;
+      gravarMeta(`alerta_visto:${casa.id}:${id}`, "1");
+      setVersao((v) => v + 1);
+    },
+    [casa],
+  );
+  return { alertas, dispensar };
+}
+
+/** Lista de compras da casa: pendentes primeiro (ordem em que foram adicionados), comprados no fim. */
+export function useListaCompras() {
+  const { itens } = useTabela<ItemLista>(
+    "lista_compras",
+    (t) =>
+      t
+        .map((i) => ({ ...i, quantidade: Number(i.quantidade) || 1, comprado: !!i.comprado }))
+        .sort((a, b) => Number(a.comprado) - Number(b.comprado) || porTexto("created_at")(a, b)) as ItemLista[],
+    [],
+  );
+  return { itens };
+}
+
+/** Cobranças que se repetem todo mês e ainda não são conta fixa (o "Não é assinatura" esconde neste celular). */
+export function useAssinaturas() {
+  const { casa } = useCasa();
+  const { contas } = useContasFixas();
+  const { itens: gastos } = useTabela<Gasto>("gastos", (t) => t.map(comoGasto), []);
+  const [versao, setVersao] = useState(0);
+  const assinaturas = useMemo(() => {
+    if (!casa) return [];
+    return detectarAssinaturas(gastos, contas.map((c) => c.nome), hojeISO()).filter((a) => !lerMeta(`assinatura_ignorada:${casa.id}:${a.chave}`));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [casa, gastos, contas, versao]);
+  const ignorar = useCallback(
+    (chave: string) => {
+      if (!casa) return;
+      gravarMeta(`assinatura_ignorada:${casa.id}:${chave}`, "1");
+      setVersao((v) => v + 1);
+    },
+    [casa],
+  );
+  return { assinaturas, ignorar };
+}
+
+/** Dívidas (contas fixas com prazo) e compras parceladas que ainda têm parcelas a pagar. */
+export function useDividas() {
+  const { contas } = useContasFixas();
+  const { cartoes } = useCartoes();
+  const { itens: gastos } = useTabela<Gasto>("gastos", (t) => t.filter((g) => g.parcelamento_id).map(comoGasto), []);
+  const { itens: pagamentos } = useTabela<PagamentoConta>("contas_pagamentos", (t) => t as PagamentoConta[], []);
+  return useMemo(() => {
+    const porConta = new Map<string, number>();
+    for (const p of pagamentos) porConta.set(p.conta_id, (porConta.get(p.conta_id) ?? 0) + 1);
+    const dividas = dividasDeContas(contas, porConta);
+    const parcelados = parcelamentosEmAberto(
+      gastos.map((g) => ({ ...g, mes: mesDeReferencia(g, cartoes) })),
+      hojeISO().slice(0, 7),
+    );
+    const total = dividas.reduce((s, d) => s + (d.valorRestante ?? 0), 0) + parcelados.reduce((s, p) => s + p.valorRestante, 0);
+    return { dividas, parcelados, total };
+  }, [contas, cartoes, gastos, pagamentos]);
 }

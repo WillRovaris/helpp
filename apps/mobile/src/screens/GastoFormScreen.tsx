@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
-import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Chip, estiloInput, TelaFormulario } from "../components/ui";
@@ -37,6 +37,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
   const [forma, setForma] = useState<FormaPagamento>("pix");
   const [cartaoId, setCartaoId] = useState<string | null>(null);
   const [pagoPor, setPagoPor] = useState<string | null>(userId);
+  const [pessoal, setPessoal] = useState(false);
   const [data, setData] = useState(hojeISO());
   /** Data digitada (dd/mm/aaaa). Já vem com a data de hoje; a pessoa edita se foi em outro dia. */
   const [outraData, setOutraData] = useState(hojeISO().split("-").reverse().join("/"));
@@ -69,6 +70,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
           setForma(g.forma_pagamento);
           setCartaoId(g.cartao_id);
           setPagoPor(g.pago_por);
+          setPessoal(!!g.pessoal);
           setData(g.data);
           if (g.data_pagamento) {
             setPagamentoCarregado(true);
@@ -138,6 +140,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
       forma_pagamento: forma,
       cartao_id: forma === "credito" ? cartaoId : null,
       pago_por: pagoPor,
+      pessoal,
     };
     // data_pagamento só entra quando importa (cartão, ou limpar ao trocar de cartão para Pix):
     // assim Pix/débito continuam funcionando mesmo antes do SQL 08.
@@ -419,6 +422,16 @@ export function GastoFormScreen({ navigation, route }: Props) {
             <Chip key={m.user_id} rotulo={m.user_id === userId ? `${m.nome} (eu)` : m.nome} ativo={pagoPor === m.user_id} onPress={() => setPagoPor(m.user_id)} />
           ))}
         </Secao>
+      )}
+
+      {membros.length > 1 && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.lg }}>
+          <View style={{ flex: 1 }}>
+            <Text style={[typography.body, { fontWeight: "600" }]}>👤 Despesa só minha</Text>
+            <Text style={typography.label}>Conta no total do mês, mas fica fora do acerto do casal.</Text>
+          </View>
+          <Switch value={pessoal} onValueChange={setPessoal} trackColor={{ true: colors.accent, false: colors.border }} />
+        </View>
       )}
 
       {/* Fora do cartão, esta é a data em que o dinheiro sai (define o mês). No cartão, é a data da compra. */}

@@ -40,6 +40,8 @@ export interface Gasto {
   parcelamento_id?: string | null;
   parcela?: number | null;
   parcelas?: number | null;
+  /** Despesa "só minha": conta no total, mas fica fora do acerto do casal. */
+  pessoal?: boolean | null;
   /** Conta fixa do mês ainda não paga, mostrada como despesa (não existe na tabela gastos). */
   contaFixa?: { contaId: string; competencia: string; valorVaria: boolean };
 }
@@ -197,5 +199,14 @@ export interface MovimentoCaixinha {
   data: string;
   descricao: string | null;
   created_by: string | null;
+  created_at: string;
+}
+
+/** Item da lista de compras da casa. */
+export interface ItemLista {
+  id: string;
+  nome: string;
+  quantidade: number;
+  comprado: boolean;
   created_at: string;
 }

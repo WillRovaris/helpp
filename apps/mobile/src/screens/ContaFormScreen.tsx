@@ -45,21 +45,23 @@ function nomeMes(comp: string, curto = false): string {
 
 export function ContaFormScreen({ navigation, route }: Props) {
   const contaId = route.params?.contaId;
+  // Conta nova pode vir preenchida (ex.: assinatura detectada, nova dívida).
+  const pre = route.params?.preencher;
   const { casa, membros } = useCasa();
   const { userId } = useAuth();
   const { categorias } = useCategorias();
   /** Quem da casa paga esta conta (vem marcado no "Paguei" e conta no fechamento do mês). */
   const [pagoPor, setPagoPor] = useState<string | null>(contaId ? null : userId);
   const hoje = new Date();
-  const [nome, setNome] = useState("");
+  const [nome, setNome] = useState(pre?.nome ?? "");
   const [varia, setVaria] = useState(false);
-  const [centavos, setCentavos] = useState(0);
-  const [dia, setDia] = useState("");
-  const [categoriaId, setCategoriaId] = useState<string | null>(null);
+  const [centavos, setCentavos] = useState(pre?.valor ? Math.round(pre.valor * 100) : 0);
+  const [dia, setDia] = useState(pre?.dia ? String(pre.dia) : "");
+  const [categoriaId, setCategoriaId] = useState<string | null>(pre?.categoriaId ?? null);
   /** Primeiro mês da conta (YYYY-MM-01). null = conta antiga sem início definido (vale desde sempre). */
   const [inicio, setInicio] = useState<string | null>(contaId ? null : competencia(hoje.getFullYear(), hoje.getMonth()));
   /** null = sem prazo. */
-  const [meses, setMeses] = useState<number | null>(null);
+  const [meses, setMeses] = useState<number | null>(pre?.meses ?? null);
   const [mesesOutro, setMesesOutro] = useState("");
   const [periodoCarregado, setPeriodoCarregado] = useState(false);
   const [inicioAlterado, setInicioAlterado] = useState(false);

@@ -71,15 +71,17 @@ export function FechamentoScreen({ navigation, route }: Props) {
     gravarMeta(chaveDivisao, d);
     setDivisao(d);
   }
+  // Despesas "só minha" não entram no acerto.
+  const totalPessoal = r.despesas.filter((g) => g.pessoal).reduce((s, g) => s + g.valor, 0);
   const entradaDe = (id: string) => r.entradas.filter((e) => e.recebido_por === id).reduce((s, e) => s + e.valor, 0);
   const temEntradasPorPessoa = membros.length === 2 && membros.every((p) => entradaDe(p.user_id) > 0);
   const acerto =
-    membros.length === 2 && r.totalDespesas - semPessoa > 0
+    membros.length === 2 && r.totalDespesas - semPessoa - totalPessoal > 0
       ? calcularAcerto(
           membros.map((p) => ({
             id: p.user_id,
             nome: p.nome,
-            pagou: r.despesas.filter((g) => g.pago_por === p.user_id).reduce((s, g) => s + g.valor, 0),
+            pagou: r.despesas.filter((g) => g.pago_por === p.user_id && !g.pessoal).reduce((s, g) => s + g.valor, 0),
             peso: divisao === "proporcional" && temEntradasPorPessoa ? entradaDe(p.user_id) : 1,
           })),
         )
@@ -288,6 +290,9 @@ export function FechamentoScreen({ navigation, route }: Props) {
               <Text style={[typography.body, { fontWeight: "700", textAlign: "center", color: colors.accent }]}>✅ Contas acertadas: cada um pagou a sua parte</Text>
             )}
           </View>
+          {totalPessoal > 0 && (
+            <Text style={[typography.label, { marginTop: spacing.sm }]}>Fora da conta: {mostrarValor(totalPessoal)} em despesas &quot;só minha&quot; (👤).</Text>
+          )}
           {semPessoa > 0 && (
             <Text style={[typography.label, { marginTop: spacing.sm }]}>
               Fora da conta: {mostrarValor(semPessoa)} sem &quot;quem pagou&quot; (contas fixas em aberto sem responsável).
