@@ -60,6 +60,16 @@ export function ComprasMesScreen({ navigation }: Props) {
         </Text>
       </Cartao>
 
+      {compras.length > 0 && (
+        <TouchableOpacity onPress={() => navigation.navigate("Alimentos")} activeOpacity={0.8}>
+          <Cartao style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+            <Text style={{ fontSize: 24 }}>🥗</Text>
+            <Text style={[typography.body, { flex: 1, fontWeight: "700" }]}>Ver por tipo de alimento</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 20 }}>›</Text>
+          </Cartao>
+        </TouchableOpacity>
+      )}
+
       {qtdItens === 0 && <Text style={[typography.body, { color: colors.textSecondary }]}>Nada comprado neste mês. Leia as notas do mercado ou marque ✓ na lista de compras.</Text>}
 
       {compras.map((c) => (

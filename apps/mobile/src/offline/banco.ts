@@ -19,10 +19,11 @@ export type Tabela =
   | "importacoes"
   | "caixinhas"
   | "caixinha_movimentos"
-  | "lista_compras";
+  | "lista_compras"
+  | "produto_grupos";
 
 /** Ordem importa: quem é referenciado vem antes (nota antes dos itens e da despesa). */
-export const TABELAS: Tabela[] = ["casas", "membros", "categorias", "cartoes", "contas_fixas", "notas", "nota_itens", "gastos", "contas_pagamentos", "faturas_pagas", "sugestoes", "receitas", "importacoes", "caixinhas", "caixinha_movimentos", "lista_compras"];
+export const TABELAS: Tabela[] = ["casas", "membros", "categorias", "cartoes", "contas_fixas", "notas", "nota_itens", "gastos", "contas_pagamentos", "faturas_pagas", "sugestoes", "receitas", "importacoes", "caixinhas", "caixinha_movimentos", "lista_compras", "produto_grupos"];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Linha = Record<string, any>;

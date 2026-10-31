@@ -29,6 +29,7 @@ import { CaixinhaScreen } from "../screens/CaixinhaScreen";
 import { CaixinhaFormScreen } from "../screens/CaixinhaFormScreen";
 import { AlertasScreen } from "../screens/AlertasScreen";
 import { CalendarioScreen } from "../screens/CalendarioScreen";
+import { AlimentosScreen } from "../screens/AlimentosScreen";
 import { ComprasMesScreen } from "../screens/ComprasMesScreen";
 import { ListaComprasScreen } from "../screens/ListaComprasScreen";
 import { AssinaturasScreen } from "../screens/AssinaturasScreen";
@@ -118,6 +119,7 @@ export function RootNavigator() {
             <Stack.Screen name="Calendario" component={CalendarioScreen} options={{ headerShown: true, title: "Calendário" }} />
             <Stack.Screen name="ListaCompras" component={ListaComprasScreen} options={{ headerShown: true, title: "Lista de compras" }} />
             <Stack.Screen name="ComprasMes" component={ComprasMesScreen} options={{ headerShown: true, title: "Compras do mês" }} />
+            <Stack.Screen name="Alimentos" component={AlimentosScreen} options={{ headerShown: true, title: "O que mais compramos" }} />
             <Stack.Screen name="Assinaturas" component={AssinaturasScreen} options={{ headerShown: true, title: "Assinaturas" }} />
             <Stack.Screen name="Dividas" component={DividasScreen} options={{ headerShown: true, title: "Dívidas e parcelamentos" }} />
             <Stack.Screen name="GastoForm" component={GastoFormScreen} options={{ headerShown: true, title: "Nova despesa" }} />

@@ -40,6 +40,7 @@ export type RootStackParamList = {
   Calendario: undefined;
   ListaCompras: undefined;
   ComprasMes: undefined;
+  Alimentos: undefined;
   Assinaturas: undefined;
   Dividas: undefined;
 };

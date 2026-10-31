@@ -6,6 +6,7 @@ import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
 import { mesAnterior as mesAnteriorISO, receitaNoMes, saldoAnterior } from "../lib/saldo";
 import { alertasDeCategoria, alertasRepetidos } from "../lib/alertas";
 import { montarComprasDoMes } from "../lib/compras";
+import { resumirPorGrupo } from "../lib/gruposAlimento";
 import { detectarAssinaturas } from "../lib/assinaturas";
 import { dividasDeContas, parcelamentosEmAberto } from "../lib/dividas";
 import { agruparProdutos, type ItemNota, type NotaResumo } from "../lib/produtos";
@@ -375,6 +376,33 @@ export function useComprasDoMes(mes: string) {
     const mercados = new Set(categorias.filter((c) => emojiCategoria(c.icone) === "🛒").map((c) => c.id));
     return montarComprasDoMes(mes, { notas, itensNota, gastos, lista, mercados } as Parameters<typeof montarComprasDoMes>[1]);
   }, [mes, categorias, itensNota, notas, gastos, lista]);
+}
+
+/** Correções da pessoa: chave do produto → tipo (valem para a casa toda). */
+export function useCorrecoesDeGrupo() {
+  const { itens } = useTabela<Linha>("produto_grupos", (t) => t, []);
+  return useMemo(() => new Map(itens.map((c) => [String(c.chave), String(c.grupo)])), [itens]);
+}
+
+/** Compras de mercado de vários meses somadas por tipo de produto (proteínas, frutas, frios...). */
+export function useComprasPorGrupo(mesFinal: string, qtdMeses: number) {
+  const { itens: lista } = useListaCompras();
+  const { categorias } = useCategorias();
+  const correcoes = useCorrecoesDeGrupo();
+  const { itens: itensNota } = useTabela<Linha>("nota_itens", (t) => t, []);
+  const { itens: notas } = useTabela<Linha>("notas", (t) => t, []);
+  const { itens: gastos } = useTabela<Linha>("gastos", (t) => t.filter((g) => g.nota_id), []);
+  return useMemo(() => {
+    const mercados = new Set(categorias.filter((c) => emojiCategoria(c.icone) === "🛒").map((c) => c.id));
+    const dados = { notas, itensNota, gastos, lista, mercados } as Parameters<typeof montarComprasDoMes>[1];
+    const itens = [];
+    let m = mesFinal;
+    for (let i = 0; i < qtdMeses; i++) {
+      for (const c of montarComprasDoMes(m, dados).compras) itens.push(...c.itens);
+      m = mesAnteriorISO(m);
+    }
+    return resumirPorGrupo(itens, correcoes);
+  }, [mesFinal, qtdMeses, categorias, correcoes, itensNota, notas, gastos, lista]);
 }
 
 /** Cobranças que se repetem todo mês e ainda não são conta fixa (o "Não é assinatura" esconde neste celular). */

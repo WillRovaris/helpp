@@ -4,14 +4,14 @@ import { nomeMercado, semAcento } from "./produtos";
 
 const PALAVRAS_VAZIAS = new Set(["de", "da", "do", "das", "dos", "e", "com"]);
 
-function palavras(nome: string): string[] {
+export function palavras(nome: string): string[] {
   return semAcento(nome)
     .replace(/[^a-z0-9 ]/g, " ")
     .split(" ")
     .filter((p) => p && !PALAVRAS_VAZIAS.has(p));
 }
 
-const semPlural = (p: string) => (p.length > 3 && p.endsWith("s") ? p.slice(0, -1) : p);
+export const semPlural = (p: string) => (p.length > 3 && p.endsWith("s") ? p.slice(0, -1) : p);
 
 /** Palavra da lista × palavra da nota. Aceita plural e abreviação ("refrigerante" × "REFRIG"), nunca pedaço curto ("sal" × "SALGADINHO"). */
 function mesmaPalavra(lista: string, nota: string): boolean {
