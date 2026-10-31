@@ -9,7 +9,7 @@ import { CartaoSobra, PorCategoria, textoComparacao } from "../components/Resumo
 import { StatusSincronizacao } from "../components/StatusSincronizacao";
 import { CartaoAlertas } from "../components/Alertas";
 import { Botao, Cartao, useEspacoRodape, IconeCategoria } from "../components/ui";
-import { useAlertas, useCartoes, useCategorias, useContasFixas, useEntradasDoMes, useFaturasPagas, useGastosCredito, useGastosDoMes, usePagamentosDoMes, useResumoDoMes, useSaldoAnterior, useSugestoes, useUltimosGastos } from "../data/hooks";
+import { useAlertas, useCartoes, useCategorias, useContasFixas, useEntradasDoMes, useFaturasPagas, useGastosCredito, useGastosDoMes, useListaCompras, usePagamentosDoMes, useResumoDoMes, useSaldoAnterior, useSugestoes, useUltimosGastos } from "../data/hooks";
 import { reagendarLembretes } from "../lembretes/lembretes";
 import { migrarRendasParaEntradas } from "../data/migrarRendas";
 import { useSincronizacao } from "../offline/SincronizacaoContext";
@@ -54,6 +54,8 @@ export function HomeScreen({ navigation }: Props) {
     if (casa && ultimaSync) migrarRendasParaEntradas(casa);
   }, [casa, ultimaSync]);
   const { categorias } = useCategorias();
+  const { itens: listaCompras } = useListaCompras();
+  const itensParaComprar = listaCompras.filter((i) => !i.comprado).length;
   const { ultimos, recarregar: recarregarUltimos } = useUltimosGastos(5);
   const { cartoes } = useCartoes();
   const { faturaPaga, recarregar: recarregarFaturasPagas } = useFaturasPagas();
@@ -155,6 +157,11 @@ export function HomeScreen({ navigation }: Props) {
         </Cartao>
 
         <Botao titulo="+ Lançamento" onPress={() => setEscolhendoLancamento(true)} style={{ minHeight: 58 }} />
+        <Botao
+          titulo={`🛒 Lista de compras${itensParaComprar ? ` (${itensParaComprar})` : ""}`}
+          onPress={() => navigation.navigate("ListaCompras")}
+          style={{ minHeight: 58 }}
+        />
         <Botao
           titulo={`📊 Relatórios${temFaturaAVencer ? "  ⏰" : ""}`}
           variante="secundario"

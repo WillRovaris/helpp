@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import type { Categoria, Gasto } from "../data/tipos";
 import { colors, radius, spacing, typography } from "../theme";
@@ -71,7 +71,9 @@ export function textoComparacao(total: number, totalAnteriorAteHoje: number): { 
     : { texto: `▼ ${pct}% a menos que o mês passado até hoje`, cor: colors.accent };
 }
 
-/** Gastos agrupados por categoria, maiores primeiro. */
+const CATEGORIAS_RECOLHIDAS = 5;
+
+/** Gastos agrupados por categoria, maiores primeiro. Mostra as 5 maiores; "Ver todas" expande. */
 export function PorCategoria({
   gastos,
   categorias,
@@ -84,6 +86,7 @@ export function PorCategoria({
   onDefinirLimites?: () => void;
 }) {
   const { mostrarValor } = usePrivacidade();
+  const [expandido, setExpandido] = useState(false);
   const total = gastos.reduce((s, g) => s + g.valor, 0);
   const somas = new Map<string | null, number>();
   for (const g of gastos) somas.set(g.categoria_id, (somas.get(g.categoria_id) ?? 0) + g.valor);
@@ -125,7 +128,7 @@ export function PorCategoria({
           </Text>
         </View>
       )}
-      {linhas.map(([id, soma]) => {
+      {(expandido ? linhas : linhas.slice(0, CATEGORIAS_RECOLHIDAS)).map(([id, soma]) => {
         const cat = id ? categoriaPorId.get(id) : undefined;
         const limite = cat?.limite ?? null;
         const nivel = limite ? nivelLimite(soma, limite) : null;
@@ -162,6 +165,11 @@ export function PorCategoria({
           </TouchableOpacity>
         );
       })}
+      {linhas.length > CATEGORIAS_RECOLHIDAS && (
+        <TouchableOpacity onPress={() => setExpandido((v) => !v)} hitSlop={8} style={{ alignItems: "center", paddingTop: spacing.sm }}>
+          <Text style={[typography.label, { color: colors.accent, fontWeight: "700" }]}>{expandido ? "Recolher ▲" : `Ver todas (${linhas.length}) ▼`}</Text>
+        </TouchableOpacity>
+      )}
     </Cartao>
   );
 }

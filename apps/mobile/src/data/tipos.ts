@@ -208,5 +208,10 @@ export interface ItemLista {
   nome: string;
   quantidade: number;
   comprado: boolean;
+  /** Dia da compra (YYYY-MM-DD), gravado ao marcar ou pela nota. */
+  comprado_em?: string | null;
+  /** Item da nota fiscal que marcou este como comprado. */
+  nota_item_id?: string | null;
   created_at: string;
+  updated_at?: string | null;
 }

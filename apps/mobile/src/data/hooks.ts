@@ -5,6 +5,7 @@ import { hojeISO, limitesDoMes, somarDias as somarDiasISO } from "../lib/format"
 import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
 import { mesAnterior as mesAnteriorISO, receitaNoMes, saldoAnterior } from "../lib/saldo";
 import { alertasDeCategoria, alertasRepetidos } from "../lib/alertas";
+import { montarComprasDoMes } from "../lib/compras";
 import { detectarAssinaturas } from "../lib/assinaturas";
 import { dividasDeContas, parcelamentosEmAberto } from "../lib/dividas";
 import { agruparProdutos, type ItemNota, type NotaResumo } from "../lib/produtos";
@@ -361,6 +362,19 @@ export function useListaCompras() {
     [],
   );
   return { itens };
+}
+
+/** Compras do mês (YYYY-MM): itens das notas de supermercado + o que foi marcado à mão na lista. */
+export function useComprasDoMes(mes: string) {
+  const { itens: lista } = useListaCompras();
+  const { categorias } = useCategorias();
+  const { itens: itensNota } = useTabela<Linha>("nota_itens", (t) => t, []);
+  const { itens: notas } = useTabela<Linha>("notas", (t) => t, []);
+  const { itens: gastos } = useTabela<Linha>("gastos", (t) => t.filter((g) => g.nota_id), []);
+  return useMemo(() => {
+    const mercados = new Set(categorias.filter((c) => emojiCategoria(c.icone) === "🛒").map((c) => c.id));
+    return montarComprasDoMes(mes, { notas, itensNota, gastos, lista, mercados } as Parameters<typeof montarComprasDoMes>[1]);
+  }, [mes, categorias, itensNota, notas, gastos, lista]);
 }
 
 /** Cobranças que se repetem todo mês e ainda não são conta fixa (o "Não é assinatura" esconde neste celular). */

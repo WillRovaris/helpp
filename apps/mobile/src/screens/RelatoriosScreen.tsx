@@ -55,6 +55,7 @@ export function RelatoriosScreen({ navigation }: Props) {
     },
     { emoji: "🐷", titulo: "Caixinhas", detalhe: "Dinheiro guardado para seus objetivos", cor: "#E11D48", abrir: () => navigation.navigate("Caixinhas") },
     { emoji: "🛒", titulo: "Lista de compras", detalhe: "Com o preço e o mercado mais barato de cada item", cor: "#16A34A", abrir: () => navigation.navigate("ListaCompras") },
+    { emoji: "🧾", titulo: "Compras do mês", detalhe: "Tudo o que foi comprado no mercado, mês a mês", cor: "#65A30D", abrir: () => navigation.navigate("ComprasMes") },
     { emoji: "🏷️", titulo: "Preço dos produtos", detalhe: "Compare preços entre mercados", cor: "#DB2777", abrir: () => navigation.navigate("Produtos") },
   ];
 

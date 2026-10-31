@@ -7,9 +7,10 @@ import { Botao, Cartao, Chip, useEspacoRodape } from "../components/ui";
 import { useCartoes, useCategorias } from "../data/hooks";
 import { emojiCategoria, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
 import { chaveDoQr } from "../fiscal/nfce";
+import { casarListaComNota } from "../lib/compras";
 import { formatarReais, hojeISO, rotuloDia } from "../lib/format";
 import { linhas } from "../offline/banco";
-import { inserir, inserirVarios } from "../offline/repo";
+import { atualizar, inserir, inserirVarios } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
 
@@ -106,7 +107,7 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
         data_compra: nota.dataCompra ? `${nota.dataCompra}-03:00` : null,
         created_by: userId,
       });
-      inserirVarios(
+      const itensSalvos = inserirVarios(
         "nota_itens",
         itensMantidos.map((i) => ({
           nota_id: notaRow.id,
@@ -129,7 +130,24 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
         nota_id: notaRow.id,
       });
 
+      // O que estava na lista de compras e veio nesta nota sai da lista e vai para "Compras do mês".
+      const pares = casarListaComNota(
+        linhas("lista_compras").filter((i) => i.casa_id === casa.id && !i.comprado) as { id: string; nome: string }[],
+        itensSalvos as { id: string; nome: string }[],
+      );
+      for (const { lista, nota: item } of pares) atualizar("lista_compras", lista.id, { comprado: true, comprado_em: data, nota_item_id: item.id });
+
       navigation.popToTop();
+      if (pares.length) {
+        const nomes = pares.map((p) => `• ${p.lista.nome} (${p.nota.nome})`).join("\n");
+        Alert.alert(`🛒 ${pares.length} ${pares.length === 1 ? "item saiu" : "itens saíram"} da lista de compras`, `Marcado como comprado:\n${nomes}`, [
+          {
+            text: "Desfazer",
+            onPress: () => pares.forEach((p) => atualizar("lista_compras", p.lista.id, { comprado: false, comprado_em: null, nota_item_id: null })),
+          },
+          { text: "OK" },
+        ]);
+      }
     } finally {
       setSalvando(false);
     }

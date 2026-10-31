@@ -1,10 +1,11 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, estiloInput, useEspacoRodape } from "../components/ui";
-import { useListaCompras, useProdutos } from "../data/hooks";
+import { useComprasDoMes, useListaCompras, useProdutos } from "../data/hooks";
+import { hojeISO } from "../lib/format";
 import { buscarProdutos, produtoDoItem, resumoLista } from "../lib/produtos";
 import { atualizar, excluir, inserir } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
@@ -13,8 +14,9 @@ import { colors, spacing, typography } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ListaCompras">;
 
-// Lista de compras da casa (os dois veem ao vivo). Usa as notas lidas para mostrar o último preço,
-// o mercado mais barato de cada item e o total estimado da compra.
+// Lista de compras da casa (os dois veem ao vivo): só o que falta comprar. Usa as notas lidas para
+// mostrar o último preço, o mercado mais barato e o total estimado. O ✓ (ou a nota do mercado) manda
+// o item para "Compras do mês".
 export function ListaComprasScreen({ navigation }: Props) {
   const rodape = useEspacoRodape();
   const { mostrarValor } = usePrivacidade();
@@ -31,7 +33,7 @@ export function ListaComprasScreen({ navigation }: Props) {
   const sugestoes = useMemo(() => (texto.trim().length >= 2 ? buscarProdutos(produtos, texto).sort((a, b) => b.vezes - a.vezes).slice(0, 5) : []), [produtos, texto]);
   const resumo = resumoLista(itens, produtos);
   const pendentes = itens.filter((i) => !i.comprado);
-  const comprados = itens.filter((i) => i.comprado);
+  const comprasMes = useComprasDoMes(hojeISO().slice(0, 7));
 
   function adicionar(nome: string) {
     const n = nome.trim();
@@ -40,13 +42,6 @@ export function ListaComprasScreen({ navigation }: Props) {
     if (existente) atualizar("lista_compras", existente.id, { quantidade: existente.quantidade + 1 });
     else inserir("lista_compras", { casa_id: casa.id, nome: n.slice(0, 80), quantidade: 1, comprado: false, created_by: userId });
     setTexto("");
-  }
-
-  function limparComprados() {
-    Alert.alert("Limpar comprados?", `${comprados.length} ${comprados.length === 1 ? "item sai" : "itens saem"} da lista.`, [
-      { text: "Cancelar", style: "cancel" },
-      { text: "Limpar", style: "destructive", onPress: () => excluir("lista_compras", comprados.map((i) => i.id)) },
-    ]);
   }
 
   return (
@@ -99,56 +94,73 @@ export function ListaComprasScreen({ navigation }: Props) {
         </Cartao>
       )}
 
-      {itens.length === 0 ? (
+      {pendentes.length === 0 ? (
         <Text style={[typography.body, { color: colors.textSecondary }]}>
-          Adicione o que precisa comprar. Quando o produto já apareceu numa nota fiscal lida, o app mostra o último preço e onde está mais barato. A lista é da casa: os dois veem e marcam ao vivo.
+          {itens.length === 0
+            ? "Adicione o que precisa comprar. Quando o produto já apareceu numa nota fiscal lida, o app mostra o último preço e onde está mais barato. A lista é da casa: os dois veem e marcam ao vivo."
+            : "✅ Nada para comprar agora. O que foi comprado está em Compras do mês."}
         </Text>
       ) : (
         <Cartao style={{ paddingVertical: spacing.xs }}>
-          {[...pendentes, ...comprados].map((i, idx) => {
+          {pendentes.map((i, idx) => {
             const p = produtoDoItem(produtos, i.nome);
             const mercado = p?.maisBarato?.mercado ?? p?.compras[0]?.mercado;
             return (
-              <View key={i.id} style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: idx ? 1 : 0, borderTopColor: colors.border, opacity: i.comprado ? 0.5 : 1 }}>
-                <TouchableOpacity onPress={() => atualizar("lista_compras", i.id, { comprado: !i.comprado })} hitSlop={8} accessibilityLabel={i.comprado ? "Desmarcar" : "Marcar como comprado"}>
-                  <Text style={{ fontSize: 22 }}>{i.comprado ? "☑️" : "⬜"}</Text>
+              <View key={i.id} style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: idx ? 1 : 0, borderTopColor: colors.border }}>
+                <TouchableOpacity
+                  onPress={() => atualizar("lista_compras", i.id, { comprado: true, comprado_em: hojeISO() })}
+                  hitSlop={8}
+                  accessibilityLabel="Marcar como comprado"
+                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}
+                >
+                  <Text style={{ color: colors.accentContrast, fontSize: 18, fontWeight: "700" }}>✓</Text>
                 </TouchableOpacity>
                 <View style={{ flex: 1 }}>
-                  <Text style={[typography.body, { textDecorationLine: i.comprado ? "line-through" : "none" }]} numberOfLines={1}>
+                  <Text style={typography.body} numberOfLines={1}>
                     {i.quantidade !== 1 ? `${String(i.quantidade).replace(".", ",")} × ` : ""}
                     {i.nome}
                   </Text>
-                  {p && !i.comprado && (
+                  {p && (
                     <Text style={typography.label} numberOfLines={1}>
                       último {mostrarValor(p.ultimoPreco)}
                       {mercado ? ` · mais barato: ${mercado}` : ""}
                     </Text>
                   )}
                 </View>
-                {!i.comprado && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <TouchableOpacity
-                      onPress={() => (i.quantidade > 1 ? atualizar("lista_compras", i.id, { quantidade: i.quantidade - 1 }) : excluir("lista_compras", [i.id]))}
-                      hitSlop={6}
-                      style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
-                    >
-                      <Text style={{ color: colors.textPrimary }}>{i.quantidade > 1 ? "−" : "🗑"}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => atualizar("lista_compras", i.id, { quantidade: i.quantidade + 1 })}
-                      hitSlop={6}
-                      style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
-                    >
-                      <Text style={{ color: colors.textPrimary }}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <TouchableOpacity
+                    onPress={() => (i.quantidade > 1 ? atualizar("lista_compras", i.id, { quantidade: i.quantidade - 1 }) : excluir("lista_compras", [i.id]))}
+                    hitSlop={6}
+                    style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text style={{ color: colors.textPrimary }}>{i.quantidade > 1 ? "−" : "🗑"}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => atualizar("lista_compras", i.id, { quantidade: i.quantidade + 1 })}
+                    hitSlop={6}
+                    style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text style={{ color: colors.textPrimary }}>+</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })}
         </Cartao>
       )}
-      {comprados.length > 0 && <Botao titulo={`Limpar comprados (${comprados.length})`} variante="link" onPress={limparComprados} />}
+
+      <TouchableOpacity onPress={() => navigation.navigate("ComprasMes")} activeOpacity={0.8}>
+        <Cartao style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+          <Text style={{ fontSize: 24 }}>🧾</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[typography.body, { fontWeight: "700" }]}>Compras do mês</Text>
+            <Text style={typography.label}>
+              {comprasMes.qtdItens} {comprasMes.qtdItens === 1 ? "item comprado" : "itens comprados"} · {mostrarValor(comprasMes.total)}
+            </Text>
+          </View>
+          <Text style={{ color: colors.textSecondary, fontSize: 20 }}>›</Text>
+        </Cartao>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
