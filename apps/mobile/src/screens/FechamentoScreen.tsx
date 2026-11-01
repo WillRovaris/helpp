@@ -6,6 +6,7 @@ import { Barra } from "../components/ResumoMes";
 import { Botao, Cartao, Chip, useEspacoRodape, IconeCategoria } from "../components/ui";
 import { useCategorias, useResumoDoMes } from "../data/hooks";
 import { tituloGasto } from "../data/tipos";
+import { somarPorPrincipal, somarSubcategorias } from "../lib/categorias";
 import { formatarReais, hojeISO, MESES } from "../lib/format";
 import { calcularAcerto } from "../lib/acerto";
 import { nivelLimite } from "../lib/limites";
@@ -43,8 +44,7 @@ export function FechamentoScreen({ navigation, route }: Props) {
 
   const temEntradas = r.totalEntradas > 0 || r.saldoAnterior !== 0;
   const categoriaPorId = new Map(categorias.map((c) => [c.id, c]));
-  const somas = new Map<string | null, number>();
-  for (const g of r.despesas) somas.set(g.categoria_id, (somas.get(g.categoria_id) ?? 0) + g.valor);
+  const somas = somarPorPrincipal(r.despesas, categorias);
   const porCategoria = [...somas.entries()].sort((a, b) => b[1] - a[1]);
   const maiores = [...r.despesas].sort((a, b) => b.valor - a.valor).slice(0, 5);
   const estourados = porCategoria.filter(([id, soma]) => {
@@ -214,6 +214,7 @@ export function FechamentoScreen({ navigation, route }: Props) {
           <Text style={[typography.label, { marginBottom: spacing.sm }]}>ONDE MAIS GASTOU</Text>
           {porCategoria.slice(0, 6).map(([id, soma]) => {
             const c = id ? categoriaPorId.get(id) : undefined;
+            const subs = id ? somarSubcategorias(r.despesas, categorias, id) : [];
             return (
               <View key={id ?? "sem"} style={{ paddingVertical: spacing.xs }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
@@ -229,6 +230,7 @@ export function FechamentoScreen({ navigation, route }: Props) {
                   </Text>
                 </View>
                 <Barra fracao={soma / porCategoria[0][1]} cor={c?.cor ?? colors.textSecondary} />
+                {subs.length > 0 && <Text style={[typography.label, { marginTop: 4 }]}>{subs.map((s) => `${s.nome} ${mostrarValor(s.total)}`).join(" · ")}</Text>}
               </View>
             );
           })}

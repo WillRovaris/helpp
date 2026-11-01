@@ -5,7 +5,8 @@ import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, Chip, useEspacoRodape } from "../components/ui";
 import { useCartoes, useCategorias } from "../data/hooks";
-import { emojiCategoria, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
+import { FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
+import { SeletorCategoria } from "../components/SeletorCategoria";
 import { chaveDoQr } from "../fiscal/nfce";
 import { casarListaComNota } from "../lib/compras";
 import { formatarReais, hojeISO, rotuloDia } from "../lib/format";
@@ -166,9 +167,7 @@ export function NotaConfirmarScreen({ navigation, route }: Props) {
       </Cartao>
 
       <Secao titulo="CATEGORIA">
-        {categorias.map((c) => (
-          <Chip key={c.id} rotulo={`${emojiCategoria(c.icone)} ${c.nome}`} cor={c.cor} ativo={categoriaId === c.id} onPress={() => setCategoriaId(c.id)} />
-        ))}
+        <SeletorCategoria categorias={categorias} valor={categoriaId} onMudar={setCategoriaId} />
       </Secao>
 
       <Secao titulo="COMO PAGOU">

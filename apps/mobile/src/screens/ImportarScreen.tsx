@@ -7,7 +7,8 @@ import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Campo, Cartao, Chip, useEspacoRodape, IconeCategoria } from "../components/ui";
 import { useCartoes, useCategorias, useImportacoes } from "../data/hooks";
-import { emojiCategoria, type Importacao } from "../data/tipos";
+import type { Importacao } from "../data/tipos";
+import { SeletorCategoria } from "../components/SeletorCategoria";
 import { type ArquivoLido, ehPDF, lerArquivo, lerLinhasPDF } from "../importacao/leitor";
 import { BANCOS, bancoProvavel, haQuanto, reconstruirHistorico, rotuloImportacao, ultimaDeCadaOrigem } from "../importacao/historico";
 import { PdfTexto, type ResultadoPdf } from "../importacao/PdfTexto";
@@ -586,19 +587,16 @@ export function ImportarScreen({ navigation }: Props) {
                     </TouchableOpacity>
                   )}
                   {abertoCategoria === item.id && (
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: spacing.sm, marginLeft: 36 }}>
-                      {categorias.map((c) => (
-                        <Chip
-                          key={c.id}
-                          rotulo={`${emojiCategoria(c.icone)} ${c.nome}`}
-                          cor={c.cor}
-                          ativo={e.categoriaId === c.id}
-                          onPress={() => {
-                            ajustar(item.id, { categoriaId: c.id });
-                            setAbertoCategoria(null);
-                          }}
-                        />
-                      ))}
+                    <View style={{ marginTop: spacing.sm, marginLeft: 36 }}>
+                      <SeletorCategoria
+                        categorias={categorias}
+                        valor={e.categoriaId}
+                        onMudar={(id) => {
+                          ajustar(item.id, { categoriaId: id });
+                          // Principal com subcategorias fica aberta para poder detalhar.
+                          if (!categorias.some((c) => c.pai_id === id)) setAbertoCategoria(null);
+                        }}
+                      />
                     </View>
                   )}
                 </View>

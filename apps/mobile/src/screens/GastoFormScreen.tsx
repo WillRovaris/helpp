@@ -8,6 +8,8 @@ import { mesDeReferencia, useCartoes, useCategorias } from "../data/hooks";
 import { totalDaCategoriaNoMes } from "../data/limites";
 import { avisoLimite } from "../lib/limites";
 import { emojiCategoria, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
+import { SeletorCategoria } from "../components/SeletorCategoria";
+import { idPrincipal } from "../lib/categorias";
 import { diaMes, faturaDaCompra, somarMeses } from "../lib/fatura";
 import { centavosDoTexto, formatarReais, gerarUuid, hojeISO, isoDeTextoBR, mascaraData, rotuloDia, somarDias } from "../lib/format";
 import { linhas, obter } from "../offline/banco";
@@ -156,8 +158,8 @@ export function GastoFormScreen({ navigation, route }: Props) {
         return;
       }
     }
-    // Limite da categoria: compara o total do mês antes e depois de gravar.
-    const categoria = categorias.find((c) => c.id === categoriaId);
+    // Limite da categoria principal: compara o total do mês antes e depois de gravar.
+    const categoria = categoriaId ? categorias.find((c) => c.id === idPrincipal(categoriaId, categorias)) : undefined;
     const mesDaDespesa = mesDeReferencia({ data: dataFinal, cartao_id: forma === "credito" ? cartaoId : null, data_pagamento: pagamentoFinal }, cartoes);
     const antes = categoria?.limite ? totalDaCategoriaNoMes(casa.id, categoria.id, mesDaDespesa) : 0;
 
@@ -273,16 +275,7 @@ export function GastoFormScreen({ navigation, route }: Props) {
       <TextInput value={descricao} onChangeText={setDescricao} placeholder="Ex.: Nome do mercado, farmácia, gasolina" placeholderTextColor={colors.textSecondary} style={estiloInput()} />
 
       <Secao titulo="CATEGORIA">
-        {categorias.map((c) => (
-          <Chip
-            key={c.id}
-            rotulo={`${emojiCategoria(c.icone)} ${c.nome}`}
-            ativo={categoriaId === c.id}
-            cor={c.cor}
-            onPress={() => setCategoriaId(categoriaId === c.id ? null : c.id)}
-          />
-        ))}
-        <Chip rotulo="+ Nova" ativo={false} onPress={() => navigation.navigate("CategoriaForm", {})} />
+        <SeletorCategoria categorias={categorias} valor={categoriaId} onMudar={setCategoriaId} limpar onNova={(paiId) => navigation.navigate("CategoriaForm", { paiId })} />
       </Secao>
 
       <Secao titulo="COMO PAGOU">

@@ -13,8 +13,10 @@ export interface Categoria {
   icone: string;
   cor: string;
   ordem: number;
-  /** Limite de gasto por mês (vazio = sem limite). */
+  /** Limite de gasto por mês, só nas principais (vazio = sem limite). */
   limite?: number | null;
+  /** Categoria principal; vazio = esta é uma principal. */
+  pai_id?: string | null;
 }
 
 export interface Cartao {

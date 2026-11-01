@@ -6,7 +6,8 @@ import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
 import { mesAnterior as mesAnteriorISO, receitaNoMes, saldoAnterior } from "../lib/saldo";
 import { alertasDeCategoria, alertasRepetidos } from "../lib/alertas";
 import { montarComprasDoMes } from "../lib/compras";
-import { resumirPorGrupo } from "../lib/gruposAlimento";
+import { idPrincipal, idsDaFamilia } from "../lib/categorias";
+import { resumirPorGrupo, type TipoProduto } from "../lib/gruposAlimento";
 import { detectarAssinaturas } from "../lib/assinaturas";
 import { dividasDeContas, parcelamentosEmAberto } from "../lib/dividas";
 import { agruparProdutos, type ItemNota, type NotaResumo } from "../lib/produtos";
@@ -321,7 +322,8 @@ export function useAlertas(fmt: (v: number) => string) {
       if (!g.categoria_id) continue;
       const m = mesDeReferencia(g, cartoes);
       const mapa = porMes.get(m) ?? new Map<string, number>();
-      mapa.set(g.categoria_id, (mapa.get(g.categoria_id) ?? 0) + g.valor);
+      const principal = idPrincipal(g.categoria_id, categorias);
+      mapa.set(principal, (mapa.get(principal) ?? 0) + g.valor);
       porMes.set(m, mapa);
     }
     const anteriores: Map<string, number>[] = [];
@@ -365,6 +367,21 @@ export function useListaCompras() {
   return { itens };
 }
 
+/** Categorias de supermercado: as de emoji 🛒 e as subcategorias delas. */
+function categoriasDeMercado(categorias: Categoria[]): Set<string> {
+  return new Set(categorias.filter((c) => emojiCategoria(c.icone) === "🛒").flatMap((c) => [...idsDaFamilia(c.id, categorias)]));
+}
+
+/** Tipos de produto criados pela casa ("+ Novo tipo" em O que mais compramos). */
+export function useTiposDeProduto() {
+  const { itens } = useTabela<TipoProduto>(
+    "produto_tipos",
+    (t) => [...t].sort(porTexto("created_at")).map((p) => ({ id: p.id, nome: p.nome, emoji: p.emoji, alimento: p.alimento !== false })) as TipoProduto[],
+    [],
+  );
+  return { tipos: itens };
+}
+
 /** Compras do mês (YYYY-MM): itens das notas de supermercado + o que foi marcado à mão na lista. */
 export function useComprasDoMes(mes: string) {
   const { itens: lista } = useListaCompras();
@@ -373,7 +390,7 @@ export function useComprasDoMes(mes: string) {
   const { itens: notas } = useTabela<Linha>("notas", (t) => t, []);
   const { itens: gastos } = useTabela<Linha>("gastos", (t) => t.filter((g) => g.nota_id), []);
   return useMemo(() => {
-    const mercados = new Set(categorias.filter((c) => emojiCategoria(c.icone) === "🛒").map((c) => c.id));
+    const mercados = categoriasDeMercado(categorias);
     return montarComprasDoMes(mes, { notas, itensNota, gastos, lista, mercados } as Parameters<typeof montarComprasDoMes>[1]);
   }, [mes, categorias, itensNota, notas, gastos, lista]);
 }
@@ -392,8 +409,9 @@ export function useComprasPorGrupo(mesFinal: string, qtdMeses: number) {
   const { itens: itensNota } = useTabela<Linha>("nota_itens", (t) => t, []);
   const { itens: notas } = useTabela<Linha>("notas", (t) => t, []);
   const { itens: gastos } = useTabela<Linha>("gastos", (t) => t.filter((g) => g.nota_id), []);
+  const { tipos } = useTiposDeProduto();
   return useMemo(() => {
-    const mercados = new Set(categorias.filter((c) => emojiCategoria(c.icone) === "🛒").map((c) => c.id));
+    const mercados = categoriasDeMercado(categorias);
     const dados = { notas, itensNota, gastos, lista, mercados } as Parameters<typeof montarComprasDoMes>[1];
     const itens = [];
     let m = mesFinal;
@@ -401,8 +419,8 @@ export function useComprasPorGrupo(mesFinal: string, qtdMeses: number) {
       for (const c of montarComprasDoMes(m, dados).compras) itens.push(...c.itens);
       m = mesAnteriorISO(m);
     }
-    return resumirPorGrupo(itens, correcoes);
-  }, [mesFinal, qtdMeses, categorias, correcoes, itensNota, notas, gastos, lista]);
+    return resumirPorGrupo(itens, correcoes, tipos);
+  }, [mesFinal, qtdMeses, categorias, correcoes, tipos, itensNota, notas, gastos, lista]);
 }
 
 /** Cobranças que se repetem todo mês e ainda não são conta fixa (o "Não é assinatura" esconde neste celular). */

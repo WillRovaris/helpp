@@ -4,6 +4,7 @@ import type { Categoria, Gasto } from "../data/tipos";
 import { colors, radius, spacing, typography } from "../theme";
 import { Cartao, IconeCategoria } from "./ui";
 import { usePrivacidade } from "../privacidade/PrivacidadeContext";
+import { principaisDe, somarPorPrincipal, somarSubcategorias } from "../lib/categorias";
 import { nivelLimite } from "../lib/limites";
 
 /** Barra horizontal simples (0–1), sem biblioteca de gráfico. */
@@ -87,11 +88,13 @@ export function PorCategoria({
 }) {
   const { mostrarValor } = usePrivacidade();
   const [expandido, setExpandido] = useState(false);
+  const [aberta, setAberta] = useState<string | null>(null);
   const total = gastos.reduce((s, g) => s + g.valor, 0);
-  const somas = new Map<string | null, number>();
-  for (const g of gastos) somas.set(g.categoria_id, (somas.get(g.categoria_id) ?? 0) + g.valor);
+  // O resumo mostra só as principais; as subcategorias abrem ao tocar.
+  const somas = somarPorPrincipal(gastos, categorias);
+  const principais = principaisDe(categorias);
   // Categoria com limite aparece mesmo sem despesa no mês (mostra quanto ainda pode gastar).
-  for (const c of categorias) if (c.limite && !somas.has(c.id)) somas.set(c.id, 0);
+  for (const c of principais) if (c.limite && !somas.has(c.id)) somas.set(c.id, 0);
   if (!somas.size) return null;
 
   const categoriaPorId = new Map(categorias.map((c) => [c.id, c]));
@@ -99,7 +102,7 @@ export function PorCategoria({
   const maior = Math.max(linhas[0][1], 1);
   const corNivel = { ok: colors.accent, atencao: colors.warning, passou: colors.danger };
   // Soma de todas as categorias com limite: quanto já foi de quanto foi planejado.
-  const comLimite = categorias.filter((c) => c.limite);
+  const comLimite = principais.filter((c) => c.limite);
   const totalLimites = comLimite.reduce((s, c) => s + (c.limite ?? 0), 0);
   const gastoComLimite = comLimite.reduce((s, c) => s + (somas.get(c.id) ?? 0), 0);
 
@@ -132,13 +135,16 @@ export function PorCategoria({
         const cat = id ? categoriaPorId.get(id) : undefined;
         const limite = cat?.limite ?? null;
         const nivel = limite ? nivelLimite(soma, limite) : null;
+        const subs = id ? somarSubcategorias(gastos, categorias, id) : [];
         return (
-          <TouchableOpacity key={id ?? "sem"} onPress={() => onPressCategoria(id)} style={{ paddingVertical: spacing.xs + 2 }}>
+          <View key={id ?? "sem"}>
+          <TouchableOpacity onPress={() => (subs.length ? setAberta(aberta === id ? null : id) : onPressCategoria(id))} style={{ paddingVertical: spacing.xs + 2 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, flexShrink: 1 }}>
                 <IconeCategoria categoria={cat} tamanho={28} />
                 <Text style={typography.body} numberOfLines={1}>
                   {cat?.nome ?? "Sem categoria"}
+                  {subs.length ? (aberta === id ? " ▲" : " ▼") : ""}
                 </Text>
               </View>
               <Text style={typography.body}>
@@ -163,6 +169,28 @@ export function PorCategoria({
               <Barra fracao={soma / maior} cor={cat?.cor ?? colors.textSecondary} />
             )}
           </TouchableOpacity>
+          {aberta === id && subs.length > 0 && (
+            <View style={{ marginLeft: 36, marginBottom: spacing.xs }}>
+              {subs.map((s) => (
+                <TouchableOpacity
+                  key={s.id ?? "direto"}
+                  disabled={!s.id}
+                  onPress={() => onPressCategoria(s.id)}
+                  style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 5 }}
+                >
+                  <Text style={[typography.body, { fontSize: 14, flexShrink: 1 }]} numberOfLines={1}>
+                    {s.nome}
+                    {s.id ? " ›" : ""}
+                  </Text>
+                  <Text style={[typography.body, { fontSize: 14, marginLeft: spacing.sm }]}>{mostrarValor(s.total)}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity onPress={() => onPressCategoria(id)} hitSlop={6} style={{ paddingVertical: 5 }}>
+                <Text style={[typography.label, { color: colors.accent, fontWeight: "700" }]}>Ver todas as despesas ›</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          </View>
         );
       })}
       {linhas.length > CATEGORIAS_RECOLHIDAS && (

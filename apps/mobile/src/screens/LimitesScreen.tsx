@@ -6,6 +6,7 @@ import { Botao, Cartao, estiloInput, TelaFormulario, IconeCategoria } from "../c
 import { totalDaCategoriaNoMes } from "../data/limites";
 import { useCategorias, useEntradasDoMes } from "../data/hooks";
 import { Barra } from "../components/ResumoMes";
+import { principaisDe } from "../lib/categorias";
 import { centavosDoTexto, formatarReais, hojeISO } from "../lib/format";
 import { atualizar } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
@@ -16,7 +17,9 @@ type Props = NativeStackScreenProps<RootStackParamList, "Limites">;
 // Limite de gasto por mês em cada categoria. Vazio (R$ 0,00) = sem limite.
 export function LimitesScreen({ navigation }: Props) {
   const { casa } = useCasa();
-  const { categorias } = useCategorias();
+  // Limite só nas principais: o que se gasta nas subcategorias soma nelas.
+  const { categorias: todas } = useCategorias();
+  const categorias = principaisDe(todas);
   const mes = hojeISO().slice(0, 7);
   const [centavos, setCentavos] = useState<Record<string, number>>(() =>
     Object.fromEntries(categorias.map((c) => [c.id, Math.round((c.limite ?? 0) * 100)])),
@@ -48,7 +51,7 @@ export function LimitesScreen({ navigation }: Props) {
   return (
     <TelaFormulario contentStyle={{ gap: spacing.md }}>
       <Text style={[typography.body, { color: colors.textSecondary }]}>
-        Quanto vocês querem gastar no máximo, por mês, em cada categoria. Deixe em R$ 0,00 para não ter limite.
+        Quanto vocês querem gastar no máximo, por mês, em cada categoria principal (as subcategorias entram na soma). Deixe em R$ 0,00 para não ter limite.
       </Text>
 
       {/* Soma de todos os limites (muda enquanto digita) e como ela se compara com o mês. */}

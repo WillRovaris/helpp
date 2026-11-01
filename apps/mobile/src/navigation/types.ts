@@ -30,7 +30,7 @@ export type RootStackParamList = {
   Produto: { chave: string };
   Fechamento: { mes?: string } | undefined;
   Categorias: undefined;
-  CategoriaForm: { categoriaId?: string } | undefined;
+  CategoriaForm: { categoriaId?: string; paiId?: string } | undefined;
   Relatorios: undefined;
   Evolucao: undefined;
   Caixinhas: undefined;

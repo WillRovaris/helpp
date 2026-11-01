@@ -64,8 +64,16 @@ export interface ProdutoDoGrupo {
   vezes: number;
 }
 
+/** Tipo criado pela casa, somado aos GRUPOS; o id é o do registro em produto_tipos. */
+export interface TipoProduto {
+  id: string;
+  nome: string;
+  emoji: string;
+  alimento: boolean;
+}
+
 export interface ResumoGrupo {
-  id: GrupoId;
+  id: string;
   nome: string;
   emoji: string;
   alimento: boolean;
@@ -75,13 +83,17 @@ export interface ResumoGrupo {
 
 const arred = (v: number) => Math.round(v * 100) / 100;
 
-/** Soma as compras por tipo de produto, maiores primeiro. `correcoes`: chave do produto → tipo escolhido pela pessoa. */
-export function resumirPorGrupo(itens: { nome: string; valor: number }[], correcoes: Map<string, string>) {
-  const grupos = new Map<GrupoId, Map<string, ProdutoDoGrupo>>();
+/**
+ * Soma as compras por tipo de produto, maiores primeiro. `correcoes`: chave do produto → tipo escolhido pela
+ * pessoa; `extras`: tipos criados pela casa.
+ */
+export function resumirPorGrupo(itens: { nome: string; valor: number }[], correcoes: Map<string, string>, extras: TipoProduto[] = []) {
+  const todos: TipoProduto[] = [...GRUPOS, ...extras];
+  const grupos = new Map<string, Map<string, ProdutoDoGrupo>>();
   for (const i of itens) {
     const chave = semAcento(i.nome);
     const corrigido = correcoes.get(chave);
-    const grupo = GRUPOS.some((g) => g.id === corrigido) ? (corrigido as GrupoId) : classificarProduto(i.nome);
+    const grupo = corrigido && todos.some((g) => g.id === corrigido) ? corrigido : classificarProduto(i.nome);
     const produtos = grupos.get(grupo) ?? new Map<string, ProdutoDoGrupo>();
     const p = produtos.get(chave) ?? { chave, nome: i.nome.replace(/\s+/g, " ").trim(), total: 0, vezes: 0 };
     p.total = arred(p.total + i.valor);
@@ -89,7 +101,7 @@ export function resumirPorGrupo(itens: { nome: string; valor: number }[], correc
     produtos.set(chave, p);
     grupos.set(grupo, produtos);
   }
-  const lista: ResumoGrupo[] = GRUPOS.filter((g) => grupos.has(g.id)).map((g) => {
+  const lista: ResumoGrupo[] = todos.filter((g) => grupos.has(g.id)).map((g) => {
     const produtos = [...grupos.get(g.id)!.values()].sort((a, b) => b.total - a.total);
     return { ...g, produtos, total: arred(produtos.reduce((s, p) => s + p.total, 0)) };
   });

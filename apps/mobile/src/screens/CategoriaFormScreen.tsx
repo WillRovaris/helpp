@@ -2,9 +2,11 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
+import { SeletorCategoria } from "../components/SeletorCategoria";
 import { Botao, Campo, Chip, estiloInput, TelaFormulario } from "../components/ui";
 import { useCategorias } from "../data/hooks";
 import { CORES_CATEGORIA, emojiCategoria, EMOJIS_CATEGORIA } from "../data/tipos";
+import { idPrincipal, principaisDe, subcategoriasDe } from "../lib/categorias";
 import { centavosDoTexto, formatarReais } from "../lib/format";
 import { linhas, obter } from "../offline/banco";
 import { atualizar, inserir } from "../offline/repo";
@@ -20,17 +22,23 @@ export function CategoriaFormScreen({ navigation, route }: Props) {
   const { casa } = useCasa();
   const { categorias } = useCategorias();
   const existente = categoriaId ? obter("categorias", categoriaId) : undefined;
+  const paiNovo = route.params?.paiId ? obter("categorias", route.params.paiId) : undefined;
 
   const [nome, setNome] = useState<string>(existente?.nome ?? "");
   const [icone, setIcone] = useState<string>(existente?.icone ?? "📦");
-  const [cor, setCor] = useState<string>(existente?.cor ?? CORES_CATEGORIA[0]);
+  const [cor, setCor] = useState<string>(existente?.cor ?? paiNovo?.cor ?? CORES_CATEGORIA[0]);
   const [limite, setLimite] = useState(existente?.limite ? Math.round(Number(existente.limite) * 100) : 0);
+  /** Categoria principal; null = esta é uma principal. */
+  const [paiId, setPaiId] = useState<string | null>(existente?.pai_id ?? paiNovo?.id ?? null);
   const [excluindo, setExcluindo] = useState(false);
   const [destino, setDestino] = useState<string | null>(null);
 
   useEffect(() => {
-    navigation.setOptions({ title: categoriaId ? "Editar categoria" : "Nova categoria" });
-  }, [navigation, categoriaId]);
+    navigation.setOptions({ title: categoriaId ? "Editar categoria" : paiId ? "Nova subcategoria" : "Nova categoria" });
+  }, [navigation, categoriaId, paiId]);
+
+  const subs = categoriaId ? subcategoriasDe(categorias, categoriaId) : [];
+  const outrasPrincipais = principaisDe(categorias).filter((c) => c.id !== categoriaId);
 
   const emojiAtual = emojiCategoria(icone);
   const usos = categoriaId && casa
@@ -44,10 +52,11 @@ export function CategoriaFormScreen({ navigation, route }: Props) {
     if (!casa) return;
     const n = nome.trim();
     if (!n) return Alert.alert("Nome", "Dê um nome à categoria (ex.: Academia, Farmácia).");
-    if (categorias.some((c) => c.id !== categoriaId && c.nome.trim().toLowerCase() === n.toLowerCase())) {
+    // O mesmo nome pode existir em principais diferentes (ex.: "Manutenção" em Casa e em Carro).
+    if (categorias.some((c) => c.id !== categoriaId && (c.pai_id ?? null) === paiId && c.nome.trim().toLowerCase() === n.toLowerCase())) {
       return Alert.alert("Nome repetido", `Já existe a categoria "${n}".`);
     }
-    const dados = { nome: n.slice(0, 40), icone, cor, limite: limite ? limite / 100 : null };
+    const dados = { nome: n.slice(0, 40), icone, cor, pai_id: paiId, limite: limite && !paiId ? limite / 100 : null };
     if (existente) atualizar("categorias", existente.id, dados);
     else {
       // Nova entra antes de "Outros" (ordem 99).
@@ -62,9 +71,13 @@ export function CategoriaFormScreen({ navigation, route }: Props) {
     const total = usos.despesas + usos.contas;
     if (total > 0 && !destino) return Alert.alert("Para onde mover?", "Escolha a categoria que vai receber as despesas desta.");
     const nomeDestino = categorias.find((c) => c.id === destino)?.nome;
+    // As subcategorias não somem: vão para a principal do destino ou viram principais.
+    const novoPai = destino ? idPrincipal(destino, categorias) : null;
+    const nomePai = categorias.find((c) => c.id === novoPai)?.nome;
+    const avisoSubs = subs.length ? ` As ${subs.length} subcategorias ${nomePai ? `vão para "${nomePai}"` : "viram categorias principais"}.` : "";
     Alert.alert(
       `Excluir "${existente.nome}"?`,
-      total > 0 ? `${usos.despesas} despesas e ${usos.contas} contas fixas vão para "${nomeDestino}".` : "Ela some das listas.",
+      (total > 0 ? `${usos.despesas} despesas e ${usos.contas} contas fixas vão para "${nomeDestino}".` : "Ela some das listas.") + avisoSubs,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -75,6 +88,7 @@ export function CategoriaFormScreen({ navigation, route }: Props) {
               for (const g of linhas("gastos").filter((x) => x.casa_id === casa.id && x.categoria_id === existente.id)) atualizar("gastos", g.id, { categoria_id: destino });
               for (const c of linhas("contas_fixas").filter((x) => x.casa_id === casa.id && x.categoria_id === existente.id)) atualizar("contas_fixas", c.id, { categoria_id: destino });
             }
+            for (const s of subs) atualizar("categorias", s.id, { pai_id: novoPai });
             atualizar("categorias", existente.id, { arquivada: true });
             navigation.goBack();
           },
@@ -92,6 +106,28 @@ export function CategoriaFormScreen({ navigation, route }: Props) {
       </View>
 
       <Campo rotulo="NOME" value={nome} onChangeText={setNome} placeholder="Ex.: Academia, Farmácia, Doces" autoCapitalize="sentences" maxLength={40} />
+
+      {/* Só um nível: quem já tem subcategorias continua sendo principal. */}
+      {subs.length === 0 && (
+        <View style={{ marginBottom: spacing.md }}>
+          <Text style={[typography.label, { marginBottom: spacing.sm }]}>FICA DENTRO DE</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            <Chip rotulo="Nenhuma (é principal)" ativo={!paiId} onPress={() => setPaiId(null)} />
+            {outrasPrincipais.map((c) => (
+              <Chip
+                key={c.id}
+                rotulo={`${emojiCategoria(c.icone)} ${c.nome}`}
+                cor={c.cor}
+                ativo={paiId === c.id}
+                onPress={() => {
+                  setPaiId(c.id);
+                  setCor(c.cor);
+                }}
+              />
+            ))}
+          </View>
+        </View>
+      )}
 
       <Text style={[typography.label, { marginBottom: spacing.sm }]}>ÍCONE</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
@@ -128,15 +164,21 @@ export function CategoriaFormScreen({ navigation, route }: Props) {
         ))}
       </View>
 
-      <Text style={[typography.label, { marginTop: spacing.lg, marginBottom: spacing.xs }]}>🎯 LIMITE POR MÊS (OPCIONAL)</Text>
-      <TextInput
-        value={limite ? formatarReais(limite / 100) : ""}
-        onChangeText={(t) => setLimite(centavosDoTexto(t))}
-        placeholder="Sem limite"
-        placeholderTextColor={colors.textSecondary}
-        keyboardType="number-pad"
-        style={estiloInput()}
-      />
+      {paiId ? (
+        <Text style={[typography.label, { marginTop: spacing.lg }]}>🎯 O limite fica na categoria principal; esta subcategoria entra na soma dela.</Text>
+      ) : (
+        <>
+          <Text style={[typography.label, { marginTop: spacing.lg, marginBottom: spacing.xs }]}>🎯 LIMITE POR MÊS (OPCIONAL)</Text>
+          <TextInput
+            value={limite ? formatarReais(limite / 100) : ""}
+            onChangeText={(t) => setLimite(centavosDoTexto(t))}
+            placeholder="Sem limite"
+            placeholderTextColor={colors.textSecondary}
+            keyboardType="number-pad"
+            style={estiloInput()}
+          />
+        </>
+      )}
 
       <Botao titulo="Salvar" onPress={salvar} style={{ marginTop: spacing.xl }} />
 
@@ -149,13 +191,7 @@ export function CategoriaFormScreen({ navigation, route }: Props) {
                 {usos.despesas} {usos.despesas === 1 ? "despesa usa" : "despesas usam"} esta categoria
                 {usos.contas ? ` (e ${usos.contas} ${usos.contas === 1 ? "conta fixa" : "contas fixas"})` : ""}. Para qual categoria elas vão?
               </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                {categorias
-                  .filter((c) => c.id !== existente.id)
-                  .map((c) => (
-                    <Chip key={c.id} rotulo={`${emojiCategoria(c.icone)} ${c.nome}`} cor={c.cor} ativo={destino === c.id} onPress={() => setDestino(c.id)} />
-                  ))}
-              </View>
+              <SeletorCategoria categorias={categorias.filter((c) => c.id !== existente.id && c.pai_id !== existente.id)} valor={destino} onMudar={setDestino} />
             </>
           ) : (
             <Text style={typography.body}>Nenhuma despesa usa esta categoria.</Text>

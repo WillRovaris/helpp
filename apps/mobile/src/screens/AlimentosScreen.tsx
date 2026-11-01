@@ -1,13 +1,13 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { Barra } from "../components/ResumoMes";
-import { Cartao, Chip, useEspacoRodape } from "../components/ui";
-import { useComprasPorGrupo } from "../data/hooks";
+import { Botao, Cartao, Chip, estiloInput, useEspacoRodape } from "../components/ui";
+import { useComprasPorGrupo, useTiposDeProduto } from "../data/hooks";
 import { idDeTexto } from "../importacao/historico";
 import { hojeISO, MESES } from "../lib/format";
-import { GRUPOS, type GrupoId, type ProdutoDoGrupo, type ResumoGrupo } from "../lib/gruposAlimento";
+import { GRUPOS, type ProdutoDoGrupo, type ResumoGrupo } from "../lib/gruposAlimento";
 import { mesAnterior } from "../lib/saldo";
 import { linhas } from "../offline/banco";
 import { atualizar, inserir } from "../offline/repo";
@@ -22,6 +22,8 @@ const PERIODOS = [
   { meses: 3, rotulo: "3 meses" },
   { meses: 12, rotulo: "1 ano" },
 ];
+
+const EMOJIS_TIPO = ["🛍️", "🍕", "🍝", "🥫", "🍯", "🥜", "🐟", "🍗", "🧊", "🧃", "🐶", "🐱", "👶", "🍼", "🧻", "🕯️"];
 
 const proximoMes = (m: string) => {
   const d = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 1);
@@ -38,9 +40,15 @@ export function AlimentosScreen({ navigation }: Props) {
   const mesAtual = hojeISO().slice(0, 7);
   const [mes, setMes] = useState(mesAtual);
   const [periodo, setPeriodo] = useState(1);
-  const [aberto, setAberto] = useState<GrupoId | null>(null);
+  const [aberto, setAberto] = useState<string | null>(null);
   const [corrigindo, setCorrigindo] = useState<ProdutoDoGrupo | null>(null);
+  /** Formulário "+ Novo tipo" aberto (sozinho ou no meio da correção de um produto). */
+  const [criandoTipo, setCriandoTipo] = useState(false);
+  const [nomeTipo, setNomeTipo] = useState("");
+  const [emojiTipo, setEmojiTipo] = useState(EMOJIS_TIPO[0]);
+  const [tipoAlimento, setTipoAlimento] = useState(true);
   const { alimentos, outros, totalAlimentos, total } = useComprasPorGrupo(mes, periodo);
+  const { tipos } = useTiposDeProduto();
 
   useEffect(() => {
     navigation.setOptions({ headerRight: () => <BotaoOlho tamanho={24} /> });
@@ -50,13 +58,29 @@ export function AlimentosScreen({ navigation }: Props) {
   for (let i = 1; i < periodo; i++) inicio = mesAnterior(inicio);
   const maior = Math.max(...[...alimentos, ...outros].map((g) => g.total), 1);
 
-  function escolherGrupo(grupo: GrupoId) {
+  function escolherGrupo(grupo: string) {
     if (!casa || !corrigindo) return;
     const existente = linhas("produto_grupos").find((c) => c.chave === corrigindo.chave);
     if (existente) atualizar("produto_grupos", String(existente.id), { grupo });
     // id tirado do nome: se os dois celulares corrigirem o mesmo produto, é o mesmo registro.
     else inserir("produto_grupos", { id: idDeTexto(`${casa.id}|${corrigindo.chave}`), casa_id: casa.id, chave: corrigindo.chave, grupo });
     setCorrigindo(null);
+  }
+
+  function fecharModal() {
+    setCorrigindo(null);
+    setCriandoTipo(false);
+    setNomeTipo("");
+  }
+
+  function salvarTipo() {
+    const nome = nomeTipo.trim();
+    if (!casa) return;
+    if (!nome) return Alert.alert("Nome", "Dê um nome ao tipo (ex.: Comida de pet, Congelados).");
+    if ([...GRUPOS, ...tipos].some((t) => t.nome.toLowerCase() === nome.toLowerCase())) return Alert.alert("Nome repetido", `Já existe o tipo "${nome}".`);
+    const novo = inserir("produto_tipos", { casa_id: casa.id, nome: nome.slice(0, 40), emoji: emojiTipo, alimento: tipoAlimento });
+    if (corrigindo) escolherGrupo(String(novo.id));
+    fecharModal();
   }
 
   const linhaGrupo = (g: ResumoGrupo, base: number) => (
@@ -136,16 +160,45 @@ export function AlimentosScreen({ navigation }: Props) {
         </Cartao>
       )}
 
-      <Modal visible={!!corrigindo} transparent animationType="fade" onRequestClose={() => setCorrigindo(null)}>
-        <Pressable onPress={() => setCorrigindo(null)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+      <Chip rotulo="+ Novo tipo" ativo={false} onPress={() => setCriandoTipo(true)} />
+
+      <Modal visible={!!corrigindo || criandoTipo} transparent animationType="fade" onRequestClose={fecharModal}>
+        <Pressable onPress={fecharModal} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
           <Pressable style={{ backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg, paddingBottom: rodape, gap: spacing.md }}>
-            <Text style={[typography.body, { fontWeight: "700" }]}>{corrigindo?.nome}</Text>
-            <Text style={typography.label}>QUAL É O TIPO DESTE PRODUTO? VALE PARA TODAS AS COMPRAS DELE.</Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-              {GRUPOS.filter((g) => g.id !== "outros").map((g) => (
-                <Chip key={g.id} rotulo={`${g.emoji} ${g.nome}`} ativo={false} onPress={() => escolherGrupo(g.id)} />
-              ))}
-            </View>
+            {!!corrigindo && <Text style={[typography.body, { fontWeight: "700" }]}>{corrigindo.nome}</Text>}
+            {criandoTipo ? (
+              <>
+                <Text style={typography.label}>NOVO TIPO DE PRODUTO</Text>
+                <TextInput value={nomeTipo} onChangeText={setNomeTipo} placeholder="Ex.: Comida de pet, Congelados" placeholderTextColor={colors.textSecondary} autoCapitalize="sentences" maxLength={40} style={estiloInput()} />
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  {EMOJIS_TIPO.map((e) => (
+                    <TouchableOpacity
+                      key={e}
+                      onPress={() => setEmojiTipo(e)}
+                      accessibilityLabel={`Ícone ${e}`}
+                      style={{ width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: emojiTipo === e ? colors.accent : "transparent", backgroundColor: colors.surface }}
+                    >
+                      <Text style={{ fontSize: 20 }}>{e}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={{ flexDirection: "row", gap: spacing.sm }}>
+                  <Chip rotulo="🍽️ É alimento" ativo={tipoAlimento} onPress={() => setTipoAlimento(true)} />
+                  <Chip rotulo="🧺 Não é alimento" ativo={!tipoAlimento} onPress={() => setTipoAlimento(false)} />
+                </View>
+                <Botao titulo="Salvar tipo" onPress={salvarTipo} />
+              </>
+            ) : (
+              <>
+                <Text style={typography.label}>QUAL É O TIPO DESTE PRODUTO? VALE PARA TODAS AS COMPRAS DELE.</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                  {[...GRUPOS.filter((g) => g.id !== "outros"), ...tipos].map((g) => (
+                    <Chip key={g.id} rotulo={`${g.emoji} ${g.nome}`} ativo={false} onPress={() => escolherGrupo(g.id)} />
+                  ))}
+                  <Chip rotulo="+ Novo tipo" ativo={false} onPress={() => setCriandoTipo(true)} />
+                </View>
+              </>
+            )}
           </Pressable>
         </Pressable>
       </Modal>

@@ -6,7 +6,8 @@ import { useCasa } from "../casa/CasaContext";
 import { SeletorMes } from "../components/SeletorMes";
 import { Botao, Campo, Chip, estiloInput, IconeCategoria, TelaFormulario } from "../components/ui";
 import { useCartoes, useCategorias } from "../data/hooks";
-import { emojiCategoria, EMOJIS_CATEGORIA, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
+import { EMOJIS_CATEGORIA, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
+import { SeletorCategoria } from "../components/SeletorCategoria";
 import { competencia } from "../lib/contas";
 import { somarMeses } from "../lib/fatura";
 import { centavosDoTexto, formatarReais, MESES } from "../lib/format";
@@ -251,11 +252,7 @@ export function ContaFormScreen({ navigation, route }: Props) {
       )}
 
       <Text style={[typography.label, { marginTop: spacing.lg, marginBottom: spacing.sm }]}>CATEGORIA</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        {categorias.map((c) => (
-          <Chip key={c.id} rotulo={`${emojiCategoria(c.icone)} ${c.nome}`} cor={c.cor} ativo={categoriaId === c.id} onPress={() => setCategoriaId(c.id)} />
-        ))}
-      </View>
+      <SeletorCategoria categorias={categorias} valor={categoriaId} onMudar={setCategoriaId} />
 
       <Text style={[typography.label, { marginTop: spacing.lg, marginBottom: spacing.sm }]}>ÍCONE DA CONTA</Text>
       <TouchableOpacity onPress={() => setTrocandoIcone((t) => !t)} activeOpacity={0.8} style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>

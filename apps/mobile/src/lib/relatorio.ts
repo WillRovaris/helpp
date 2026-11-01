@@ -1,6 +1,7 @@
 import { Linking, Share } from "react-native";
 import type { Membro } from "../casa/CasaContext";
 import { type Categoria, emojiCategoria, type Gasto } from "../data/tipos";
+import { somarPorPrincipal } from "./categorias";
 import { formatarReais, MESES } from "./format";
 
 /** Texto do resumo do mês, formatado para WhatsApp (*negrito*). */
@@ -30,8 +31,7 @@ export function textoResumoMes(opts: {
   }
 
   if (total > 0) {
-    const somas = new Map<string | null, number>();
-    for (const g of gastos) somas.set(g.categoria_id, (somas.get(g.categoria_id) ?? 0) + g.valor);
+    const somas = somarPorPrincipal(gastos, categorias);
     const porId = new Map(categorias.map((c) => [c.id, c]));
     linhas.push("", "*Por categoria*");
     for (const [id, soma] of [...somas.entries()].sort((a, b) => b[1] - a[1])) {

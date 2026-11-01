@@ -8,7 +8,9 @@ import { ResultadosBusca } from "../components/BuscaDespesas";
 import { Cartao as CartaoUI, Chip, estiloInput, useEspacoRodape, IconeCategoria } from "../components/ui";
 import { useCartoes, useCategorias, useContasFixas, useGastosDoMes, usePagamentosDoMes } from "../data/hooks";
 import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
-import { emojiCategoria, FORMAS_PAGAMENTO, type Gasto, tituloGasto } from "../data/tipos";
+import { FORMAS_PAGAMENTO, type Gasto, tituloGasto } from "../data/tipos";
+import { SeletorCategoria } from "../components/SeletorCategoria";
+import { idsDaFamilia } from "../lib/categorias";
 import { hojeISO, MESES, rotuloDia } from "../lib/format";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
@@ -68,8 +70,10 @@ export function HistoricoScreen({ navigation, route }: Props) {
   };
   // Contas fixas do mês ainda não pagas entram como despesas comuns (no dia do vencimento).
   const contasAPagar = contasComoDespesas(contasDoMes(contas, pagamentos, comp, hojeISO()), comp);
+  // Filtrar uma principal mostra também as subcategorias dela.
+  const familiaFiltro = filtroCategoria ? idsDaFamilia(filtroCategoria, categorias) : null;
   const filtrados = [...gastos, ...contasAPagar]
-    .filter((g) => (!filtroCategoria || g.categoria_id === filtroCategoria) && (!filtroPessoa || g.pago_por === filtroPessoa) && passaPagamento(g))
+    .filter((g) => (!familiaFiltro || (!!g.categoria_id && familiaFiltro.has(g.categoria_id))) && (!filtroPessoa || g.pago_por === filtroPessoa) && passaPagamento(g))
     .sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));
   const total = filtrados.reduce((s, g) => s + g.valor, 0);
 
@@ -153,12 +157,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
       </CartaoUI>
 
       <Text style={[typography.label, { marginBottom: -spacing.xs }]}>CATEGORIA</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
-        <Chip rotulo="Todas" ativo={!filtroCategoria} onPress={() => setFiltroCategoria(null)} />
-        {categorias.map((c) => (
-          <Chip key={c.id} rotulo={`${emojiCategoria(c.icone)} ${c.nome}`} cor={c.cor} ativo={filtroCategoria === c.id} onPress={() => setFiltroCategoria(filtroCategoria === c.id ? null : c.id)} />
-        ))}
-      </ScrollView>
+      <SeletorCategoria categorias={categorias} valor={filtroCategoria} onMudar={setFiltroCategoria} limpar rotuloTodas="Todas" emLinha />
 
       <Text style={[typography.label, { marginBottom: -spacing.xs }]}>COMO PAGOU</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
