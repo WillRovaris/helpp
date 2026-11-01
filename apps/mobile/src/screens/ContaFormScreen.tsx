@@ -4,9 +4,9 @@ import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { SeletorMes } from "../components/SeletorMes";
-import { Botao, Campo, Chip, estiloInput, TelaFormulario } from "../components/ui";
-import { useCategorias } from "../data/hooks";
-import { emojiCategoria } from "../data/tipos";
+import { Botao, Campo, Chip, estiloInput, IconeCategoria, TelaFormulario } from "../components/ui";
+import { useCartoes, useCategorias } from "../data/hooks";
+import { emojiCategoria, EMOJIS_CATEGORIA, FORMAS_PAGAMENTO, type FormaPagamento } from "../data/tipos";
 import { competencia } from "../lib/contas";
 import { somarMeses } from "../lib/fatura";
 import { centavosDoTexto, formatarReais, MESES } from "../lib/format";
@@ -50,8 +50,15 @@ export function ContaFormScreen({ navigation, route }: Props) {
   const { casa, membros } = useCasa();
   const { userId } = useAuth();
   const { categorias } = useCategorias();
+  const { cartoes } = useCartoes();
   /** Quem da casa paga esta conta (vem marcado no "Paguei" e conta no fechamento do mês). */
   const [pagoPor, setPagoPor] = useState<string | null>(contaId ? null : userId);
+  /** Como costuma pagar (vem marcado no "Paguei"). null = escolhe na hora. */
+  const [forma, setForma] = useState<FormaPagamento | null>(null);
+  const [cartaoId, setCartaoId] = useState<string | null>(null);
+  /** Emoji próprio da conta. null = o da categoria. */
+  const [icone, setIcone] = useState<string | null>(null);
+  const [trocandoIcone, setTrocandoIcone] = useState(false);
   const hoje = new Date();
   const [nome, setNome] = useState(pre?.nome ?? "");
   const [varia, setVaria] = useState(false);
@@ -87,6 +94,9 @@ export function ContaFormScreen({ navigation, route }: Props) {
         setDia(String(data.dia_vencimento));
         setCategoriaId(data.categoria_id);
         setPagoPor(data.pago_por ?? null);
+        setForma(data.forma_pagamento ?? null);
+        setCartaoId(data.cartao_id ?? null);
+        setIcone(data.icone ?? null);
         if (data.inicio || data.meses) setPeriodoCarregado(true);
         setInicio(data.inicio ?? null);
         setMeses(data.meses ?? null);
@@ -100,6 +110,11 @@ export function ContaFormScreen({ navigation, route }: Props) {
     if (!contaId && !categoriaId && categorias.length) setCategoriaId(categorias.find((c) => c.icone === "receipt")?.id ?? null);
   }, [categorias, categoriaId, contaId]);
 
+  // Um cartão só: já vem marcado (também se o cartão guardado foi excluído).
+  useEffect(() => {
+    if (forma === "credito" && cartoes.length === 1 && !cartoes.some((c) => c.id === cartaoId)) setCartaoId(cartoes[0].id);
+  }, [forma, cartoes, cartaoId]);
+
   const inicioEfetivo = inicio ?? competencia(hoje.getFullYear(), hoje.getMonth());
   const ultimoMes = meses ? somarMeses(inicioEfetivo, meses - 1) : null;
 
@@ -110,6 +125,7 @@ export function ContaFormScreen({ navigation, route }: Props) {
     if (!(d >= 1 && d <= 31)) return Alert.alert("Vencimento", "Informe o dia do vencimento (1 a 31).");
     if (!varia && centavos <= 0) return Alert.alert("Valor", "Informe o valor, ou marque que o valor muda todo mês.");
     if (mesesOutro && !(meses && meses >= 1)) return Alert.alert("Meses", "Informe por quantos meses (1 a 120).");
+    if (forma === "credito" && !cartoes.some((c) => c.id === cartaoId)) return Alert.alert("Cartão", "Escolha em qual cartão esta conta é paga.");
 
     // Período só é gravado quando usado (assim a tela funciona mesmo antes do SQL 09).
     const usaPeriodo = meses != null || periodoCarregado || inicioAlterado;
@@ -120,6 +136,9 @@ export function ContaFormScreen({ navigation, route }: Props) {
       dia_vencimento: d,
       categoria_id: categoriaId,
       pago_por: pagoPor ?? (membros.length <= 1 ? userId : null),
+      forma_pagamento: forma,
+      cartao_id: forma === "credito" ? cartaoId : null,
+      icone,
       ...(usaPeriodo ? { inicio: meses != null ? inicioEfetivo : inicio, meses } : {}),
     };
     if (contaId) atualizar("contas_fixas", contaId, registro);
@@ -237,6 +256,52 @@ export function ContaFormScreen({ navigation, route }: Props) {
           <Chip key={c.id} rotulo={`${emojiCategoria(c.icone)} ${c.nome}`} cor={c.cor} ativo={categoriaId === c.id} onPress={() => setCategoriaId(c.id)} />
         ))}
       </View>
+
+      <Text style={[typography.label, { marginTop: spacing.lg, marginBottom: spacing.sm }]}>ÍCONE DA CONTA</Text>
+      <TouchableOpacity onPress={() => setTrocandoIcone((t) => !t)} activeOpacity={0.8} style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+        <IconeCategoria categoria={categorias.find((c) => c.id === categoriaId)} emoji={icone ?? undefined} />
+        <Text style={[typography.body, { flex: 1 }]}>{icone ? "Ícone próprio" : "Igual ao da categoria"}</Text>
+        <Text style={[typography.label, { color: colors.accent }]}>{trocandoIcone ? "Fechar ▲" : "Trocar ▼"}</Text>
+      </TouchableOpacity>
+      {trocandoIcone && (
+        <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {EMOJIS_CATEGORIA.map((e) => (
+              <TouchableOpacity
+                key={e}
+                onPress={() => {
+                  setIcone(e);
+                  setTrocandoIcone(false);
+                }}
+                accessibilityLabel={`Ícone ${e}`}
+                style={{ width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: icone === e ? colors.accent : "transparent", backgroundColor: colors.surface }}
+              >
+                <Text style={{ fontSize: 22 }}>{e}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {icone && <Botao titulo="Usar o ícone da categoria" variante="link" onPress={() => { setIcone(null); setTrocandoIcone(false); }} />}
+        </View>
+      )}
+
+      <Text style={[typography.label, { marginTop: spacing.lg, marginBottom: spacing.sm }]}>COMO COSTUMA PAGAR</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        <Chip rotulo="Escolho na hora" ativo={forma == null} onPress={() => setForma(null)} />
+        {FORMAS_PAGAMENTO.map((f) => (
+          <Chip key={f.valor} rotulo={f.rotulo} ativo={forma === f.valor} onPress={() => setForma(f.valor)} />
+        ))}
+      </View>
+      {forma === "credito" && (
+        <>
+          <Text style={[typography.label, { marginTop: spacing.lg, marginBottom: spacing.sm }]}>CARTÃO</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+            {cartoes.map((c) => (
+              <Chip key={c.id} rotulo={`💳 ${c.nome}`} ativo={cartaoId === c.id} onPress={() => setCartaoId(c.id)} />
+            ))}
+            <Chip rotulo="+ Novo cartão" ativo={false} onPress={() => navigation.navigate("CartaoForm", {})} />
+          </View>
+        </>
+      )}
 
       {membros.length > 1 && (
         <>

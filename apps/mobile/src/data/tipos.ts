@@ -43,7 +43,7 @@ export interface Gasto {
   /** Despesa "só minha": conta no total, mas fica fora do acerto do casal. */
   pessoal?: boolean | null;
   /** Conta fixa do mês ainda não paga, mostrada como despesa (não existe na tabela gastos). */
-  contaFixa?: { contaId: string; competencia: string; valorVaria: boolean };
+  contaFixa?: { contaId: string; competencia: string; valorVaria: boolean; icone?: string | null };
 }
 
 // O banco guarda o nome do ícone; sem pacote de ícones por enquanto, cada um vira um emoji.
@@ -102,6 +102,11 @@ export interface ContaFixa {
   created_at?: string | null;
   /** Quem da casa paga esta conta (user_id). */
   pago_por?: string | null;
+  /** Como costuma ser paga: já vem marcado no "Paguei". Vazio = escolhe na hora. */
+  forma_pagamento?: FormaPagamento | null;
+  cartao_id?: string | null;
+  /** Emoji próprio da conta (ex.: 📱). Vazio = o da categoria. */
+  icone?: string | null;
 }
 
 export interface PagamentoConta {

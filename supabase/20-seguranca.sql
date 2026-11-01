@@ -207,7 +207,7 @@ create trigger nota_itens_mesma_casa before insert or update on public.nota_iten
   execute function public.validar_mesma_casa('nota_id', 'notas');
 drop trigger if exists contas_fixas_mesma_casa on public.contas_fixas;
 create trigger contas_fixas_mesma_casa before insert or update on public.contas_fixas for each row
-  execute function public.validar_mesma_casa('categoria_id', 'categorias', 'pago_por', 'membros');
+  execute function public.validar_mesma_casa('categoria_id', 'categorias', 'pago_por', 'membros', 'cartao_id', 'cartoes');
 drop trigger if exists contas_pagamentos_mesma_casa on public.contas_pagamentos;
 create trigger contas_pagamentos_mesma_casa before insert or update on public.contas_pagamentos for each row
   execute function public.validar_mesma_casa('conta_id', 'contas_fixas', 'gasto_id', 'gastos');

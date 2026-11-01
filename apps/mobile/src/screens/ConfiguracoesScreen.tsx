@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, useEspacoRodape } from "../components/ui";
 import { useSugestoes } from "../data/hooks";
+import { versaoDoApp } from "../lib/versao";
 import { tamanhoFila } from "../offline/banco";
 import type { RootStackParamList } from "../navigation/types";
 import { colors, spacing, typography } from "../theme";
@@ -60,6 +61,7 @@ export function ConfiguracoesScreen({ navigation }: Props) {
 
       <Botao titulo="📜 Termos de Uso e Privacidade" variante="link" onPress={() => navigation.navigate("Termos")} style={{ marginTop: spacing.md }} />
       <Botao titulo="Sair da conta" variante="link" onPress={sair} />
+      <Text style={[typography.label, { textAlign: "center" }]}>Helpp · versão {versaoDoApp()}</Text>
     </ScrollView>
   );
 }

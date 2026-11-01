@@ -246,7 +246,7 @@ export function HistoricoScreen({ navigation, route }: Props) {
                     paddingVertical: spacing.sm,
                   }}
                 >
-                  <IconeCategoria categoria={cat} style={{ marginRight: spacing.sm }} />
+                  <IconeCategoria categoria={cat} emoji={g.contaFixa?.icone ?? undefined} style={{ marginRight: spacing.sm }} />
                   <View style={{ flex: 1 }}>
                     <Text style={typography.body} numberOfLines={1}>
                       {g.pessoal ? "👤 " : ""}

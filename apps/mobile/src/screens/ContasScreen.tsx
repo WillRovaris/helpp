@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, useEspacoRodape, IconeCategoria } from "../components/ui";
-import { useCategorias, useContasFixas, usePagamentosDoMes } from "../data/hooks";
+import { useCartoes, useCategorias, useContasFixas, usePagamentosDoMes } from "../data/hooks";
+import { type ContaFixa, FORMAS_PAGAMENTO } from "../data/tipos";
 import { type ContaDoMes, competencia, contasDoMes, textoSituacao } from "../lib/contas";
 import { diaMes } from "../lib/fatura";
 import { hojeISO, MESES } from "../lib/format";
@@ -25,6 +26,15 @@ export function ContasScreen({ navigation }: Props) {
   const quemPaga = (id?: string | null) => {
     const nome = membros.length > 1 && id ? membros.find((m) => m.user_id === id)?.nome : undefined;
     return nome ? ` · 👤 ${nome}` : "";
+  };
+  const { cartoes } = useCartoes();
+  const comoPaga = (c: ContaFixa) => {
+    if (!c.forma_pagamento) return "";
+    if (c.forma_pagamento === "credito") {
+      const cartao = cartoes.find((x) => x.id === c.cartao_id)?.nome;
+      if (cartao) return ` · 💳 ${cartao}`;
+    }
+    return ` · ${FORMAS_PAGAMENTO.find((f) => f.valor === c.forma_pagamento)?.rotulo ?? ""}`;
   };
   const rodape = useEspacoRodape();
   const hoje = new Date();
@@ -107,7 +117,7 @@ export function ContasScreen({ navigation }: Props) {
             return (
               <View key={c.conta.id} style={{ flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}>
                 <TouchableOpacity style={{ flex: 1, flexDirection: "row", alignItems: "center" }} onPress={() => navigation.navigate("ContaForm", { contaId: c.conta.id })}>
-                  <IconeCategoria categoria={cat} emoji={c.pagamento ? "✅" : undefined} style={{ marginRight: spacing.sm }} />
+                  <IconeCategoria categoria={cat} emoji={c.pagamento ? "✅" : c.conta.icone ?? undefined} style={{ marginRight: spacing.sm }} />
                   <View style={{ flex: 1 }}>
                     <Text style={typography.body} numberOfLines={1}>{c.conta.nome}</Text>
                     <Text style={[typography.label, { color: corSituacao(c) }]}>
@@ -117,6 +127,7 @@ export function ContasScreen({ navigation }: Props) {
                     </Text>
                   </View>
                   <Text style={[typography.body, { fontWeight: "600", marginRight: spacing.sm }]}>{valor != null ? mostrarValor(valor) : "—"}</Text>
+                  <Text accessibilityLabel={`Editar ${c.conta.nome}`} style={{ fontSize: 14, marginRight: spacing.sm }}>✏️</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => navigation.navigate("PagarConta", { contaId: c.conta.id, competencia: comp })}
@@ -158,16 +169,18 @@ export function ContasScreen({ navigation }: Props) {
                     onPress={() => navigation.navigate("ContaForm", { contaId: c.id })}
                     style={{ flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}
                   >
-                    <IconeCategoria categoria={cat} style={{ marginRight: spacing.sm }} />
+                    <IconeCategoria categoria={cat} emoji={c.icone ?? undefined} style={{ marginRight: spacing.sm }} />
                     <View style={{ flex: 1 }}>
                       <Text style={typography.body} numberOfLines={1}>{c.nome}</Text>
                       <Text style={typography.label}>
                         Todo dia {c.dia_vencimento} · {c.valor != null ? "valor fixo" : "valor variável"}
+                        {comoPaga(c)}
                         {quemPaga(c.pago_por)}
                         {periodo}
                       </Text>
                     </View>
-                    <Text style={[typography.body, { fontWeight: "600" }]}>{c.valor != null ? mostrarValor(c.valor) : "—"}</Text>
+                    <Text style={[typography.body, { fontWeight: "600", marginRight: spacing.sm }]}>{c.valor != null ? mostrarValor(c.valor) : "—"}</Text>
+                    <Text accessibilityLabel={`Editar ${c.nome}`} style={{ fontSize: 14 }}>✏️</Text>
                   </TouchableOpacity>
                 );
               })}

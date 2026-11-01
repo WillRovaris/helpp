@@ -90,6 +90,6 @@ export function contasComoDespesas(lista: ContaDoMes[], comp: string): Gasto[] {
       nota_id: null,
       parcela: c.parcela?.atual ?? null,
       parcelas: c.parcela?.total ?? null,
-      contaFixa: { contaId: c.conta.id, competencia: comp, valorVaria: c.conta.valor == null },
+      contaFixa: { contaId: c.conta.id, competencia: comp, valorVaria: c.conta.valor == null, icone: c.conta.icone },
     }));
 }

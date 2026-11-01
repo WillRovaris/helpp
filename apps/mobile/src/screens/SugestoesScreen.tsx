@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import * as Updates from "expo-updates";
 import { Alert, Platform, Share, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
@@ -7,6 +6,7 @@ import { Botao, Cartao, estiloInput, TelaFormulario } from "../components/ui";
 import { useSugestoes } from "../data/hooks";
 import type { Sugestao } from "../data/tipos";
 import { dataISO, rotuloDia } from "../lib/format";
+import { versaoDoApp } from "../lib/versao";
 import { atualizar, excluir, inserir } from "../offline/repo";
 import { colors, spacing, typography } from "../theme";
 
@@ -98,12 +98,6 @@ export function SugestoesScreen() {
       )}
     </TelaFormulario>
   );
-}
-
-/** "1.3.0 · atualização de 24/10" — versão do APK + data da atualização automática que está rodando. */
-function versaoDoApp(): string {
-  const base = Updates.runtimeVersion ?? "?";
-  return Updates.createdAt ? `${base} · atualização de ${Updates.createdAt.toLocaleDateString("pt-BR")}` : base;
 }
 
 /** "samsung SM-G780G · Android 13". */

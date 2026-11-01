@@ -66,6 +66,7 @@ export function CalendarioScreen({ navigation }: Props) {
         valor: g.contaFixa?.valorVaria ? null : g.valor,
         pago: !g.contaFixa,
         categoria: cat,
+        emoji: g.contaFixa?.icone ?? undefined,
       });
     }
     for (const [cartaoId, total] of porCartao) {
