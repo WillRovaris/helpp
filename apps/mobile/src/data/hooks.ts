@@ -372,7 +372,7 @@ function categoriasDeMercado(categorias: Categoria[]): Set<string> {
   return new Set(categorias.filter((c) => emojiCategoria(c.icone) === "🛒").flatMap((c) => [...idsDaFamilia(c.id, categorias)]));
 }
 
-/** Tipos de produto criados pela casa ("+ Novo tipo" em O que mais compramos). */
+/** Tipos de produto criados pela casa ("+ Novo tipo" em Tipos de Alimentos). */
 export function useTiposDeProduto() {
   const { itens } = useTabela<TipoProduto>(
     "produto_tipos",

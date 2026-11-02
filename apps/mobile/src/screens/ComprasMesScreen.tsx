@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { TiposDeAlimentos } from "../components/TiposDeAlimentos";
 import { Cartao, useEspacoRodape } from "../components/ui";
 import { useComprasDoMes } from "../data/hooks";
 import { hojeISO, MESES, rotuloDia } from "../lib/format";
@@ -26,6 +27,8 @@ export function ComprasMesScreen({ navigation }: Props) {
   const mesAtual = hojeISO().slice(0, 7);
   const [mes, setMes] = useState(mesAtual);
   const { compras, marcados, total, qtdItens } = useComprasDoMes(mes);
+  // As notas ficam escondidas: a tela abre nos Tipos de Alimentos (pedido do dono).
+  const [verCompras, setVerCompras] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({ headerRight: () => <BotaoOlho tamanho={24} /> });
@@ -60,19 +63,22 @@ export function ComprasMesScreen({ navigation }: Props) {
         </Text>
       </Cartao>
 
-      {compras.length > 0 && (
-        <TouchableOpacity onPress={() => navigation.navigate("Alimentos")} activeOpacity={0.8}>
-          <Cartao style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-            <Text style={{ fontSize: 24 }}>🥗</Text>
-            <Text style={[typography.body, { flex: 1, fontWeight: "700" }]}>Ver por tipo de alimento</Text>
-            <Text style={{ color: colors.textSecondary, fontSize: 20 }}>›</Text>
-          </Cartao>
-        </TouchableOpacity>
+      {qtdItens === 0 ? (
+        <Text style={[typography.body, { color: colors.textSecondary }]}>Nada comprado neste mês. Leia as notas do mercado ou marque ✓ na lista de compras.</Text>
+      ) : (
+        <>
+          {compras.length > 0 && <TiposDeAlimentos de={`${mes}-01`} ate={`${mes}-31`} />}
+          <TouchableOpacity onPress={() => setVerCompras((v) => !v)} activeOpacity={0.8}>
+            <Cartao style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+              <Text style={{ fontSize: 24 }}>🧾</Text>
+              <Text style={[typography.body, { flex: 1, fontWeight: "700" }]}>Minhas compras do mês</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 16 }}>{verCompras ? "▲" : "▼"}</Text>
+            </Cartao>
+          </TouchableOpacity>
+        </>
       )}
 
-      {qtdItens === 0 && <Text style={[typography.body, { color: colors.textSecondary }]}>Nada comprado neste mês. Leia as notas do mercado ou marque ✓ na lista de compras.</Text>}
-
-      {compras.map((c) => (
+      {verCompras && compras.map((c) => (
         <Cartao key={c.notaId} style={{ paddingVertical: spacing.xs }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm }}>
             <View style={{ flex: 1 }}>
@@ -96,7 +102,7 @@ export function ComprasMesScreen({ navigation }: Props) {
         </Cartao>
       ))}
 
-      {marcados.length > 0 && (
+      {verCompras && marcados.length > 0 && (
         <Cartao style={{ paddingVertical: spacing.xs }}>
           <Text style={[typography.label, { paddingVertical: spacing.sm }]}>✓ MARCADOS NA LISTA (SEM NOTA)</Text>
           {marcados.map((i) => (
