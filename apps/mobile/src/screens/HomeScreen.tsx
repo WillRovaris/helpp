@@ -35,8 +35,18 @@ export function HomeScreen({ navigation }: Props) {
   const { pendentes: sugestoesPendentes } = useSugestoes();
   const sugestoesDeOutros = sugestoesPendentes.filter((s) => s.created_by && s.created_by !== userId).length;
   const hoje = new Date();
-  const { gastos, recarregar } = useGastosDoMes(hoje.getFullYear(), hoje.getMonth());
+  // Mês que a tela mostra (‹ ›): total, entradas, sobra, contas fixas e categorias seguem ele.
+  const [visto, setVisto] = useState(() => new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  const anoVisto = visto.getFullYear();
+  const mesVisto = visto.getMonth();
+  const ehMesAtual = anoVisto === hoje.getFullYear() && mesVisto === hoje.getMonth();
+  const ehFuturo = visto > hoje;
+  const mesVistoISO = `${anoVisto}-${String(mesVisto + 1).padStart(2, "0")}`;
+  const mudarMes = (delta: number) => setVisto(new Date(anoVisto, mesVisto + delta, 1));
+  const { gastos, recarregar } = useGastosDoMes(anoVisto, mesVisto);
+  // O aviso "Outubro fechou!" é sempre do mês que acabou de verdade, não do mês escolhido.
   const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+  const antesDoVisto = new Date(anoVisto, mesVisto - 1, 1);
   const [escolhendoLancamento, setEscolhendoLancamento] = useState(false);
   const resumoAnterior = useResumoDoMes(mesAnterior.getFullYear(), mesAnterior.getMonth());
   const chaveFechamento = `fechamento_visto:${casa?.id}:${mesAnterior.getFullYear()}-${mesAnterior.getMonth()}`;
@@ -45,9 +55,9 @@ export function HomeScreen({ navigation }: Props) {
     gravarMeta(chaveFechamento, "1");
     setFechamentoVisto(true);
   }
-  const { gastos: gastosAnteriores } = useGastosDoMes(mesAnterior.getFullYear(), mesAnterior.getMonth());
-  const saldoMesAnterior = useSaldoAnterior(hoje.getFullYear(), hoje.getMonth());
-  const { total: entradasMes } = useEntradasDoMes(hoje.getFullYear(), hoje.getMonth());
+  const { gastos: gastosAnteriores } = useGastosDoMes(antesDoVisto.getFullYear(), antesDoVisto.getMonth());
+  const saldoMesAnterior = useSaldoAnterior(anoVisto, mesVisto);
+  const { total: entradasMes } = useEntradasDoMes(anoVisto, mesVisto);
   const { ultimaSync } = useSincronizacao();
   // Renda cadastrada antes vira "Salário" que repete todo mês (uma vez, depois de sincronizar).
   useEffect(() => {
@@ -59,7 +69,7 @@ export function HomeScreen({ navigation }: Props) {
   const { ultimos, recarregar: recarregarUltimos } = useUltimosGastos(5);
   const { cartoes } = useCartoes();
   const { faturaPaga, recarregar: recarregarFaturasPagas } = useFaturasPagas();
-  const comp = competencia(hoje.getFullYear(), hoje.getMonth());
+  const comp = competencia(anoVisto, mesVisto);
   const { contas, recarregar: recarregarContas } = useContasFixas();
   const { pagamentos, recarregar: recarregarPag } = usePagamentosDoMes(comp);
   const { gastosCredito, recarregar: recarregarCredito } = useGastosCredito(somarMeses(hojeISO(), -3));
@@ -78,13 +88,12 @@ export function HomeScreen({ navigation }: Props) {
 
   if (!casa) return null;
 
-  // Mês passado só até o mesmo dia de hoje, para a comparação ser justa.
-  const totalAnteriorAteHoje = gastosAnteriores.filter((g) => Number(g.data.slice(8, 10)) <= hoje.getDate()).reduce((s, g) => s + g.valor, 0);
-  // Comparação justa: só o que já foi lançado (até hoje) nos dois meses.
-  const comparacao = textoComparacao(
-    gastos.filter((g) => Number(g.data.slice(8, 10)) <= hoje.getDate()).reduce((s, g) => s + g.valor, 0),
-    totalAnteriorAteHoje,
-  );
+  // Mês atual: os dois meses só até o dia de hoje, para a comparação ser justa. Mês passado: o mês inteiro.
+  // Mês futuro: sem comparação (ainda é previsão).
+  const ateODia = (lista: typeof gastos) => (ehMesAtual ? lista.filter((g) => Number(g.data.slice(8, 10)) <= hoje.getDate()) : lista).reduce((s, g) => s + g.valor, 0);
+  const comparacao = ehFuturo
+    ? null
+    : textoComparacao(ateODia(gastos), ateODia(gastosAnteriores), ehMesAtual ? undefined : MESES[antesDoVisto.getMonth()].toLowerCase());
   const categoriaPorId = new Map(categorias.map((c) => [c.id, c]));
   const contasMes = contasDoMes(contas, pagamentos, comp, hojeISO());
   const temFaturaAVencer = cartoes.some((c) => {
@@ -139,8 +148,27 @@ export function HomeScreen({ navigation }: Props) {
         )}
 
         <Cartao>
-          <TouchableOpacity onPress={() => navigation.navigate("Historico", {})} activeOpacity={0.8}>
-            <Text style={typography.label}>DESPESAS DE {MESES[hoje.getMonth()].toUpperCase()}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.xs }}>
+            <TouchableOpacity onPress={() => mudarMes(-1)} hitSlop={10} accessibilityLabel="Mês anterior" style={{ paddingHorizontal: spacing.sm }}>
+              <Text style={{ fontSize: 24, color: colors.accent }}>‹</Text>
+            </TouchableOpacity>
+            <View style={{ alignItems: "center" }}>
+              <Text style={[typography.body, { fontWeight: "700" }]}>
+                {MESES[mesVisto]} {anoVisto !== hoje.getFullYear() ? anoVisto : ""}
+                {ehFuturo ? " (previsão)" : ""}
+              </Text>
+              {!ehMesAtual && (
+                <TouchableOpacity onPress={() => setVisto(new Date(hoje.getFullYear(), hoje.getMonth(), 1))} hitSlop={8}>
+                  <Text style={[typography.label, { color: colors.accent }]}>voltar para o mês atual</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity onPress={() => mudarMes(1)} hitSlop={10} accessibilityLabel="Próximo mês" style={{ paddingHorizontal: spacing.sm }}>
+              <Text style={{ fontSize: 24, color: colors.accent }}>›</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity onPress={() => navigation.navigate("Historico", { mes: mesVistoISO })} activeOpacity={0.8}>
+            <Text style={typography.label}>DESPESAS DE {MESES[mesVisto].toUpperCase()}</Text>
             <Text style={{ fontSize: 34, fontWeight: "700", color: colors.textPrimary, marginTop: spacing.xs }}>{mostrarValor(total)}</Text>
             {comparacao && <Text style={[typography.label, { color: comparacao.cor }]}>{comparacao.texto}</Text>}
             <Text style={[typography.label, { color: colors.accent, marginTop: spacing.xs }]}>Ver histórico ›</Text>
@@ -150,8 +178,8 @@ export function HomeScreen({ navigation }: Props) {
               total={total}
               entradas={entradasMes}
               saldoAnterior={saldoMesAnterior.saldo}
-              nomeMesAnterior={MESES[mesAnterior.getMonth()]}
-              onPress={() => navigation.navigate("Entradas", {})}
+              nomeMesAnterior={MESES[antesDoVisto.getMonth()]}
+              onPress={() => navigation.navigate("Entradas", { mes: mesVistoISO })}
             />
           </View>
         </Cartao>
@@ -235,7 +263,7 @@ export function HomeScreen({ navigation }: Props) {
         <PorCategoria
           gastos={despesasMes}
           categorias={categorias}
-          onPressCategoria={(id) => navigation.navigate("Historico", id ? { categoriaId: id } : {})}
+          onPressCategoria={(id) => navigation.navigate("Historico", id ? { categoriaId: id, mes: mesVistoISO } : { mes: mesVistoISO })}
           onDefinirLimites={() => navigation.navigate("Limites")}
         />
 

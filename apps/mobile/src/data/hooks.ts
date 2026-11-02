@@ -5,7 +5,7 @@ import { hojeISO, limitesDoMes, somarDias as somarDiasISO } from "../lib/format"
 import { competencia, contasComoDespesas, contasDoMes } from "../lib/contas";
 import { mesAnterior as mesAnteriorISO, receitaNoMes, saldoAnterior } from "../lib/saldo";
 import { alertasDeCategoria, alertasRepetidos } from "../lib/alertas";
-import { montarComprasDoMes } from "../lib/compras";
+import { montarCompras, montarComprasDoMes } from "../lib/compras";
 import { idPrincipal, idsDaFamilia } from "../lib/categorias";
 import { resumirPorGrupo, type TipoProduto } from "../lib/gruposAlimento";
 import { detectarAssinaturas } from "../lib/assinaturas";
@@ -401,8 +401,8 @@ export function useCorrecoesDeGrupo() {
   return useMemo(() => new Map(itens.map((c) => [String(c.chave), String(c.grupo)])), [itens]);
 }
 
-/** Compras de mercado de vários meses somadas por tipo de produto (proteínas, frutas, frios...). */
-export function useComprasPorGrupo(mesFinal: string, qtdMeses: number) {
+/** Compras de mercado de um período (datas YYYY-MM-DD) somadas por tipo de produto (proteínas, frutas, frios...). */
+export function useComprasPorGrupo(de: string, ate: string) {
   const { itens: lista } = useListaCompras();
   const { categorias } = useCategorias();
   const correcoes = useCorrecoesDeGrupo();
@@ -413,14 +413,9 @@ export function useComprasPorGrupo(mesFinal: string, qtdMeses: number) {
   return useMemo(() => {
     const mercados = categoriasDeMercado(categorias);
     const dados = { notas, itensNota, gastos, lista, mercados } as Parameters<typeof montarComprasDoMes>[1];
-    const itens = [];
-    let m = mesFinal;
-    for (let i = 0; i < qtdMeses; i++) {
-      for (const c of montarComprasDoMes(m, dados).compras) itens.push(...c.itens);
-      m = mesAnteriorISO(m);
-    }
+    const itens = montarCompras(de, ate, dados).compras.flatMap((c) => c.itens);
     return resumirPorGrupo(itens, correcoes, tipos);
-  }, [mesFinal, qtdMeses, categorias, correcoes, tipos, itensNota, notas, gastos, lista]);
+  }, [de, ate, categorias, correcoes, tipos, itensNota, notas, gastos, lista]);
 }
 
 /** Cobranças que se repetem todo mês e ainda não são conta fixa (o "Não é assinatura" esconde neste celular). */

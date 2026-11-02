@@ -27,8 +27,10 @@ export function HistoricoScreen({ navigation, route }: Props) {
   }, [navigation]);
   const rodape = useEspacoRodape();
   const hoje = new Date();
-  const [ano, setAno] = useState(hoje.getFullYear());
-  const [mes, setMes] = useState(hoje.getMonth());
+  // Abre no mês escolhido na tela inicial (YYYY-MM), ou no atual.
+  const mesInicial = route.params?.mes;
+  const [ano, setAno] = useState(mesInicial ? Number(mesInicial.slice(0, 4)) : hoje.getFullYear());
+  const [mes, setMes] = useState(mesInicial ? Number(mesInicial.slice(5, 7)) - 1 : hoje.getMonth());
   const [filtroCategoria, setFiltroCategoria] = useState<string | null>(route.params?.categoriaId ?? null);
   const [filtroPessoa, setFiltroPessoa] = useState<string | null>(null);
   /** "pix" | "debito" | "dinheiro" | "credito" (qualquer cartão) | "cartao:<id>" (um cartão). */

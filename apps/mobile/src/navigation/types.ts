@@ -7,7 +7,7 @@ export type RootStackParamList = {
   Compartilhar: undefined;
   Configuracoes: undefined;
   GastoForm: { gastoId?: string };
-  Historico: { categoriaId?: string };
+  Historico: { categoriaId?: string; mes?: string };
   Entradas: { mes?: string } | undefined;
   ReceitaForm: { receitaId?: string; mes?: string };
   Importar: undefined;

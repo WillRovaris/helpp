@@ -81,16 +81,21 @@ export function diaDaCompra(i: { comprado_em?: string | null; updated_at?: strin
  * Tudo o que foi comprado no mês (YYYY-MM): notas de supermercado com seus itens + itens marcados à mão.
  * Nota ligada a despesa de outra categoria (ex.: farmácia) fica de fora; `mercados` são as categorias de mercado.
  */
-export function montarComprasDoMes(
-  mes: string,
-  dados: {
+export function montarComprasDoMes(mes: string, dados: DadosCompras) {
+  return montarCompras(`${mes}-01`, `${mes}-31`, dados);
+}
+
+type DadosCompras = {
     notas: { id: string; estabelecimento: string | null; data_compra: string | null }[];
     itensNota: { id: string; nota_id: string; nome: string; quantidade: number; valor_unitario?: number | null; valor_total: number }[];
     gastos: { nota_id?: string | null; data: string; categoria_id: string | null }[];
     lista: { id: string; nome: string; quantidade: number; comprado: boolean; comprado_em?: string | null; nota_item_id?: string | null; updated_at?: string | null; created_at?: string | null }[];
     mercados: Set<string>;
-  },
-) {
+};
+
+/** O mesmo, para qualquer período: de e ate são datas YYYY-MM-DD (incluídas). */
+export function montarCompras(de: string, ate: string, dados: DadosCompras) {
+  const noPeriodo = (data: string) => data >= de && data <= ate;
   const despesaDaNota = new Map(dados.gastos.filter((g) => g.nota_id).map((g) => [g.nota_id!, g]));
   const compras = new Map<string, CompraDoMes>();
   for (const n of dados.notas) {
@@ -98,7 +103,7 @@ export function montarComprasDoMes(
     if (despesa?.categoria_id && !dados.mercados.has(despesa.categoria_id)) continue;
     // A data da despesa é a da nota no horário do Brasil; data_compra pode vir da nuvem em UTC.
     const data = despesa?.data ?? (n.data_compra ?? "").slice(0, 10);
-    if (data.slice(0, 7) === mes) compras.set(n.id, { notaId: n.id, data, mercado: nomeMercado(n.estabelecimento), total: 0, itens: [] });
+    if (noPeriodo(data)) compras.set(n.id, { notaId: n.id, data, mercado: nomeMercado(n.estabelecimento), total: 0, itens: [] });
   }
 
   const listaPorItemNota = new Map(dados.lista.filter((i) => i.comprado && i.nota_item_id).map((i) => [i.nota_item_id!, i.id]));
@@ -117,7 +122,7 @@ export function montarComprasDoMes(
   const lista = [...compras.values()].filter((c) => c.itens.length).sort((a, b) => (a.data < b.data ? 1 : -1));
   // Item ligado a nota que foi excluída volta a contar como marcado à mão (não some do histórico).
   const marcados: MarcadoAMao[] = dados.lista
-    .filter((i) => i.comprado && !ligados.has(i.id) && diaDaCompra(i).slice(0, 7) === mes)
+    .filter((i) => i.comprado && !ligados.has(i.id) && noPeriodo(diaDaCompra(i)))
     .map((i) => ({ id: i.id, nome: i.nome, quantidade: i.quantidade, data: diaDaCompra(i) }))
     .sort((a, b) => (a.data < b.data ? 1 : -1));
 

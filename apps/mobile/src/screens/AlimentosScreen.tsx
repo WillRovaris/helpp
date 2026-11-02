@@ -6,7 +6,8 @@ import { Barra } from "../components/ResumoMes";
 import { Botao, Cartao, Chip, estiloInput, useEspacoRodape } from "../components/ui";
 import { useComprasPorGrupo, useTiposDeProduto } from "../data/hooks";
 import { idDeTexto } from "../importacao/historico";
-import { hojeISO, MESES } from "../lib/format";
+import { somarMeses } from "../lib/fatura";
+import { hojeISO, MESES, somarDias } from "../lib/format";
 import { GRUPOS, type ProdutoDoGrupo, type ResumoGrupo } from "../lib/gruposAlimento";
 import { mesAnterior } from "../lib/saldo";
 import { linhas } from "../offline/banco";
@@ -17,11 +18,15 @@ import { colors, spacing, typography } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Alimentos">;
 
-const PERIODOS = [
-  { meses: 1, rotulo: "1 mês" },
-  { meses: 3, rotulo: "3 meses" },
-  { meses: 12, rotulo: "1 ano" },
+// "30 dias", "3 meses" e "1 ano" contam para trás a partir de hoje; "Por mês" anda mês a mês.
+type Periodo = "30d" | "mes" | "3m" | "1a";
+const PERIODOS: { id: Periodo; rotulo: string }[] = [
+  { id: "30d", rotulo: "30 dias" },
+  { id: "mes", rotulo: "Por mês" },
+  { id: "3m", rotulo: "3 meses" },
+  { id: "1a", rotulo: "1 ano" },
 ];
+const dataCurta = (iso: string) => iso.split("-").reverse().join("/").slice(0, 5) + "/" + iso.slice(2, 4);
 
 const EMOJIS_TIPO = ["🛍️", "🍕", "🍝", "🥫", "🍯", "🥜", "🐟", "🍗", "🧊", "🧃", "🐶", "🐱", "👶", "🍼", "🧻", "🕯️"];
 
@@ -29,7 +34,6 @@ const proximoMes = (m: string) => {
   const d = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
-const rotuloMes = (m: string) => `${MESES[Number(m.slice(5, 7)) - 1].slice(0, 3)}/${m.slice(2, 4)}`;
 
 // O que mais compramos: compras do mercado por tipo (proteínas, frutas, frios...). Tocar no tipo abre
 // os produtos; tocar no produto corrige o tipo, e a correção vale para as notas antigas e as próximas.
@@ -39,7 +43,7 @@ export function AlimentosScreen({ navigation }: Props) {
   const { casa } = useCasa();
   const mesAtual = hojeISO().slice(0, 7);
   const [mes, setMes] = useState(mesAtual);
-  const [periodo, setPeriodo] = useState(1);
+  const [periodo, setPeriodo] = useState<Periodo>("30d");
   const [aberto, setAberto] = useState<string | null>(null);
   const [corrigindo, setCorrigindo] = useState<ProdutoDoGrupo | null>(null);
   /** Formulário "+ Novo tipo" aberto (sozinho ou no meio da correção de um produto). */
@@ -47,15 +51,16 @@ export function AlimentosScreen({ navigation }: Props) {
   const [nomeTipo, setNomeTipo] = useState("");
   const [emojiTipo, setEmojiTipo] = useState(EMOJIS_TIPO[0]);
   const [tipoAlimento, setTipoAlimento] = useState(true);
-  const { alimentos, outros, totalAlimentos, total } = useComprasPorGrupo(mes, periodo);
+  const hoje = hojeISO();
+  const de = periodo === "mes" ? `${mes}-01` : periodo === "30d" ? somarDias(hoje, -29) : somarDias(somarMeses(hoje, periodo === "3m" ? -3 : -12), 1);
+  const ate = periodo === "mes" ? `${mes}-31` : hoje;
+  const { alimentos, outros, totalAlimentos, total } = useComprasPorGrupo(de, ate);
   const { tipos } = useTiposDeProduto();
 
   useEffect(() => {
     navigation.setOptions({ headerRight: () => <BotaoOlho tamanho={24} /> });
   }, [navigation]);
 
-  let inicio = mes;
-  for (let i = 1; i < periodo; i++) inicio = mesAnterior(inicio);
   const maior = Math.max(...[...alimentos, ...outros].map((g) => g.total), 1);
 
   function escolherGrupo(grupo: string) {
@@ -124,20 +129,24 @@ export function AlimentosScreen({ navigation }: Props) {
 
   return (
     <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: rodape }}>
+      <View style={{ flexDirection: "row", gap: spacing.sm, justifyContent: "center", flexWrap: "wrap" }}>
+        {PERIODOS.map((p) => (
+          <Chip key={p.id} rotulo={p.rotulo} ativo={periodo === p.id} onPress={() => setPeriodo(p.id)} />
+        ))}
+      </View>
+      {periodo === "mes" ? (
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <TouchableOpacity onPress={() => setMes(mesAnterior(mes))} hitSlop={10} accessibilityLabel="Mês anterior" style={{ padding: spacing.sm }}>
           <Text style={{ fontSize: 24, color: colors.accent }}>‹</Text>
         </TouchableOpacity>
-        <Text style={[typography.body, { fontWeight: "700" }]}>{periodo === 1 ? `${MESES[Number(mes.slice(5, 7)) - 1]} de ${mes.slice(0, 4)}` : `${rotuloMes(inicio)} a ${rotuloMes(mes)}`}</Text>
+        <Text style={[typography.body, { fontWeight: "700" }]}>{`${MESES[Number(mes.slice(5, 7)) - 1]} de ${mes.slice(0, 4)}`}</Text>
         <TouchableOpacity onPress={() => setMes(proximoMes(mes))} disabled={mes >= mesAtual} hitSlop={10} accessibilityLabel="Próximo mês" style={{ padding: spacing.sm, opacity: mes >= mesAtual ? 0.3 : 1 }}>
           <Text style={{ fontSize: 24, color: colors.accent }}>›</Text>
         </TouchableOpacity>
       </View>
-      <View style={{ flexDirection: "row", gap: spacing.sm, justifyContent: "center" }}>
-        {PERIODOS.map((p) => (
-          <Chip key={p.meses} rotulo={p.rotulo} ativo={periodo === p.meses} onPress={() => setPeriodo(p.meses)} />
-        ))}
-      </View>
+      ) : (
+        <Text style={[typography.body, { fontWeight: "700", textAlign: "center" }]}>De {dataCurta(de)} até hoje</Text>
+      )}
 
       <Cartao>
         <Text style={typography.label}>🍽️ GASTO COM ALIMENTOS</Text>

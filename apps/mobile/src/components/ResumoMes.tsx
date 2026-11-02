@@ -61,15 +61,15 @@ export function CartaoSobra({
   );
 }
 
-/** Comparação com o mês anterior até o mesmo dia. */
-export function textoComparacao(total: number, totalAnteriorAteHoje: number): { texto: string; cor: string } | null {
+/** Comparação com o mês anterior (no mês atual, só até o mesmo dia). */
+export function textoComparacao(total: number, totalAnteriorAteHoje: number, referencia = "o mês passado até hoje"): { texto: string; cor: string } | null {
   if (totalAnteriorAteHoje <= 0) return null;
   const diff = total - totalAnteriorAteHoje;
   const pct = Math.round((Math.abs(diff) / totalAnteriorAteHoje) * 100);
-  if (pct === 0) return { texto: "Igual ao mês passado até hoje", cor: colors.textSecondary };
+  if (pct === 0) return { texto: `Igual a ${referencia}`, cor: colors.textSecondary };
   return diff > 0
-    ? { texto: `▲ ${pct}% a mais que o mês passado até hoje`, cor: colors.danger }
-    : { texto: `▼ ${pct}% a menos que o mês passado até hoje`, cor: colors.accent };
+    ? { texto: `▲ ${pct}% a mais que ${referencia}`, cor: colors.danger }
+    : { texto: `▼ ${pct}% a menos que ${referencia}`, cor: colors.accent };
 }
 
 const CATEGORIAS_RECOLHIDAS = 5;
