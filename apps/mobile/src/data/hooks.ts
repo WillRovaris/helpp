@@ -388,7 +388,8 @@ export function useComprasDoMes(mes: string) {
   const { categorias } = useCategorias();
   const { itens: itensNota } = useTabela<Linha>("nota_itens", (t) => t, []);
   const { itens: notas } = useTabela<Linha>("notas", (t) => t, []);
-  const { itens: gastos } = useTabela<Linha>("gastos", (t) => t.filter((g) => g.nota_id), []);
+  // Todas as despesas: as de mercado sem nota também entram no total do supermercado.
+  const { itens: gastos } = useTabela<Linha>("gastos", (t) => t, []);
   return useMemo(() => {
     const mercados = categoriasDeMercado(categorias);
     return montarComprasDoMes(mes, { notas, itensNota, gastos, lista, mercados } as Parameters<typeof montarComprasDoMes>[1]);

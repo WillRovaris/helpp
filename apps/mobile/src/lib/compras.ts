@@ -63,6 +63,16 @@ export interface CompraDoMes {
   itens: ItemComprado[];
 }
 
+/** Despesa de mercado que não tem itens para mostrar: lançada à mão/importada, ou nota lida sem os produtos. */
+export interface DespesaSemItens {
+  gastoId: string | null;
+  data: string; // YYYY-MM-DD
+  descricao: string;
+  valor: number;
+  /** true = nota lida, mas os produtos não foram gravados. */
+  notaSemItens: boolean;
+}
+
 export interface MarcadoAMao {
   id: string;
   nome: string;
@@ -88,7 +98,7 @@ export function montarComprasDoMes(mes: string, dados: DadosCompras) {
 type DadosCompras = {
     notas: { id: string; estabelecimento: string | null; data_compra: string | null }[];
     itensNota: { id: string; nota_id: string; nome: string; quantidade: number; valor_unitario?: number | null; valor_total: number }[];
-    gastos: { nota_id?: string | null; data: string; categoria_id: string | null }[];
+    gastos: { id?: string; nota_id?: string | null; data: string; categoria_id: string | null; valor?: number | string | null; descricao?: string | null }[];
     lista: { id: string; nome: string; quantidade: number; comprado: boolean; comprado_em?: string | null; nota_item_id?: string | null; updated_at?: string | null; created_at?: string | null }[];
     mercados: Set<string>;
 };
@@ -105,6 +115,7 @@ export function montarCompras(de: string, ate: string, dados: DadosCompras) {
     const data = despesa?.data ?? (n.data_compra ?? "").slice(0, 10);
     if (noPeriodo(data)) compras.set(n.id, { notaId: n.id, data, mercado: nomeMercado(n.estabelecimento), total: 0, itens: [] });
   }
+  const valorDe = (g: { valor?: number | string | null }) => Number(g.valor) || 0;
 
   const listaPorItemNota = new Map(dados.lista.filter((i) => i.comprado && i.nota_item_id).map((i) => [i.nota_item_id!, i.id]));
   const ligados = new Set<string>();
@@ -120,6 +131,23 @@ export function montarCompras(de: string, ate: string, dados: DadosCompras) {
   }
 
   const lista = [...compras.values()].filter((c) => c.itens.length).sort((a, b) => (a.data < b.data ? 1 : -1));
+
+  // Quanto foi no supermercado: o valor pago de cada nota (com desconto; nota sem despesa usa a soma dos
+  // itens) + as despesas de mercado lançadas sem nota (à mão ou importadas).
+  const semItens: DespesaSemItens[] = [];
+  let totalMercado = 0;
+  for (const c of compras.values()) {
+    const despesa = despesaDaNota.get(c.notaId);
+    const valor = despesa ? valorDe(despesa) : c.total;
+    totalMercado += valor;
+    if (!c.itens.length) semItens.push({ gastoId: despesa?.id ?? null, data: c.data, descricao: c.mercado, valor, notaSemItens: true });
+  }
+  for (const g of dados.gastos) {
+    if (g.nota_id || !g.categoria_id || !dados.mercados.has(g.categoria_id) || !noPeriodo(g.data)) continue;
+    totalMercado += valorDe(g);
+    semItens.push({ gastoId: g.id ?? null, data: g.data, descricao: g.descricao?.trim() || "Mercado", valor: arred(valorDe(g)), notaSemItens: false });
+  }
+  semItens.sort((a, b) => (a.data < b.data ? 1 : -1));
   // Item ligado a nota que foi excluída volta a contar como marcado à mão (não some do histórico).
   const marcados: MarcadoAMao[] = dados.lista
     .filter((i) => i.comprado && !ligados.has(i.id) && noPeriodo(diaDaCompra(i)))
@@ -129,6 +157,8 @@ export function montarCompras(de: string, ate: string, dados: DadosCompras) {
   return {
     compras: lista,
     marcados,
+    semItens,
+    totalMercado: arred(totalMercado),
     total: arred(lista.reduce((s, c) => s + c.total, 0)),
     qtdItens: lista.reduce((s, c) => s + c.itens.length, 0) + marcados.length,
   };

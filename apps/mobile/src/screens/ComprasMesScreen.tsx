@@ -26,7 +26,7 @@ export function ComprasMesScreen({ navigation }: Props) {
   const { mostrarValor } = usePrivacidade();
   const mesAtual = hojeISO().slice(0, 7);
   const [mes, setMes] = useState(mesAtual);
-  const { compras, marcados, total, qtdItens } = useComprasDoMes(mes);
+  const { compras, marcados, semItens, total, totalMercado, qtdItens } = useComprasDoMes(mes);
   // As notas ficam escondidas: a tela abre nos Tipos de Alimentos (pedido do dono).
   const [verCompras, setVerCompras] = useState(false);
 
@@ -56,14 +56,15 @@ export function ComprasMesScreen({ navigation }: Props) {
       </View>
 
       <Cartao>
-        <Text style={typography.label}>🧾 COMPRADO NO MÊS</Text>
-        <Text style={{ fontSize: 28, fontWeight: "700", color: colors.textPrimary }}>{mostrarValor(total)}</Text>
+        <Text style={typography.label}>🛒 GASTO NO SUPERMERCADO</Text>
+        <Text style={{ fontSize: 28, fontWeight: "700", color: colors.textPrimary }}>{mostrarValor(totalMercado)}</Text>
         <Text style={typography.label}>
-          {qtdItens} {qtdItens === 1 ? "item" : "itens"} · {compras.length} {compras.length === 1 ? "nota de mercado" : "notas de mercado"}
+          {compras.length} {compras.length === 1 ? "nota com produtos" : "notas com produtos"} ({mostrarValor(total)})
+          {semItens.length > 0 && ` · ${semItens.length} sem produtos (${mostrarValor(totalMercado - total)})`}
         </Text>
       </Cartao>
 
-      {qtdItens === 0 ? (
+      {qtdItens === 0 && semItens.length === 0 ? (
         <Text style={[typography.body, { color: colors.textSecondary }]}>Nada comprado neste mês. Leia as notas do mercado ou marque ✓ na lista de compras.</Text>
       ) : (
         <>
@@ -101,6 +102,30 @@ export function ComprasMesScreen({ navigation }: Props) {
           ))}
         </Cartao>
       ))}
+
+      {verCompras && semItens.length > 0 && (
+        <Cartao style={{ paddingVertical: spacing.xs }}>
+          <Text style={[typography.label, { paddingVertical: spacing.sm }]}>🧾 SEM A LISTA DE PRODUTOS · toque para abrir</Text>
+          {semItens.map((d, i) => (
+            <TouchableOpacity
+              key={d.gastoId ?? `sem-${i}`}
+              disabled={!d.gastoId}
+              onPress={() => d.gastoId && navigation.navigate("GastoForm", { gastoId: d.gastoId })}
+              style={{ flexDirection: "row", alignItems: "center", paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[typography.body, { fontSize: 14 }]} numberOfLines={1}>
+                  {d.descricao}
+                </Text>
+                <Text style={typography.label}>
+                  {rotuloDia(d.data)} · {d.notaSemItens ? "nota lida, mas os produtos não vieram" : "lançada sem nota"}
+                </Text>
+              </View>
+              <Text style={[typography.body, { fontSize: 14, marginLeft: spacing.sm }]}>{mostrarValor(d.valor)}</Text>
+            </TouchableOpacity>
+          ))}
+        </Cartao>
+      )}
 
       {verCompras && marcados.length > 0 && (
         <Cartao style={{ paddingVertical: spacing.xs }}>
