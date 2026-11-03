@@ -21,11 +21,11 @@ const quantidadeTexto = (q: number) => (q !== 1 ? `${String(q).replace(".", ",")
 
 // Compras do mês: tudo o que foi comprado no supermercado (itens das notas + o que foi marcado com ✓
 // na lista), mês a mês, para acompanhar o que e quanto a casa compra.
-export function ComprasMesScreen({ navigation }: Props) {
+export function ComprasMesScreen({ navigation, route }: Props) {
   const rodape = useEspacoRodape();
   const { mostrarValor } = usePrivacidade();
   const mesAtual = hojeISO().slice(0, 7);
-  const [mes, setMes] = useState(mesAtual);
+  const [mes, setMes] = useState(route.params?.mes ?? mesAtual);
   const { compras, marcados, semItens, total, totalMercado, qtdItens } = useComprasDoMes(mes);
   // As notas ficam escondidas: a tela abre nos Tipos de Alimentos (pedido do dono).
   const [verCompras, setVerCompras] = useState(false);

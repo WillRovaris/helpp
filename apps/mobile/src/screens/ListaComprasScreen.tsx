@@ -4,8 +4,9 @@ import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-nativ
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
 import { Botao, Cartao, estiloInput, useEspacoRodape } from "../components/ui";
-import { useComprasDoMes, useListaCompras, useProdutos } from "../data/hooks";
-import { hojeISO } from "../lib/format";
+import { useComprasDoMes, useComprasPorGrupo, useListaCompras, useProdutos } from "../data/hooks";
+import { hojeISO, MESES } from "../lib/format";
+import { mesAnterior } from "../lib/saldo";
 import { buscarProdutos, produtoDoItem, resumoLista } from "../lib/produtos";
 import { atualizar, excluir, inserir } from "../offline/repo";
 import type { RootStackParamList } from "../navigation/types";
@@ -13,6 +14,13 @@ import { BotaoOlho, usePrivacidade } from "../privacidade/PrivacidadeContext";
 import { colors, spacing, typography } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ListaCompras">;
+
+/** Quantos tipos de alimento aparecem no resumo do mês (o resto fica no "Ver detalhado"). */
+const TIPOS_NO_RESUMO = 5;
+const proximoMes = (m: string) => {
+  const d = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
 
 // Lista de compras da casa (os dois veem ao vivo): só o que falta comprar. Usa as notas lidas para
 // mostrar o último preço, o mercado mais barato e o total estimado. O ✓ (ou a nota do mercado) manda
@@ -33,7 +41,10 @@ export function ListaComprasScreen({ navigation }: Props) {
   const sugestoes = useMemo(() => (texto.trim().length >= 2 ? buscarProdutos(produtos, texto).sort((a, b) => b.vezes - a.vezes).slice(0, 5) : []), [produtos, texto]);
   const resumo = resumoLista(itens, produtos);
   const pendentes = itens.filter((i) => !i.comprado);
-  const comprasMes = useComprasDoMes(hojeISO().slice(0, 7));
+  const mesAtual = hojeISO().slice(0, 7);
+  const [mesCompras, setMesCompras] = useState(mesAtual);
+  const comprasMes = useComprasDoMes(mesCompras);
+  const porTipo = useComprasPorGrupo(`${mesCompras}-01`, `${mesCompras}-31`);
 
   function adicionar(nome: string) {
     const n = nome.trim();
@@ -149,18 +160,46 @@ export function ListaComprasScreen({ navigation }: Props) {
         </Cartao>
       )}
 
-      <TouchableOpacity onPress={() => navigation.navigate("ComprasMes")} activeOpacity={0.8}>
-        <Cartao style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-          <Text style={{ fontSize: 24 }}>🧾</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={[typography.body, { fontWeight: "700" }]}>Compras do mês</Text>
-            <Text style={typography.label}>
-              {comprasMes.qtdItens} {comprasMes.qtdItens === 1 ? "item comprado" : "itens comprados"} · {mostrarValor(comprasMes.total)}
-            </Text>
+      {/* Resumo das compras do mês (pedido do dono): o detalhe fica na tela Compras do mês. */}
+      <Cartao style={{ gap: spacing.sm }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <TouchableOpacity onPress={() => setMesCompras(mesAnterior(mesCompras))} hitSlop={10} accessibilityLabel="Mês anterior" style={{ paddingHorizontal: spacing.sm }}>
+            <Text style={{ fontSize: 24, color: colors.accent }}>‹</Text>
+          </TouchableOpacity>
+          <Text style={[typography.body, { fontWeight: "700" }]}>
+            🧾 Compras de {MESES[Number(mesCompras.slice(5, 7)) - 1].toLowerCase()}
+            {mesCompras.slice(0, 4) !== mesAtual.slice(0, 4) ? ` de ${mesCompras.slice(0, 4)}` : ""}
+          </Text>
+          <TouchableOpacity onPress={() => setMesCompras(proximoMes(mesCompras))} disabled={mesCompras >= mesAtual} hitSlop={10} accessibilityLabel="Próximo mês" style={{ paddingHorizontal: spacing.sm, opacity: mesCompras >= mesAtual ? 0.3 : 1 }}>
+            <Text style={{ fontSize: 24, color: colors.accent }}>›</Text>
+          </TouchableOpacity>
+        </View>
+        <View>
+          <Text style={typography.label}>🛒 GASTO NO SUPERMERCADO</Text>
+          <Text style={{ fontSize: 24, fontWeight: "700", color: colors.textPrimary }}>{mostrarValor(comprasMes.totalMercado)}</Text>
+        </View>
+        {porTipo.alimentos.length > 0 ? (
+          <View>
+            <Text style={[typography.label, { marginBottom: 4 }]}>🥗 TIPOS DE ALIMENTOS · {mostrarValor(porTipo.totalAlimentos)}</Text>
+            {porTipo.alimentos.slice(0, TIPOS_NO_RESUMO).map((g) => (
+              <View key={g.id} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 }}>
+                <Text style={[typography.body, { fontSize: 14, flexShrink: 1 }]} numberOfLines={1}>
+                  {g.emoji} {g.nome}
+                </Text>
+                <Text style={[typography.body, { fontSize: 14, marginLeft: spacing.sm }]}>
+                  {mostrarValor(g.total)}
+                  <Text style={typography.label}>  {porTipo.totalAlimentos > 0 ? Math.round((g.total / porTipo.totalAlimentos) * 100) : 0}%</Text>
+                </Text>
+              </View>
+            ))}
           </View>
-          <Text style={{ color: colors.textSecondary, fontSize: 20 }}>›</Text>
-        </Cartao>
-      </TouchableOpacity>
+        ) : (
+          <Text style={typography.label}>Nenhuma nota de mercado lida neste mês.</Text>
+        )}
+        <TouchableOpacity onPress={() => navigation.navigate("ComprasMes", { mes: mesCompras })} hitSlop={6} style={{ paddingTop: spacing.xs }}>
+          <Text style={[typography.label, { color: colors.accent, fontWeight: "700" }]}>Ver detalhado ›</Text>
+        </TouchableOpacity>
+      </Cartao>
     </ScrollView>
   );
 }

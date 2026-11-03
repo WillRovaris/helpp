@@ -39,7 +39,7 @@ export type RootStackParamList = {
   Alertas: undefined;
   Calendario: undefined;
   ListaCompras: undefined;
-  ComprasMes: undefined;
+  ComprasMes: { mes?: string } | undefined;
   Alimentos: { mes?: string } | undefined;
   Assinaturas: undefined;
   Dividas: undefined;
