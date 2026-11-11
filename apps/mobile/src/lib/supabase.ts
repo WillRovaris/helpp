@@ -1,5 +1,5 @@
 import "react-native-url-polyfill/auto";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { armazenamentoSeguro } from "./armazenamentoSeguro";
 import { createClient } from "@supabase/supabase-js";
 
 // Chave "publishable": pode ficar no app. A proteção dos dados é feita pelo
@@ -21,7 +21,7 @@ const fetchComLimite: typeof fetch = (entrada, opcoes) => {
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   global: { fetch: fetchComLimite },
   auth: {
-    storage: AsyncStorage,
+    storage: armazenamentoSeguro,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
