@@ -12,6 +12,7 @@ import { CasaSetupScreen } from "../screens/CasaSetupScreen";
 import { CompartilharScreen } from "../screens/CompartilharScreen";
 import { ConfiguracoesScreen } from "../screens/ConfiguracoesScreen";
 import { SugestoesScreen } from "../screens/SugestoesScreen";
+import { SugestoesRecebidasScreen } from "../screens/SugestoesRecebidasScreen";
 import { SaldoAnteriorScreen } from "../screens/SaldoAnteriorScreen";
 import { PerfilScreen } from "../screens/PerfilScreen";
 import { NotificacoesScreen } from "../screens/NotificacoesScreen";
@@ -100,6 +101,7 @@ export function RootNavigator() {
             <Stack.Screen name="Compartilhar" component={CompartilharScreen} options={{ headerShown: true, title: "Compartilhar a casa" }} />
             <Stack.Screen name="Configuracoes" component={ConfiguracoesScreen} options={{ headerShown: true, title: "Configurações" }} />
             <Stack.Screen name="Sugestoes" component={SugestoesScreen} options={{ headerShown: true, title: "Sugestões e melhorias" }} />
+            <Stack.Screen name="SugestoesRecebidas" component={SugestoesRecebidasScreen} options={{ headerShown: true, title: "Sugestões recebidas" }} />
             <Stack.Screen name="SaldoAnterior" component={SaldoAnteriorScreen} options={{ headerShown: true, title: "Saldo do mês anterior" }} />
             <Stack.Screen name="Perfil" component={PerfilScreen} options={{ headerShown: true, title: "Perfil" }} />
             <Stack.Screen name="Notificacoes" component={NotificacoesScreen} options={{ headerShown: true, title: "Notificações" }} />

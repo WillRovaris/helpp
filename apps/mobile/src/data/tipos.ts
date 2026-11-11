@@ -135,6 +135,10 @@ export interface Sugestao {
   feita_em: string | null;
   created_by: string | null;
   created_at: string;
+  /** Situação dada pela equipe do Helpp (SQL 15/27): nova, analisando, planejada, feita, recusada. */
+  status?: string | null;
+  /** Resposta da equipe do Helpp, que a pessoa vê no app. */
+  resposta?: string | null;
 }
 
 /** Entrada de dinheiro (salário, extra...). Recorrente = repete todo mês desde o mês da data até `ate` (YYYY-MM). */

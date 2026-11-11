@@ -11,7 +11,7 @@ export type RootStackParamList = {
   Entradas: { mes?: string } | undefined;
   ReceitaForm: { receitaId?: string; mes?: string };
   Importar: undefined;
-  Contas: undefined;
+  Contas: { mes?: string } | undefined;
   ContaForm: { contaId?: string; preencher?: { nome?: string; valor?: number; dia?: number; categoriaId?: string | null; meses?: number } };
   PagarConta: { contaId: string; competencia: string };
   NotaScanner: undefined;
@@ -21,6 +21,7 @@ export type RootStackParamList = {
   CartaoDetalhe: { cartaoId: string };
   CartaoForm: { cartaoId?: string };
   Sugestoes: undefined;
+  SugestoesRecebidas: undefined;
   SaldoAnterior: { mes: string };
   Perfil: undefined;
   Notificacoes: undefined;

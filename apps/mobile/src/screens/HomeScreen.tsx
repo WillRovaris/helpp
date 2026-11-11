@@ -235,7 +235,7 @@ export function HomeScreen({ navigation }: Props) {
         </Modal>
 
         {contasMes.length > 0 && (
-          <TouchableOpacity onPress={() => navigation.navigate("Contas")} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => navigation.navigate("Contas", { mes: mesVistoISO })} activeOpacity={0.8}>
             <Cartao>
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 <Text style={typography.label}>CONTAS FIXAS</Text>

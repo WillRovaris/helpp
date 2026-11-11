@@ -3,9 +3,9 @@ import { Alert, Modal, Pressable, Text, TextInput, TouchableOpacity, View } from
 import { useCasa } from "../casa/CasaContext";
 import { useComprasPorGrupo, useTiposDeProduto } from "../data/hooks";
 import { idDeTexto } from "../importacao/historico";
-import { GRUPOS, type ProdutoDoGrupo, type ResumoGrupo } from "../lib/gruposAlimento";
+import { GRUPOS, type ProdutoDoGrupo, type ResumoGrupo, type TipoProduto } from "../lib/gruposAlimento";
 import { linhas } from "../offline/banco";
-import { atualizar, inserir } from "../offline/repo";
+import { atualizar, excluir, inserir } from "../offline/repo";
 import { usePrivacidade } from "../privacidade/PrivacidadeContext";
 import { colors, spacing, typography } from "../theme";
 import { Barra } from "./ResumoMes";
@@ -27,6 +27,8 @@ export function TiposDeAlimentos({ de, ate, comTotal }: { de: string; ate: strin
   const [nomeTipo, setNomeTipo] = useState("");
   const [emojiTipo, setEmojiTipo] = useState(EMOJIS_TIPO[0]);
   const [tipoAlimento, setTipoAlimento] = useState(true);
+  /** Tipo criado pela casa sendo editado (o mesmo formulário do "+ Novo tipo"). */
+  const [editandoTipo, setEditandoTipo] = useState<TipoProduto | null>(null);
   const { alimentos, outros, totalAlimentos, total } = useComprasPorGrupo(de, ate);
   const { tipos } = useTiposDeProduto();
 
@@ -44,14 +46,49 @@ export function TiposDeAlimentos({ de, ate, comTotal }: { de: string; ate: strin
   function fecharModal() {
     setCorrigindo(null);
     setCriandoTipo(false);
+    setEditandoTipo(null);
     setNomeTipo("");
+    setEmojiTipo(EMOJIS_TIPO[0]);
+    setTipoAlimento(true);
+  }
+
+  function editarTipo(t: TipoProduto) {
+    setEditandoTipo(t);
+    setNomeTipo(t.nome);
+    setEmojiTipo(t.emoji);
+    setTipoAlimento(t.alimento);
+    setCriandoTipo(true);
+  }
+
+  function excluirTipo(t: TipoProduto) {
+    const corrigidos = linhas("produto_grupos").filter((c) => c.grupo === t.id);
+    Alert.alert(
+      `Excluir "${t.nome}"?`,
+      corrigidos.length ? `${corrigidos.length} ${corrigidos.length === 1 ? "produto volta" : "produtos voltam"} para o tipo automático.` : "Nenhum produto está neste tipo.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () => {
+            if (corrigidos.length) excluir("produto_grupos", corrigidos.map((c) => String(c.id)));
+            excluir("produto_tipos", [t.id]);
+            fecharModal();
+          },
+        },
+      ],
+    );
   }
 
   function salvarTipo() {
     const nome = nomeTipo.trim();
     if (!casa) return;
     if (!nome) return Alert.alert("Nome", "Dê um nome ao tipo (ex.: Comida de pet, Congelados).");
-    if ([...GRUPOS, ...tipos].some((t) => t.nome.toLowerCase() === nome.toLowerCase())) return Alert.alert("Nome repetido", `Já existe o tipo "${nome}".`);
+    if ([...GRUPOS, ...tipos].some((t) => t.id !== editandoTipo?.id && t.nome.toLowerCase() === nome.toLowerCase())) return Alert.alert("Nome repetido", `Já existe o tipo "${nome}".`);
+    if (editandoTipo) {
+      atualizar("produto_tipos", editandoTipo.id, { nome: nome.slice(0, 40), emoji: emojiTipo, alimento: tipoAlimento });
+      return fecharModal();
+    }
     const novo = inserir("produto_tipos", { casa_id: casa.id, nome: nome.slice(0, 40), emoji: emojiTipo, alimento: tipoAlimento });
     if (corrigindo) escolherGrupo(String(novo.id));
     fecharModal();
@@ -123,7 +160,12 @@ export function TiposDeAlimentos({ de, ate, comTotal }: { de: string; ate: strin
         </Cartao>
       )}
 
-      <Chip rotulo="+ Novo tipo" ativo={false} onPress={() => setCriandoTipo(true)} />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+        {tipos.map((t) => (
+          <Chip key={t.id} rotulo={`${t.emoji} ${t.nome} ✏️`} ativo={false} onPress={() => editarTipo(t)} />
+        ))}
+        <Chip rotulo="+ Novo tipo" ativo={false} onPress={() => setCriandoTipo(true)} />
+      </View>
 
       <Modal visible={!!corrigindo || criandoTipo} transparent animationType="fade" onRequestClose={fecharModal}>
         <Pressable onPress={fecharModal} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
@@ -131,7 +173,7 @@ export function TiposDeAlimentos({ de, ate, comTotal }: { de: string; ate: strin
             {!!corrigindo && <Text style={[typography.body, { fontWeight: "700" }]}>{corrigindo.nome}</Text>}
             {criandoTipo ? (
               <>
-                <Text style={typography.label}>NOVO TIPO DE PRODUTO</Text>
+                <Text style={typography.label}>{editandoTipo ? "EDITAR TIPO DE PRODUTO" : "NOVO TIPO DE PRODUTO"}</Text>
                 <TextInput value={nomeTipo} onChangeText={setNomeTipo} placeholder="Ex.: Comida de pet, Congelados" placeholderTextColor={colors.textSecondary} autoCapitalize="sentences" maxLength={40} style={estiloInput()} />
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                   {EMOJIS_TIPO.map((e) => (
@@ -150,6 +192,7 @@ export function TiposDeAlimentos({ de, ate, comTotal }: { de: string; ate: strin
                   <Chip rotulo="🧺 Não é alimento" ativo={!tipoAlimento} onPress={() => setTipoAlimento(false)} />
                 </View>
                 <Botao titulo="Salvar tipo" onPress={salvarTipo} />
+                {editandoTipo && <Botao titulo="Excluir tipo" variante="secundario" onPress={() => excluirTipo(editandoTipo)} />}
               </>
             ) : (
               <>

@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import React, { useEffect, useState } from "react";
 import { Alert, Platform, Share, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useCasa } from "../casa/CasaContext";
@@ -7,7 +9,9 @@ import { useSugestoes } from "../data/hooks";
 import type { Sugestao } from "../data/tipos";
 import { dataISO, rotuloDia } from "../lib/format";
 import { versaoDoApp } from "../lib/versao";
+import type { RootStackParamList } from "../navigation/types";
 import { atualizar, excluir, inserir } from "../offline/repo";
+import { rotuloSituacao, souAdmin } from "../sugestoes/admin";
 import { colors, spacing, typography } from "../theme";
 
 // Sugestões e melhorias: quem usa o app anota ideias; todos da casa veem a lista.
@@ -18,6 +22,12 @@ export function SugestoesScreen() {
   const { pendentes, feitas } = useSugestoes();
   const [texto, setTexto] = useState("");
   const [verFeitas, setVerFeitas] = useState(false);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // Só a equipe do Helpp vê o botão (a regra de verdade está no banco, SQL 27).
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    souAdmin().then(setAdmin);
+  }, []);
 
   const nomeDe = (id: string | null) => membros.find((m) => m.user_id === id)?.nome ?? "";
   const quando = (s: Sugestao) => rotuloDia(dataISO(new Date(s.created_at)));
@@ -47,6 +57,7 @@ export function SugestoesScreen() {
 
   return (
     <TelaFormulario contentStyle={{ gap: spacing.md }}>
+      {admin && <Botao titulo="📥 Sugestões recebidas (todas as casas)" variante="secundario" onPress={() => navigation.navigate("SugestoesRecebidas")} />}
       <Cartao>
         <Text style={[typography.label, { marginBottom: spacing.xs }]}>O QUE PODERIA SER MELHOR NO APP?</Text>
         <TextInput
@@ -110,6 +121,9 @@ function LinhaSugestao({ s, borda, autor, quando, feita, children }: { s: Sugest
   return (
     <View style={{ paddingVertical: spacing.sm, borderTopWidth: borda ? 1 : 0, borderTopColor: colors.border }}>
       <Text style={[typography.body, { textDecorationLine: feita ? "line-through" : "none", opacity: feita ? 0.6 : 1 }]}>{s.texto}</Text>
+      {/* Situação e resposta dadas pela equipe do Helpp. */}
+      {!!s.status && s.status !== "nova" && <Text style={[typography.label, { marginTop: spacing.xs }]}>{rotuloSituacao(s.status)}</Text>}
+      {!!s.resposta && <Text style={[typography.body, { fontSize: 14, color: colors.accent, marginTop: spacing.xs }]}>💬 Resposta do Helpp: {s.resposta}</Text>}
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs }}>
         <Text style={[typography.label, { flex: 1 }]}>{autor ? `${autor} · ${quando}` : quando}</Text>
         {children}

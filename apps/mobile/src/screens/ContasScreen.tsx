@@ -19,7 +19,7 @@ export function corSituacao(c: ContaDoMes): string {
   return c.situacao === "paga" ? colors.accent : c.situacao === "atrasada" ? colors.danger : c.situacao === "vence-logo" ? colors.warning : colors.textSecondary;
 }
 
-export function ContasScreen({ navigation }: Props) {
+export function ContasScreen({ navigation, route }: Props) {
   const { mostrarValor } = usePrivacidade();
   const { membros } = useCasa();
   // Casal: mostra de quem é cada conta (" · 👤 Will").
@@ -38,8 +38,9 @@ export function ContasScreen({ navigation }: Props) {
   };
   const rodape = useEspacoRodape();
   const hoje = new Date();
-  const [ano, setAno] = useState(hoje.getFullYear());
-  const [mes, setMes] = useState(hoje.getMonth());
+  // Aberta da tela inicial, começa no mês escolhido lá (YYYY-MM).
+  const [ano, setAno] = useState(route.params?.mes ? Number(route.params.mes.slice(0, 4)) : hoje.getFullYear());
+  const [mes, setMes] = useState(route.params?.mes ? Number(route.params.mes.slice(5, 7)) - 1 : hoje.getMonth());
   const comp = competencia(ano, mes);
   const [verTodas, setVerTodas] = useState(true);
 
